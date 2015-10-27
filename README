@@ -38,11 +38,11 @@ export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
 1.2 INSTALLATION
 
 # Download GORAP library
-wget http://www.rna.uni-jena.de/supplements/gorap/gorap-2.0.tar.gz
+wget https://github.com/rna-hta-jena/gorap/archive/master.zip
 # Extract library
-tar -xzf gorap-2.0.tar.gz
+unzip master.zip
 # Enter extracted directory
-cd gorap-2.0
+cd gorap-master
 # Download and local installation of missing software into $GORAP
 bash install_tools.sh
 # Download latest databases
