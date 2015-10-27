@@ -1,0 +1,188 @@
+###########
+# GORAP 2 #
+###########
+
+1   INSTALLATION
+1.1 PREPARATION
+1.2 INSTALLATION
+1.3 HIGHLY RECOMMENDED POST INSTALLATION
+2   UPDATE GORAP
+2.1 UPDATE GORAP LIBRARY
+2.2 UPDATE GORAP DATABASES
+3   RUNNING GORAP
+3.1 PREPARATION OF INPUT DATA
+3.2 EXAMPLES
+4   KNOWN ISSUES AND SOLUTIONS
+5   MISSING STUFF
+6	CONTACT
+
+--------------
+1 INSTALLATION
+--------------
+
+1.1 PREPARATION
+
+# GORAP will be installed in the following directory, which can be changed.
+export GORAP=$HOME/gorap
+
+# GORAP requires some Perl modules. By default missing ones will be installed 
+# into a conventional shared perl5 directory in your home. These modules can 
+# be used by other Perl scripts automatically, too.
+# The following directory can be changed.
+export GORAPLIB=$HOME/perl5
+
+# Now tell Perl where to find the GORAP and additional modules by typing
+export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
+
+
+1.2 INSTALLATION
+
+# Download GORAP library
+wget http://www.rna.uni-jena.de/supplements/gorap/gorap-2.0.tar.gz
+# Extract library
+tar -xzf gorap-2.0.tar.gz
+# Enter extracted directory
+cd gorap-2.0
+# Download and local installation of missing software into $GORAP
+bash install_tools.sh
+# Download latest databases
+wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz
+# Extract databases into $GORAP
+tar -xzf data-12.tar.gz -C $GORAP/
+# Set path to necessary and always downloaded Samtools software
+export SAMTOOLS=$GORAP/samtools-0.1.19
+# Installation of GORAP and latest required Perl modules
+./cpanm -l $GORAPLIB .
+# Change BioPerl print behaviours
+sed -i 's/%-4s%-22s%-3s%s/%-4s%-100s%-3s%s/g' $GORAPLIB/lib/perl5/Bio/AlignIO/stockholm.pm
+sed -i '/contains no residues/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
+sed -i '/Sequence excluded/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
+sed -i '/Replacing one sequence/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
+# Copy all scripts to the $GORAP directory
+cp *.pl $GORAP
+
+# you are done - go rapping!
+
+
+1.3 HIGHLY RECOMMENDED POST INSTALLATION
+
+# To use GORAP later from command line again and to be able to update it, you
+# can redo the PREPARATION or store the installation paths permanent this way.
+echo 'export GORAP='$GORAP >> $HOME/.bashrc
+echo 'export GORAPLIB='$GORAPLIB >> $HOME/.bashrc
+echo 'export PERL5LIB='$PERL5LIB >> $HOME/.bashrc
+
+
+--------------
+2 UPDATE GORAP
+--------------
+
+2.1 UPDATE GORAP LIBRARY
+
+# wget does not overwrite an existing gorap-2.0.tar.gz file
+wget http://www.rna.uni-jena.de/supplements/gorap/gorap-2.0.tar.gz
+tar -xzf gorap-2.0.tar.gz
+cd gorap-2.0
+./cpanm -l $GORAPLIB --reinstall .
+cp *.pl $GORAP
+
+
+2.2 UPDATE GORAP DATABASES
+
+# Update all databases or in single by typing silva, ncbi, rfam or cfg instead
+perl Gorap.pl -update all
+
+
+---------------
+3 RUNNING GORAP
+---------------
+
+3.1 PREPARATION OF INPUT DATA
+
+FASTA headers of given input needs to be unique till the first space character.
+RIGHT:
+>Header1 some description
+>Header2 some description
+...
+WRONG:
+>Header some description 1
+>Header some description 2
+...
+
+
+3.2 EXAMPLES
+
+# hint 1: multiple runs can be lossless saved into the same output directory
+# hint 2: restart a run with same parameters, but -q 0 skips annotation, but does additional computations
+
+# example with a parameter file 
+perl Gorap.pl -file $GORAP/parameter/parameter.txt
+
+# example with command line parameters
+perl Gorap.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac -s 562 -r 543
+
+# example for annotating all tRNAs - Rfam families 5,1852
+perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 5,1852
+
+# example for annotating all rRNAs - Rfam families 1,177,1959,1960,2540 to 2543
+perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 1,177,1959,1960,2540:2543
+
+# example for annotating all RNaseP RNAs - Rfam families 9 to 11,373
+perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 9:11,373
+
+# example for annotating all CRISPR RNAs - Rfam families 1315 to 1379
+perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 1315:1379
+
+# example to avoid time consuming parsing of NCBI Taxonomy if -s and -r are not used
+perl Gorap_noTaxonomy.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac
+
+# example to update GFF files for manual amended alignments (i.e. deletion of sequences) 
+# hint: use same parameter set as for the gorap run to complete info area in html file
+perl RefreshOutput.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac -o <GORAPOUT>
+
+# example with phylogeny reconstruction from rRNA and full RNome annotation
+# hint: outgroup file will be screened only for Rfam families predicted in files given by -i
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac
+# improved workflow: 
+# 1) run Gorap 
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
+# 2) manual correct alignments and afterwards update related GFF files
+perl RefreshOutput.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
+# 3) run Gorap with same parameters, but -q 0 and select one <FASTA> as outgroup
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -o <GORAPOUT> -q 0
+
+# example with RPKM=FPKM (even for paired end reads) calculation from sorted and indexed BAM files
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> 
+# hint: to add FPKM values to already existing Gorap results, use -q 0
+perl Gorap.pl -i <FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -q 0
+
+
+----------------------------
+4 KNOWN ISSUES AND SOLUTIONS
+----------------------------
+
+# GORAP dies due to Blast if FASTA headers have NCBI typic accession numbers somewhere inside
+# >something gi|00000000|ref|NC_000000.0| something else
+# Transform headers into 
+# >gi|00000000|ref|NC_000000.0| something else
+# by executing
+sed -i 's/^>[[:graph:]]*[[:space:]]*/>/' file.fasta
+
+
+---------------
+5 MISSING STUFF
+---------------
+
+Suggestions? Please let me know :)
+
+
+---------
+6 CONTACT
+---------
+
+Konstantin Riege
+Chair of Bioinformatics
+High Throughput Analysis
+Friedrich-Schiller-University Jena
+http://www.rna.uni-jena.de
+konstantin{.}riege{a}uni-jena{.}de
