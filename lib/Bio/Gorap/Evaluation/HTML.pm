@@ -64,8 +64,8 @@ sub create {
 				}
 				print HTML '-r '.$parameter->{'rank'}.'\\<br>'."\n" if $parameter->has_rank;
 				print HTML '-s '.$parameter->{'species'}.'\\<br>'."\n" if $parameter->has_species;
-				print HTML '-og '.$parameter->{'outgroup'}.'\\<br>'."\n" if $parameter->has_outgroup;
-				print HTML '-oga '.$parameter->{'ogabbreviation'}.'\\<br>'."\n" if $parameter->has_ogabbreviation;
+				print HTML '-og '.$parameter->{'outgroup'}.'\\<br>'."\n" if $parameter->has_outgroups;
+				print HTML '-oga '.$parameter->{'ogabbreviation'}.'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
 				print HTML '-b '.join(',\\<br>'."\n",@{$parameter->{'bams'}}).'\\<br>'."\n" if $parameter->has_bams;
 				print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
 			} elsif ($_=~/Used data/){
@@ -139,14 +139,14 @@ sub create {
 				print HTML '</tbody>'."\n";				
 				print HTML '</table>'."\n";
 			} elsif($_=~/Phylogeny SSU/){
-				if ($parameter->has_outgroup){					
+				if ($parameter->has_outgroups){					
 					if (-e catfile($parameter->output,'SSU.eps')){
 						print HTML $_;	
 						print HTML '<a href="../SSU.eps"><img src="../SSU.png" alt="Phylogeny"></a>' ;
 					}					
 				}
 			} elsif($_=~/Phylogeny RNome/){
-				if ($parameter->has_outgroup){										
+				if ($parameter->has_outgroups){										
 					if (-e catfile($parameter->output,'RNome.eps')){
 						print HTML $_;	
 						print HTML '<a href="../RNome.eps"><img src="../RNome.png" alt="Phylogeny"></a>' ;

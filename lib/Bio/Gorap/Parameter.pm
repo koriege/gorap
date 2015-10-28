@@ -131,8 +131,8 @@ has 'outgroups' => (
 
 has 'ogabbreviations' => (
 	is => 'rw',
-	isa => 'ArrayRef',	
-	predicate => 'has_ogabbreviations'
+	isa => 'ArrayRef',
+	default => sub { [] }
 );
 
 sub BUILD {
@@ -204,27 +204,23 @@ sub BUILD {
 
 		#store arguments into data structure
 		$self->threads($threads) if $threads;
-		
-		if ($abbreviations){
-			&set_genomes($self, [glob $_ for split(/\s*,\s*/,$genomes) }] ,[split(/\s*,\s*/,$abbreviations)])
-			push @{$self->abbreviations} , $_ for split(/\s*,\s*/,$abbreviations);
-		} else {
-			&set_genomes($self, [glob $_ for split(/\s*,\s*/,$genomes) }] );
-		}	
-		my @ogg;
-		my @ogabbre;
+		my @g;
+		push @g , glob $_ for split(/\s*,\s*/,$genomes);
+		&set_genomes($self, \@g ,[split(/\s*,\s*/,$abbreviations)]);
+
+		my @ogg;		
 		do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;	
-		if ($ogabbreviations){
-			push @ogabbre , $_ for split(/\s*,\s*/,$ogabbreviations);
-			$self->ogabbreviations(\@ogabbre);
+		if ($ogabbreviations){			
+			$self->ogabbreviations([split(/\s*,\s*/,$ogabbreviations)]);
 		} else {
+			my @ogabbre;
 			for(@ogg){
 				my $abbr = basename($_);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;				
 				$abbr=~s/\W//g;				
-				push @ogabbre; , $abbr;
+				push @ogabbre , $abbr;
 			}
 			$self->ogabbreviations(\@ogabbre);
 		}		
@@ -275,7 +271,7 @@ sub set_genomes {
 	undef @{$self->genomes};
 	$self->genomes($genomes);
 
-	if ($abbreviations){
+	if ($#{$abbreviations}>-1){
 		undef @{$self->abbreviations};
 		$self->abbreviations($abbreviations);
 	} else {

@@ -95,15 +95,12 @@ if ($parameter->has_outgroups){
 		}
 	}
 	
-	if ($#{$newQ}} > 1){	
+	if ($#newQ > 1){	
 		
 		unlink $_ for glob catfile($parameter->output,'RAxML_*');			
 
-		if ($parameter->has_ogabbreviations){
-			$parameter->set_genomes($parameter->outgroups,$parameter->ogabbreviations);
-		} else {
-			$parameter->set_genomes($parameter->outgroups);		
-		}	
+		$parameter->set_genomes($parameter->outgroups,$parameter->ogabbreviations);
+
 		push @genomes, @{$parameter->genomes};
 		push @abbres, @{$parameter->abbreviations};	
 
@@ -311,12 +308,12 @@ sub get_phylo_features {
 				if (exists $featureScore->{$abbr}){
 					if ($_->score > $featureScore->{$abbr}){
 						$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
-						$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($topfeature->seq_id))->seq;	
+						$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
 					}					
 				} else {
 					$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
 					$featureScore->{$abbr} = $_->score;
-					$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($topfeature->seq_id))->seq;	
+					$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
 				}
 			}
 		}
