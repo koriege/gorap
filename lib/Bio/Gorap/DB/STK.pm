@@ -150,9 +150,9 @@ sub align {
 
 		#align against gorap cfg default or given cm
 		if ($cm){
-			$cmd = "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile";			
+			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile";			
 		} else {			
-			$cmd = "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";			
+			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";			
 		}
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 
@@ -171,12 +171,12 @@ sub align {
 			}			
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FA;
-			$cmd = $cm ? "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";		
+			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";		
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );			
 		}
 	} else { 
 		#if no alignment is present, the seed alignment the cm is build from, is added to the alignment process
-		$cmd = $cm ? "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
+		$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
 
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );		
 		unless ($success) {
@@ -193,7 +193,7 @@ sub align {
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FAI;
 			close FA;
-			$cmd = $cm ? "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";
+			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 		}
 	}

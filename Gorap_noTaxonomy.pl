@@ -21,6 +21,7 @@ use Try::Tiny;
 use Cwd 'abs_path';
 use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
+use List::Util qw(any);
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
@@ -96,8 +97,9 @@ if ($parameter->has_outgroups){
 	}
 	
 	if ($#newQ > 1){	
-		
-		unlink $_ for glob catfile($parameter->output,'RAxML_*');			
+		my $outdir = catdir($parameter->output,'phylogeny');
+
+		unlink $_ for glob catfile($outdir,'RAxML_*');			
 
 		$parameter->set_genomes($parameter->outgroups,$parameter->ogabbreviations);
 
@@ -126,67 +128,60 @@ if ($parameter->has_outgroups){
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');
 		}
 				
-		my ($speciesSSU,$coreFeatures,$stkSSU,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@abbres);
+		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@abbres);		
 
-		if (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations} && scalar keys %$speciesSSU > 3){
-			open FA , '>'.catfile($parameter->output,'SSU.fasta') or die $!;	
+		if ( (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations}) && scalar keys %$speciesSSU > 3){
+			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;	
 			print FA '>'.$_."\n".$speciesSSU->{$_}."\n" for keys %$speciesSSU;
 			close FA;
-			open FA , '>'.catfile($parameter->output,'SSU.stkfa') or die $!;	
-			print FA '>'.$_."\n".$stkSSU->{$_}."\n" for keys %$stkSSU;
-			close FA;
 
-			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($parameter->output,'SSU.fasta').' > '.catfile($parameter->output,'SSU.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($parameter->output,'SSU.mafft').' -w '.$parameter->output.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($parameter->output,'SSU.stkfa').' -w '.$parameter->output.' -n SSU.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
+			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
+			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
 			
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($parameter->output,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($parameter->output,'SSU.mafft.eps'));	
-			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($parameter->output,'RAxML_bipartitions.SSU.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($parameter->output,'SSU.stk.eps'));	
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
 			my $test = `which convert`;
-			system('convert -density 300 '.catfile($parameter->output,'SSU.mafft.eps').' '.catfile($parameter->output,'SSU.mafft.png')) if $test;
-			system('convert -density 300 '.catfile($parameter->output,'SSU.stk.eps').' '.catfile($parameter->output,'SSU.stk.png')) if $test;
+			system('convert -density 300 '.catfile($outdir,'SSU.mafft.eps').' '.catfile($outdir,'SSU.mafft.png')) if $test;
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp);			
-		} 
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
+		} 		
 
-		if (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations} && scalar keys %$coreFeatures > 3){
-			open FA , '>'.catfile($parameter->output,'coreRNome.fasta') or die $!;	
+		if ( (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$coreFeatures > 3){
+			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;	
 			print FA '>'.$_."\n".$coreFeatures->{$_}."\n" for keys %$coreFeatures;
 			close FA;
-			open FA , '>'.catfile($parameter->output,'coreRNome.stkfa') or die $!;				
+			open FA , '>'.catfile($outdir,'coreRNome.stkfa') or die $!;				
 			print FA '>'.$_."\n".$stkCoreFeatures->{$_}."\n" for keys %$stkCoreFeatures;			
 			close FA;
 
-			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($parameter->output,'coreRNome.fasta').' > '.catfile($parameter->output,'coreRNome.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($parameter->output,'coreRNome.mafft').' -w '.$parameter->output.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($parameter->output,'coreRNome.stkfa').' -w '.$parameter->output.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
+			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
 			
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($parameter->output,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($parameter->output,'coreRNome.mafft.eps'));	
-			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($parameter->output,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($parameter->output,'coreRNome.stk.eps'));	
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
+			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
 			my $test = `which convert`;
-			system('convert -density 300 '.catfile($parameter->output,'coreRNome.mafft.eps').' '.catfile($parameter->output,'coreRNome.mafft.png')) if $test;
-			system('convert -density 300 '.catfile($parameter->output,'coreRNome.stk.eps').' '.catfile($parameter->output,'coreRNome.stk.png')) if $test;
+			system('convert -density 300 '.catfile($outdir,'coreRNome.mafft.eps').' '.catfile($outdir,'coreRNome.mafft.png')) if $test;
+			system('convert -density 300 '.catfile($outdir,'coreRNome.stk.eps').' '.catfile($outdir,'coreRNome.stk.png')) if $test;
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp);			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
 		} 
 
-		if (any { exists $stkFeatures->{$_} } @{$parameter->abbreviations} && scalar keys %$stkFeatures > 3){
-			open FA , '>'.catfile($parameter->output,'RNome.stkfa') or die $!;	
+		if ( (any { exists $stkFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$stkFeatures > 3){
+			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;	
 			print FA '>'.$_."\n".$stkFeatures->{$_}."\n" for keys %$stkFeatures;
 			close FA;
 			
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($parameter->output,'RNome.stkfa').' -w '.$parameter->output.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
+			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
 			
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($parameter->output,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($parameter->output,'RNome.stk.eps'));	
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
 			my $test = `which convert`;			
-			system('convert -density 300 '.catfile($parameter->output,'RNome.stk.eps').' '.catfile($parameter->output,'coreRNome.stk.png')) if $test;
+			system('convert -density 300 '.catfile($outdir,'RNome.stk.eps').' '.catfile($outdir,'coreRNome.stk.png')) if $test;
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp);			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
 		}				
 	}
 } 
@@ -277,6 +272,9 @@ sub run {
 		my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
 		next if $#{$features} == -1;
 		if ($thcalc){
+
+
+
 			my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));
 			#$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold);
 			$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});	
@@ -295,35 +293,33 @@ sub run {
 sub get_phylo_features {
 	my ($abbres) = @_;
 
-	my ($speciesSSU,$coreFeatures,$stkSSU,$stkFeatures,$stkCoreFeatures);	
+	my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);	
 
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
+
 		my $featureScore;	
-		if ($cfg=~/_SSU_/){
-			
+		if ($cfg=~/_SSU_/){			
 			for (@{$gffdb->get_features($parameter->cfg->rf_rna , $abbres, '!')}){
 				my @id = split /\./ , $_->seq_id;										
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				if (exists $featureScore->{$abbr}){
 					if ($_->score > $featureScore->{$abbr}){
-						$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
-						$stkSSU->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+						$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];						
 					}					
 				} else {
 					$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
-					$featureScore->{$abbr} = $_->score;
-					$stkSSU->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+					$featureScore->{$abbr} = $_->score;					
 				}
 			}
 		}
 		next if $cfg=~/_tRNA/ || $cfg=~/_rRNA/ || $cfg=~/CRISPR/;
+
 		my $speciesFeature;	
 		my $speciesSTKseq;	
 		$featureScore={};
-		print $parameter->cfg->rf_rna."\n";
-		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){	
-		print $_->seq_id."\n";
+
+		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){			
 			my @id = split /\./ , $_->seq_id;										
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			if (exists $featureScore->{$abbr}){
@@ -340,7 +336,7 @@ sub get_phylo_features {
 
 		next if scalar keys %$speciesFeature == 0;		
 		
-		my $l = length($speciesSTKseq->{(keys %$$speciesSTKseq)[0]});
+		my $l = length($speciesSTKseq->{(keys %$speciesSTKseq)[0]});
 		for(@$abbres){
 			if(exists $speciesSTKseq->{$_}){					
 				$stkFeatures->{$_} .= $speciesSTKseq->{$_};
@@ -357,7 +353,7 @@ sub get_phylo_features {
 		}		
 	}
 
-	return ($speciesSSU,$coreFeatures,$stkSSU,$stkFeatures,$stkCoreFeatures);
+	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);
 }
 
 

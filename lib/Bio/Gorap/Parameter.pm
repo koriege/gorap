@@ -10,6 +10,14 @@ use Switch;
 use File::Basename;
 use File::Path qw(make_path);
 use Try::Tiny;
+use Sys::MemInfo qw(totalmem);
+use List::Util qw(min max);
+
+has 'mem' => (
+	is => 'ro',
+	isa => 'Int',
+	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem() * 0.9)) }
+);
 
 has 'pwd' => (
 	is => 'ro',
@@ -270,6 +278,7 @@ sub _make_paths {
 	make_path(catdir($self->output,'annotations'));
 	make_path(catdir($self->output,'meta'));
 	make_path(catdir($self->output,'html'));
+	make_path(catdir($self->output,'phylogeny'));
 }
 
 sub set_genomes {

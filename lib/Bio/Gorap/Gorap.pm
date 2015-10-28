@@ -1,6 +1,6 @@
 package Bio::Gorap;
 
-use version; our $VERSION = qv('2.0');
+use version; our $VERSION = qv('2.1');
 
 1;
 

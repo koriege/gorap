@@ -64,8 +64,8 @@ sub create {
 				}
 				print HTML '-r '.$parameter->{'rank'}.'\\<br>'."\n" if $parameter->has_rank;
 				print HTML '-s '.$parameter->{'species'}.'\\<br>'."\n" if $parameter->has_species;
-				print HTML '-og '.$parameter->{'outgroup'}.'\\<br>'."\n" if $parameter->has_outgroups;
-				print HTML '-oga '.$parameter->{'ogabbreviation'}.'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
+				print HTML '-og '.join('\\<br>'."\n",@{$parameter->{'outgroup'}}).'\\<br>'."\n" if $parameter->has_outgroups;
+				print HTML '-oga '.join(',',@{$parameter->{'ogabbreviations'}}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
 				print HTML '-b '.join(',\\<br>'."\n",@{$parameter->{'bams'}}).'\\<br>'."\n" if $parameter->has_bams;
 				print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
 			} elsif ($_=~/Used data/){
