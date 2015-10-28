@@ -140,16 +140,27 @@ sub create {
 				print HTML '</table>'."\n";
 			} elsif($_=~/Phylogeny SSU/){
 				if ($parameter->has_outgroups){					
-					if (-e catfile($parameter->output,'SSU.eps')){
+					if (-e catfile($parameter->output,'phylogeny','SSU.mafft.eps')){
 						print HTML $_;	
-						print HTML '<a href="../SSU.eps"><img src="../SSU.png" alt="Phylogeny"></a>' ;
+						print HTML '<a href="../phylogeny/SSU.mafft.eps">Download eps</a>' ;
 					}					
 				}
 			} elsif($_=~/Phylogeny RNome/){
 				if ($parameter->has_outgroups){										
-					if (-e catfile($parameter->output,'RNome.eps')){
+					if (-e catfile($parameter->output,'phylogeny','RNome.stk.eps')){
 						print HTML $_;	
-						print HTML '<a href="../RNome.eps"><img src="../RNome.png" alt="Phylogeny"></a>' ;
+						print HTML '<a href="../phylogeny/RNome.stk.eps">Download eps</a>' ;
+					}
+				}
+			} elsif($_=~/Phylogeny coreRNome/){
+				if ($parameter->has_outgroups){										
+					if (-e catfile($parameter->output,'phylogeny','coreRNome.stk.eps')){
+						print HTML $_;	
+						print HTML '<a href="../phylogeny/coreRNome.stk.eps">Download eps</a>' ;
+					}
+					if (-e catfile($parameter->output,'phylogeny','coreRNome.mafft.eps')){
+						print HTML $_;	
+						print HTML '<a href="../phylogeny/coreRNome.mafft.eps">Download eps</a>' ;
 					}
 				}
 			} else {
@@ -344,6 +355,9 @@ __DATA__
 </div>
 <div class="staticbox">
 	<h3>Phylogeny RNome</h3>
+</div>
+<div class="staticbox">
+	<h3>Phylogeny coreRNome</h3>
 </div>
 
 </div>

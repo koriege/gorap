@@ -82,7 +82,7 @@ $gffdb->store;
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
 
 if ($parameter->has_outgroups){	
-		
+	print "Preparing phylogeny reconstruction\n";
 	my @newQ;	
 	my @oldqueries = @{$parameter->queries};
 	my @genomes = @{$parameter->genomes};
@@ -140,8 +140,6 @@ if ($parameter->has_outgroups){
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
-			my $test = `which convert`;
-			system('convert -density 300 '.catfile($outdir,'SSU.mafft.eps').' '.catfile($outdir,'SSU.mafft.png')) if $test;
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
 		} 		
@@ -162,10 +160,7 @@ if ($parameter->has_outgroups){
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
 			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
-			my $test = `which convert`;
-			system('convert -density 300 '.catfile($outdir,'coreRNome.mafft.eps').' '.catfile($outdir,'coreRNome.mafft.png')) if $test;
-			system('convert -density 300 '.catfile($outdir,'coreRNome.stk.eps').' '.catfile($outdir,'coreRNome.stk.png')) if $test;
-
+			
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
 		} 
 
@@ -178,9 +173,7 @@ if ($parameter->has_outgroups){
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
-			my $test = `which convert`;			
-			system('convert -density 300 '.catfile($outdir,'RNome.stk.eps').' '.catfile($outdir,'coreRNome.stk.png')) if $test;
-
+			
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
 		}				
 	}
@@ -271,10 +264,8 @@ sub run {
 		#which returns an array of String, parsable by pipe_parser
 		my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
 		next if $#{$features} == -1;
+
 		if ($thcalc){
-
-
-
 			my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));
 			#$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold);
 			$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});	
@@ -291,9 +282,10 @@ sub run {
 }
 
 sub get_phylo_features {
-	my ($abbres) = @_;
+	my ($abbres) = @_;	
 
 	my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);	
+	my ($ssuToAbbr,$coreToAbbr,$rnomeToAbbr);
 
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
@@ -303,6 +295,7 @@ sub get_phylo_features {
 			for (@{$gffdb->get_features($parameter->cfg->rf_rna , $abbres, '!')}){
 				my @id = split /\./ , $_->seq_id;										
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+				$ssuToAbbr->{$abbr} = 1;
 				if (exists $featureScore->{$abbr}){
 					if ($_->score > $featureScore->{$abbr}){
 						$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];						
@@ -338,6 +331,7 @@ sub get_phylo_features {
 		
 		my $l = length($speciesSTKseq->{(keys %$speciesSTKseq)[0]});
 		for(@$abbres){
+			$rnomeToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 			if(exists $speciesSTKseq->{$_}){					
 				$stkFeatures->{$_} .= $speciesSTKseq->{$_};
 			} else {			
@@ -348,11 +342,20 @@ sub get_phylo_features {
 		next if scalar keys %$speciesFeature < ($#{$abbres} + 1);		
 
 		for(@$abbres){
+			$coreToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 			$coreFeatures->{$_} .= $speciesFeature->{$_};			
 			$stkCoreFeatures->{$_} .= $speciesSTKseq->{$_};
 		}		
 	}
 
+	open TXT , '>'.catfile($parameter->output,'phylogeny','INFO') or die $!;	
+	print TXT "SSU\n";
+	print TXT $_."\n" for sort keys %$ssuToAbbr;
+	print TXT "RNome\n";
+	print TXT $_."\t".join("\t",sort keys %{$rnomeToAbbr->{$_}})."\n" for sort keys %$rnomeToAbbr;
+	print TXT "coreRNome\n";
+	print TXT $_."\t".join("\t",sort keys %{$coreToAbbr->{$_}})."\n" for sort keys %$coreToAbbr;
+	close TXT;
 	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);
 }
 
