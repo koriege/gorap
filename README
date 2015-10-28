@@ -112,7 +112,7 @@ WRONG:
 
 3.2 EXAMPLES
 
-# hint 1: multiple runs can be lossless saved into the same output directory
+# hint 1: multiple runs can be saved into the same output directory
 # hint 2: restart a run with same parameters, but -q 0 skips annotation, but does additional computations
 
 # example with a parameter file 
@@ -148,7 +148,7 @@ perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
 # 2) manual correct alignments and afterwards update related GFF files
 perl RefreshOutput.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
-# 3) run Gorap with same parameters, but -q 0 and select one <FASTA> as outgroup
+# 3) run Gorap with same parameters, but -q 0 and select <FASTA> files as outgroups
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -o <GORAPOUT> -q 0
 
 # example with RPKM=FPKM (even for paired end reads) calculation from sorted and indexed BAM files
@@ -161,7 +161,7 @@ perl Gorap.pl -i <FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -q 0
 4 KNOWN ISSUES AND SOLUTIONS
 ----------------------------
 
-# GORAP dies due to Blast if FASTA headers have NCBI typic accession numbers somewhere inside
+# GORAP dies due to a Blast bug, if FASTA headers have NCBI typic accession numbers somewhere inside
 # >something gi|00000000|ref|NC_000000.0| something else
 # Transform headers into 
 # >gi|00000000|ref|NC_000000.0| something else

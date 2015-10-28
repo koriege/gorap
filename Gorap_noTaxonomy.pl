@@ -73,12 +73,12 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 	storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 );
 
-&run();
+&run() unless $parameter->skip_comp;
 #stops the thread listener and waits for remaining background jobs to be finished
 $thrListener->stop;
 #store final annotation results
 $gffdb->store;
-Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp);
+Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
 
 if ($parameter->has_outgroups){	
 		
@@ -106,7 +106,7 @@ if ($parameter->has_outgroups){
 
 		$parameter->set_queries(\@newQ);				
 		
-		if ($#oldqueries > -1){
+		unless ($parameter->skip_comp){
 			print "\nAnnotation of outgroups for phylogeny reconstruction\n";
 			$gffdb->add_db($_) for @{$parameter->abbreviations};
 			$fastadb = Bio::Gorap::DB::Fasta->new(
@@ -308,12 +308,12 @@ sub get_phylo_features {
 				if (exists $featureScore->{$abbr}){
 					if ($_->score > $featureScore->{$abbr}){
 						$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
-						$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+						$stkSSU->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
 					}					
 				} else {
 					$speciesSSU->{ $abbr } = ($_->get_tag_values('seq'))[0];
 					$featureScore->{$abbr} = $_->score;
-					$stkSSU->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+					$stkSSU->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
 				}
 			}
 		}
@@ -321,18 +321,20 @@ sub get_phylo_features {
 		my $speciesFeature;	
 		my $speciesSTKseq;	
 		$featureScore={};
-		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){			
+		print $parameter->cfg->rf_rna."\n";
+		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){	
+		print $_->seq_id."\n";
 			my @id = split /\./ , $_->seq_id;										
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			if (exists $featureScore->{$abbr}){
 				if ($_->score > $featureScore->{$abbr}){
 					$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
-					$speciesSTKseq->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+					$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
 				}
 			} else {
 				$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
 				$featureScore->{$abbr} = $_->score;
-				$speciesSTKseq->{$abbr} = ($stkdb->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;
+				$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;
 			}	
 		}
 

@@ -67,6 +67,12 @@ has 'tmp' => (
     }
 );
 
+has 'skip_comp' => (
+	is => 'rw',
+    isa => 'Bool',		
+    default => sub { 0 }
+);
+
 has 'kingdoms' => (
 	is => 'rw',
     isa => 'HashRef',		
@@ -233,7 +239,8 @@ sub BUILD {
 			}
 		}		
 		
-		&set_queries($self,$queries) if defined $queries;		
+		$self->skip_comp(1) unless $queries;
+		&set_queries($self,$queries) if defined $queries;
 		
 		if ($bams){
 			my @bams;
@@ -396,7 +403,7 @@ sub read_parameter {
 				}				
 			}
 			case 4 { 
-				if ($_){															
+				if ($_){																				
 					if ($_=~/R?F?0*(\d+):R?F?0*(\d+)/){
 						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($1..$2);
 					} elsif($_=~/R?F?0*(\d+):/) {
@@ -412,7 +419,9 @@ sub read_parameter {
 						$_=~/R?F?0*(\d+)/;		
 						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 					}
-				}
+				} else {
+					$self->skip_comp(1);
+				}		
 			}
 			case 5 {
 				$self->rank($_) if $_;
