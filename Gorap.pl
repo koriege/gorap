@@ -22,6 +22,7 @@ use Cwd 'abs_path';
 use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
+use File::Path qw(rmtree);
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
@@ -185,7 +186,7 @@ if ($parameter->has_outgroups){
 } 
 
 #remove temp files
-rmdir $parameter->tmp;
+rmtree($parameter->tmp);
 
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;

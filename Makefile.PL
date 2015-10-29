@@ -46,7 +46,8 @@ WriteMakefile(
 		'Bio::Tree::Draw::Cladogram' => '0',
 		'Math::Round'	=>	'0',
 		'PostScript::TextBlock' => '0',
-		'Sys::MemInfo' => '0'
+		'Sys::MemInfo' => '0',
+		'File::Path'
 	},
 	'MIN_PERL_VERSION'	=>	'5.010',
 	'EXE_FILES'	=>	[ map { "$_" } @scripts ],

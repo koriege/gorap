@@ -258,13 +258,7 @@ sub calculate_threshold {
 				}
 				close S;
 
-				if ($threshold * 0.8 < $self->parameter->cfg->bitscore){
-					$threshold = floor($threshold);
-				} elsif ($threshold * 0.7 < $self->parameter->cfg->bitscore){
-					$threshold = floor($threshold * 0.8);
-				} else {
-					$threshold = floor($threshold * 0.7);
-				}	
+				$threshold = floor($threshold * 0.8);
 				#returns threshold and nonTaxThreshold
 				return ($threshold,floor($self->parameter->cfg->bitscore * 0.8));			
 			} else {
@@ -298,23 +292,37 @@ sub filter_stk {
 	my $up;
 	my $write;
 		
-	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, $threshold, $nonTaxThreshold);
-	push @update , @{$up} if $up;
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
+	
 
-	return @update if scalar keys %{$features} == 0;
+	if ($self->parameter->cfg->userfilter){	
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, 10);
+		push @update , @{$up} if $up;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
-	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
-	push @update , @{$up} if $up;
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
+		return @update if scalar keys %{$features} == 0;
 
-	return @update if scalar keys %{$features} == 0;
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
+		push @update , @{$up} if $up;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
 
-	if ($self->parameter->cfg->userfilter){		
+		return @update if scalar keys %{$features} == 0;
+
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->cssep, $self->parameter->cfg->csindels);	
 		push @update , @{$up} if $up;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.U.stk'));# if $write;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
 	} else {
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, $threshold, $nonTaxThreshold);
+		push @update , @{$up} if $up;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
+
+		return @update if scalar keys %{$features} == 0;
+
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
+		push @update , @{$up} if $up;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
+
+		return @update if scalar keys %{$features} == 0;
+
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->sequence_filter($stk, $features);	
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;

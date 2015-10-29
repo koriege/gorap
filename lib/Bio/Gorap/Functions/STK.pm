@@ -3,7 +3,6 @@ package Bio::Gorap::Functions::STK;
 use Bio::AlignIO;
 use Bio::SimpleAlign;
 use POSIX;
-use Math::Round;
 
 sub score_filter {
 	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;
@@ -22,11 +21,11 @@ sub score_filter {
 			$tmpfeatures->{$abbr}++;
 
 			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
-				if (($f->get_tag_values('origscore'))[0] < $threshold && round(($f->get_tag_values('origscore'))[0]) < $threshold){
+				if (($f->get_tag_values('origscore'))[0] < $threshold){
 					$tmpfeatures->{$abbr}--;
 				}
 			} else {
-				if (round($f->score) < $threshold){
+				if ($f->score < $threshold){
 					$tmpfeatures->{$abbr}--;
 				}
 			}
@@ -39,14 +38,14 @@ sub score_filter {
 			if ($tmpfeatures->{$abbr}==0){
 				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
 					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (($f->get_tag_values('origscore'))[0] < $nonTaxThreshold && round(($f->get_tag_values('origscore'))[0]) < $nonTaxThreshold){
+					if (($f->get_tag_values('origscore'))[0] < $nonTaxThreshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
 				} else {
-					if (round($f->score) < $nonTaxThreshold){
+					if ($f->score < $nonTaxThreshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -56,14 +55,14 @@ sub score_filter {
 			} else {
 				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
 					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (($f->get_tag_values('origscore'))[0] < $threshold && round(($f->get_tag_values('origscore'))[0]) < $threshold){
+					if (($f->get_tag_values('origscore'))[0] < $threshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
 				} else {
-					if (round($f->score) < $threshold){
+					if ($f->score < $threshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -78,14 +77,14 @@ sub score_filter {
 			my $f = $features->{$_};
 			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
 				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-				if (($f->get_tag_values('origscore'))[0] < $threshold && round(($f->get_tag_values('origscore'))[0]) < $threshold){
+				if (($f->get_tag_values('origscore'))[0] < $threshold){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
 			} else {
-				if (round($f->score) < $threshold){
+				if ($f->score < $threshold){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -285,7 +284,7 @@ sub user_filter {
 				my $f = $features->{$_};				
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' U';				
+				push @update , $f->seq_id.' '.$f->primary_tag.' P';				
 				delete $features->{$_};
 			}
 			return ($stk , $features, \@update , $write) if scalar keys %$features == 0;

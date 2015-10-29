@@ -150,9 +150,7 @@ sub getIDfromName {
 	return 0 unless $query;		
 
 	if ($query=~/^\d+$/){
-		print $query."\n";
 		my $taxon = $self->ncbi->get_taxon(-taxonid => $query);		
-		print $taxon;
 		return $taxon ? $query : 0;
 	}
 
