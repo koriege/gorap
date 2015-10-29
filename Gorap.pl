@@ -185,7 +185,7 @@ if ($parameter->has_outgroups){
 } 
 
 #remove temp files
-unlink $_ for glob catfile($parameter->tmp,$parameter->pid.'.*');
+rmdir $parameter->tmp;
 
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;

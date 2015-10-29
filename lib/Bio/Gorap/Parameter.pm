@@ -268,6 +268,8 @@ sub BUILD {
 		$self->tmp($tmp) if $tmp;
 		$self->sort(1) if $sort;
 	}	
+	make_path(catdir($self->tmp,$self->pid));
+	$self->tmp(catdir($self->tmp,$self->pid))
 }
 
 sub _make_paths {

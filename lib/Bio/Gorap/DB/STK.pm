@@ -214,6 +214,7 @@ sub calculate_threshold {
 	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
 		#check taxonomy to create own bitscore, else use Rfam bitscore threshold
 		if (scalar keys %$relatedSpeciesIDsToLineage > 0 || scalar keys %$relatedRankIDsToLineage > 0){
+			
 			my @sequences;
 			my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 

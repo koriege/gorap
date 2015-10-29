@@ -83,7 +83,7 @@ sub _set_db {
 
 	#initialize taxonomy database
 	print "Reading NCBI Taxonomy\n";
-	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'data','taxonomy','names.dmp'), -directory => catdir($ENV{GORAP},'data','taxonomy') , -verbose => -1 ));
+	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'data','taxonomy','names.dmp'), -directory => $self->parameter->tmp , -force => 1 , -verbose => -1 ));
 	
 	#read in silva phylogeny accession numbers, already mapped to ncbi taxonomy
 	open MAP, '<'.catfile($ENV{GORAP},'data','silvaNcbi.txt') or die $!;
@@ -98,7 +98,7 @@ sub _set_db {
 	open MAP, '<'.catfile($ENV{GORAP},'data','accSciTax.txt') or die $!;
 	while(<MAP>){
 		chomp $_;
-		my @tmp=split(/\s+/,$_);		
+		my @tmp=split(/\s+/,$_);
 		$self->rfamToName->{$tmp[0]}=$tmp[1];
 		$self->rfamToTaxid->{$tmp[0]}=$tmp[2];
 		$self->nameToTaxid->{$tmp[1]}=$tmp[2];
@@ -148,23 +148,26 @@ sub getIDfromName {
 	my $id;
 
 	return 0 unless $query;		
+
 	if ($query=~/^\d+$/){
+		print $query."\n";
 		my $taxon = $self->ncbi->get_taxon(-taxonid => $query);		
+		print $taxon;
 		return $taxon ? $query : 0;
 	}
-	
+
 	return $self->nameToTaxid->{$query} if exists $self->nameToTaxid->{$query};
 	
 	my ($grep) = grep {/$query/} keys %{$self->nameToTaxid};							
 	return $self->nameToTaxid->{$grep} if $grep;
-	
+
 	for($self->ncbi->get_taxonids($query)){	
 		my $nodes = &getLineageNodes($self, $_);
 		next if $#{$nodes}<1;
 		$id = $_;
 		last if $id;
 	}
-	
+
 	unless ($id){		
 		my $errorCounter=0;
 		my $error=1;
@@ -185,6 +188,7 @@ sub getIDfromName {
 			};
 		} 
 	}	
+
 	return defined $id && $id=~/^\d+$/ ? $id : 0;
 }
 
