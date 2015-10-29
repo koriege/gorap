@@ -246,8 +246,7 @@ sub BUILD {
 				$self->kingdoms->{$s}=1
 			}
 		}		
-		
-		$self->skip_comp(1) unless $queries;
+				
 		&set_queries($self,$queries) if defined $queries;
 		
 		if ($bams){
@@ -314,11 +313,15 @@ sub set_cfg {
 sub set_queries {
 	my ($self,$queries) = @_;
 
-	$self->queries(&_set_queries()) , return unless $queries;
-
+	$self->queries(&_set_queries()) , return unless defined $queries;
 	#get the rfam queries related gorap configuration files
 	my @queries;
-	for (@$queries){
+	for (split(/\s*,\s*/,$queries)){
+		if ($_ eq '0'){
+			@queries = ();
+			$self->skip_comp(1);
+			last;
+		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
 			push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($1..$2);
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
@@ -412,7 +415,7 @@ sub read_parameter {
 				}				
 			}
 			case 4 { 
-				if ($_){																				
+				if ($_){								
 					if ($_=~/R?F?0*(\d+):R?F?0*(\d+)/){
 						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($1..$2);
 					} elsif($_=~/R?F?0*(\d+):/) {
@@ -429,7 +432,7 @@ sub read_parameter {
 						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 					}
 				} else {
-					$self->skip_comp(1);
+					$self->skip_comp(1) if $_ eq '0';
 				}		
 			}
 			case 5 {

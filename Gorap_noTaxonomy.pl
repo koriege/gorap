@@ -318,12 +318,12 @@ sub get_phylo_features {
 			if (exists $featureScore->{$abbr}){
 				if ($_->score > $featureScore->{$abbr}){
 					$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
-					$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;	
+					$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq if exists $stkdb->db->{$parameter->cfg->rf_rna};	
 				}
 			} else {
 				$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
 				$featureScore->{$abbr} = $_->score;
-				$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq;
+				$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq if exists $stkdb->db->{$parameter->cfg->rf_rna};
 			}	
 		}
 

@@ -130,9 +130,9 @@ sub remove_gap_columns_and_write {
 #covariance model of gorap or a given one. resulting alignments are merged with those
 #read into this hashreferenced database of Bio::Align::Stockholm objects
 sub align {
-	my ($self,$id,$sequences,$threads,$cm) = @_;
+	my ($self,$id,$sequences,$threads,$cm,$scorefile) = @_;
 
-	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
+	$scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score') unless $scorefile;
 	my $tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.stk');
 	my $stkfile = catfile($self->parameter->output,'meta',$id.'.stk');
 	my $fastafile = catfile($self->parameter->output,'meta',$id.'.fa');	
@@ -211,7 +211,7 @@ sub calculate_threshold {
 	$relatedSpeciesIDsToLineage = {} unless $relatedSpeciesIDsToLineage;	
 
 	my $threshold=999999;	
-	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){
+	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
 		#check taxonomy to create own bitscore, else use Rfam bitscore threshold
 		if (scalar keys %$relatedSpeciesIDsToLineage > 0 || scalar keys %$relatedRankIDsToLineage > 0){
 			my @sequences;
@@ -232,7 +232,8 @@ sub calculate_threshold {
 					$self->parameter->cfg->rf_rna.'.tax',
 					$inSpecies,
 					$cpus,
-					$self->parameter->cfg->cm
+					$self->parameter->cfg->cm,
+					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')					
 				);
 			}elsif($#{$inRank} > -1){
 				($scorefile,$taxstk) = &align(
@@ -240,7 +241,8 @@ sub calculate_threshold {
 					$self->parameter->cfg->rf_rna.'.tax',
 					$inRank,
 					$cpus,
-					$self->parameter->cfg->cm
+					$self->parameter->cfg->cm,
+					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')
 				);
 			}
 			
