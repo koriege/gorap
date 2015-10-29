@@ -33,8 +33,9 @@ sub add_gff3_entry {
 	my ($self,$s,$seq,$abbr) = @_;
 	
 	#id consists of abbreviation.original.copy
-	
-	return unless $_ for @$s;	
+	for (@{$s}){
+		return unless $_;
+	}
 	my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
 
 	my @overlaps = ('.');
