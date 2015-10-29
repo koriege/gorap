@@ -317,7 +317,7 @@ sub set_queries {
 
 	$self->queries(&_set_queries()) , return unless defined $queries;
 	#get the rfam queries related gorap configuration files
-	my @queries;
+	my @queries = ();
 	for (split(/\s*,\s*/,$queries)){
 		if ($_ eq '0'){
 			@queries = ();
@@ -325,27 +325,24 @@ sub set_queries {
 			last;
 		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
-			push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($1..$2);
+			for ($1..$2){
+				my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				push @queries , $q if $q;
+			}
+			
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
 			my $nr1 = $1;
 			my @q = glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
 			basename($q[$#q])=~/R?F?0*(\d+)/;
-			my $nr2=$1;										
-			push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($nr1..$nr2);				
+			my $nr2=$1;			
+			for ($nr1..$nr2){
+				my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				push @queries , $q if $q;
+			}										
 		} elsif ($_=~/R?F?0*(\d+)/){
-			push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'))
-		} else {
-			my @q = glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
-			basename($q[-1])=~/R?F?0*(\d+)/;
-			my $nr2=$1;
-			my $nr1=1;
-			if ($#queries > -1){
-				$queries[-1]=~/R?F?0*(\d+)/;
-				pop @queries;
-				$nr1=$1;
-			}														
-			push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($nr1..$nr2);
-		}
+			my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
+			push @queries , $q if $q;
+		} 
 	}
 
 	$self->queries(\@queries);
@@ -418,21 +415,24 @@ sub read_parameter {
 			}
 			case 4 { 
 				if ($_){								
-					if ($_=~/R?F?0*(\d+):R?F?0*(\d+)/){
-						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg')) for ($1..$2);
-					} elsif($_=~/R?F?0*(\d+):/) {
-						my $nr=$1;	
-
-						my ($file) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($nr))).$nr.'*.cfg'));						
-						while( $file && -e $file ){
-							push @queries , $file;
-							$nr++;							
-							($file) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($nr))).$nr.'*.cfg'));							
-						}												
-					} else {
-						$_=~/R?F?0*(\d+)/;		
-						push @queries , glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
-					}
+					if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
+						for ($1..$2){
+							my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+							push @queries , $q if $q;
+						}						
+					}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
+						my $nr1 = $1;
+						my @q = glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
+						basename($q[-1])=~/R?F?0*(\d+)/;
+						my $nr2=$1;	
+						for ($nr1..$nr2){
+							my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+							push @queries , $q if $q;
+						}										
+					} elsif ($_=~/R?F?0*(\d+)/){
+						my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
+						push @queries , $q if $q;
+					} 
 				} else {
 					$self->skip_comp(1) if $_ eq '0';
 				}		
