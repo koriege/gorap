@@ -84,7 +84,7 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 #stops the thread listener and waits for remaining background jobs to be finished
 $thrListener->stop;
 #store final annotation results
-$gffdb->store;
+$gffdb->store_overlaps;
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
 
 if ($parameter->has_outgroups){	

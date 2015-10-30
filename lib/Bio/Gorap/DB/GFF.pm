@@ -32,57 +32,56 @@ has 'bamdb' => (
 sub add_gff3_entry {	
 	my ($self,$s,$seq,$abbr) = @_;
 	
-	#id consists of abbreviation.original.copy
-	for (@{$s}){
-		return unless $_;
-	}
-	my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+	#id consists of abbreviation.original.copy	
+	if ($#{$s} > 6 && $seq){
+		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+		
+		my @overlaps = ('.');
+		my ($rpkm,$reads,$filter) = ('.','.','!');
 
-	my @overlaps = ('.');
-	my ($rpkm,$reads,$filter) = ('.','.','!');
-
-	if ($attributes && $#{$self->parameter->queries} > -1){
-		$attributes.=';';
-		$rpkm = $1 ? $1 : '.' if $attributes=~/RPKM=(.+?);/;
-		$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
-		$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;		
-		@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
-	} else {
-		$attributes.=';' if $attributes;
-		$rpkm = $1 ? $1 : '.' if $attributes && $attributes=~/RPKM=(.+?);/;
-		$reads = $1 ? $1 : '.' if $attributes && $attributes=~/Reads=(.+?);/;
-		$filter = $1 ? $1 : '!' if $attributes && $attributes=~/Filter=(.+?);/;		
-		@overlaps = split /,/ , $1 if $attributes && $attributes=~/Overlaps=(.+?);/;
-		if ($self->parameter->has_bams){
-			my @id = split /\./ , $id;										
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			($rpkm,$reads) = $self->bamdb->rpkm($orig,$start,$stop);
+		if ($attributes && $#{$self->parameter->queries} > -1){
+			$attributes.=';';
+			$rpkm = $1 ? $1 : '.' if $attributes=~/RPKM=(.+?);/;
+			$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
+			$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;		
+			@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
+		} else {
+			$attributes.=';' if $attributes;
+			$rpkm = $1 ? $1 : '.' if $attributes && $attributes=~/RPKM=(.+?);/;
+			$reads = $1 ? $1 : '.' if $attributes && $attributes=~/Reads=(.+?);/;
+			$filter = $1 ? $1 : '!' if $attributes && $attributes=~/Filter=(.+?);/;		
+			@overlaps = split /,/ , $1 if $attributes && $attributes=~/Overlaps=(.+?);/;
+			if ($self->parameter->has_bams){
+				my @id = split /\./ , $id;										
+				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+				($rpkm,$reads) = $self->bamdb->rpkm($orig,$start,$stop);
+			}
 		}
-	}
 
-	$self->db->{$abbr}->new_feature(
-	 	-start => $start, 
-        -stop => $stop,
-        -strand => $strand eq '+' ? +1 : -1,         
-        -seq_id => $id,
-        -primary_tag => $type,
-        -phase => $phase,
-        #misused for updateable filter tag
-        -display_name => $filter,        
-        -source => $source,	            
-        #updateable score from search -> align
-        -score => $score,
-        -index => 1,	            
-        -attributes => { 
-        	rpkm => $rpkm, 
-        	reads =>  $reads,        	
-        	overlaps => \@overlaps,
-        	seq => $seq,
-        	source => $source,
-        	#search score
-        	origscore => $score
-        }
-	);	
+		$self->db->{$abbr}->new_feature(
+		 	-start => $start, 
+	        -stop => $stop,
+	        -strand => $strand eq '+' ? +1 : -1,         
+	        -seq_id => $id,
+	        -primary_tag => $type,
+	        -phase => $phase,
+	        #misused for updateable filter tag
+	        -display_name => $filter,        
+	        -source => $source,	            
+	        #updateable score from search -> align
+	        -score => $score,
+	        -index => 1,	            
+	        -attributes => { 
+	        	rpkm => $rpkm, 
+	        	reads =>  $reads,        	
+	        	overlaps => \@overlaps,
+	        	seq => $seq,
+	        	source => $source,
+	        	#search score
+	        	origscore => $score
+	        }
+		);
+	}	
 }
 
 #gorap specific update filter tag into this Bio::DB::SeqFeature database
@@ -308,10 +307,45 @@ sub store {
 		for my $f1 (@features){		
 			my $source = $f1->source;	
 			$source =~ s/GORAP//;
+
+			my @id = split /\./ , $f1->seq_id;
+			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
+
+			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
+
+			if ( $f1->display_name eq '!' ){
+				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
+				print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+			} else {
+				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
+				print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+			}
+		}
+		close GFF;
+		close FA;
+		close GFFF;
+		close FAF;
+	}
+}
+
+sub store_overlaps {
+	my ($self) = @_;
+	
+	for my $abbr (keys %{$self->db}){		
+		my @features = sort {$a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
+		next if $#features == -1;
+		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
+		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
+		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
+		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+		for my $f1 (@features){		
+			my $source = $f1->source;	
+			$source =~ s/GORAP//;
 			my $overlaps;
 			my @id = split /\./ , $f1->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);
+			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 			my $f1id = $abbr.'.'.$orig;
 			if ($f1->display_name eq '!'){
 				for my $f2 (@features){
@@ -327,7 +361,7 @@ sub store {
 					}
 				}
 			}
-
+			
 			$overlaps->{'.'}=1 if scalar keys %$overlaps == 0;
 
 			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Overlaps='.join(',',keys %$overlaps);

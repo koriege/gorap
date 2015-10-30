@@ -79,7 +79,7 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 #stops the thread listener and waits for remaining background jobs to be finished
 $thrListener->stop;
 #store final annotation results
-$gffdb->store;
+$gffdb->store_overlaps;
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
 
 if ($parameter->has_outgroups){	
@@ -245,7 +245,6 @@ sub run {
 			
 			#waits for resources
 			$thrListener->push_obj($obj);
-
 			#run software, use parser, store new gff3 entries 
 		    $obj->calc_features;
 		}

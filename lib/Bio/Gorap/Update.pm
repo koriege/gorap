@@ -6,8 +6,8 @@ use Bio::TreeIO;
 use Bio::Gorap::Functions::STK;
 use Bio::Gorap::Functions::CM;
 use Bio::Gorap::DB::Taxonomy;
-use File::Path qw(make_path remove_tree);
-use List::Util qw[min max];
+use File::Path qw(make_path rmtree);
+use List::Util qw(min max);
 use Try::Tiny;
 use Symbol qw(gensym);
 use IPC::Open3;
@@ -35,6 +35,8 @@ sub dl_rfam {
 				close CMOUT;				
 			}				
 			my $rna = (split(/\s+/,$prevlines[1]))[1];
+
+			rmtree($_) for glob catdir($ENV{GORAP},'data','rfam',$rf.'*');
 			$outpath=catdir($ENV{GORAP},'data','rfam',$rf.'_'.$rna);	
 			make_path($outpath);
 			open CMOUT , '>'.catfile($outpath, $rf.'_'.$rna.'.cm') or die $!;
@@ -90,8 +92,7 @@ sub dl_rfam {
 
 			my $rfnr = (split(/\s+/,$prevlines[2]))[2];					
 			my $rna = (split(/\s+/,$prevlines[3]))[2];
-
-			remove_tree($_) for glob catdir($ENV{GORAP},'data','rfam',$rfnr.'*');
+			
 			my $outpath = catdir($ENV{GORAP},'data','rfam',$rfnr.'_'.$rna);
 			make_path($outpath);
 			
@@ -303,7 +304,20 @@ sub create_cfgs {
 		my $bitscore = Bio::Gorap::Functions::CM->get_min_score($cmfile);
 		my $rf_rna = Bio::Gorap::Functions::CM->get_rf_rna($cmfile);
 
+		my @userdescription;
+		my ($cfg) = glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
+		if ($cfg){
+			open F , '<'.$cfg or die $!;
+			@userdescription = <F>;
+			while($userdescription[-1]=~/^\s*$/){
+				pop @userdescription;
+			}
+			close F;
+			@userdescription = () if $userdescription[-1]=~/^#/;
+		}
+
 		unlink $_ for glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
+
 		make_path(catdir($ENV{GORAP},'parameter','config'));
 		open CFG, '>'.catfile($ENV{GORAP},'parameter','config',$rf_rna.'.cfg') or die $!;
 		print CFG "#$rf_rna\n";
@@ -400,7 +414,7 @@ sub create_cfgs {
 		my @csp;
 		my @ssp; 
 		for my $i (0..$#cs){
-			if ( $cs[$i]=~/[acgtuACGTU]/ || $ss[$i]=~/[<\[\(\{>\]\}\)]/){
+			if ( $cs[$i]=~/[a-zA-Z]/ || $ss[$i]=~/[<\[\(\{>\]\}\)]/){
 				if ($#ssp>-1){
 					if ( ($ss[$i]=~/[<\[\(\{]/ && $ssp[$#ssp]=~/[>\]\}\)]/) || ($ss[$i]=~/[>\]\}\)]/ && $ssp[$#ssp]=~/[<\[\(\{]/) ){
 						push @csp , '|';
@@ -416,9 +430,22 @@ sub create_cfgs {
 				push @csp , $cs[$i];
 				push @ssp , $ss[$i];
 			}
-		}			
-		print CFG '#'.join('',@csp)."\n";
-		print CFG '#'.join('',@ssp)."\n\n";
+		}
+		if ($#userdescription > -1){
+			my $usercs = $userdescription[-3];
+			$usercs =~ s/\|//g;
+			if ('#'.$cs eq $usercs ){
+				print CFG $userdescription[-3];
+				print CFG $userdescription[-2];
+				print CFG $userdescription[-1];
+			} else {
+				print CFG '#'.join('',@csp)."\n";
+				print CFG '#'.join('',@ssp)."\n\n";
+			}
+		} else {
+			print CFG '#'.join('',@csp)."\n";
+			print CFG '#'.join('',@ssp)."\n\n";	
+		}
 		close CFG;
 	}
 }
