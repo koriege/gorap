@@ -61,7 +61,7 @@ for my $cfg (@{$parameter->queries}){
 	}	
 }
 $stkdb->store;
-$gffdb->store;
+$gffdb->store_overlaps;
 
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec-amended");
 

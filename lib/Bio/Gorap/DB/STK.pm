@@ -258,7 +258,7 @@ sub calculate_threshold {
 				}
 				close S;
 
-				$threshold = floor($threshold * 0.8);
+				$threshold = $threshold * 0.8 > $self->parameter->cfg->bitscore ? floor($threshold * 0.7) : floor($threshold * 0.8);
 				#returns threshold and nonTaxThreshold
 				return ($threshold,floor($self->parameter->cfg->bitscore * 0.8));			
 			} else {

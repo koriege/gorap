@@ -264,7 +264,7 @@ sub user_filter {
 				$c++;
 				$csposstart = $_ unless defined $csposstart;
 			}
-			if ($c == ${$cssep}[$i]){
+			if ($c == ${$cssep}[$i] || $_ == $#cs){
 				$csposend = $_;
 				last;
 			}
