@@ -53,7 +53,7 @@ tar -xzf data-12.tar.gz -C $GORAP/
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
 ./cpanm -l $GORAPLIB .
-# Change BioPerl print behaviours
+# Change BioPerls print behaviour
 sed -i 's/%-4s%-22s%-3s%s/%-4s%-100s%-3s%s/g' $GORAPLIB/lib/perl5/Bio/AlignIO/stockholm.pm
 sed -i '/contains no residues/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
 sed -i '/Sequence excluded/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
@@ -68,8 +68,8 @@ cp *.pl $GORAP
 
 # To use GORAP later from command line again and to be able to update it, you
 # can redo the PREPARATION or store the installation paths permanent this way.
+echo 'export PATH=$PATH:'$GORAP >> $HOME/.bashrc
 echo 'export GORAP='$GORAP >> $HOME/.bashrc
-echo 'export GORAPLIB='$GORAPLIB >> $HOME/.bashrc
 echo 'export PERL5LIB='$PERL5LIB >> $HOME/.bashrc
 
 
