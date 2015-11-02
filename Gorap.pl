@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-
+use sigtrap qw(handler ABORT normal-signals);
 #TODO remove 
 use lib 'lib';
 
@@ -97,9 +97,7 @@ if ($parameter->has_outgroups){
 	$parameter->set_queries();
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
-		if ($cfg=~/_SSU_/ || ! ($cfg=~/_tRNA/ || $cfg=~/_rRNA/ || $cfg=~/CRISPR/)){
-			push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
-		}
+		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
 	}
 	
 	if ($#newQ > 1){	
@@ -130,7 +128,7 @@ if ($parameter->has_outgroups){
 			#stops the thread listener and waits for remaining background jobs to be finished
 			$thrListener->stop;
 			#store final annotation results
-			$gffdb->store;
+			$gffdb->store_overlaps;
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');
 		}
 				
@@ -365,6 +363,13 @@ sub get_phylo_features {
 	print TXT $_."\t".join("\t",sort keys %{$coreToAbbr->{$_}})."\n" for sort keys %$coreToAbbr;
 	close TXT;
 	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);
+}
+
+sub ABORT {
+	print "Aborted..storing results\n";
+	rmtree($parameter->tmp) if $parameter;
+	$gffdb->store if $gffdb;
+	exit 1;
 }
 
 

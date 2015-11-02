@@ -298,13 +298,15 @@ sub store {
 	my ($self) = @_;
 	
 	for my $abbr (keys %{$self->db}){		
-		my @features = sort {$a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
-		next if $#features == -1;
+		my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
+		
 		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
-		for my $f1 (@features){		
+		for my $i (0..$#features){
+			my $f1 = $features[$i];
+
 			my $source = $f1->source;	
 			$source =~ s/GORAP//;
 
@@ -315,7 +317,7 @@ sub store {
 			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
 
 			if ( $f1->display_name eq '!' ){
-				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
 				print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
 			} else {
 				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
@@ -333,38 +335,37 @@ sub store_overlaps {
 	my ($self) = @_;
 	
 	for my $abbr (keys %{$self->db}){		
-		my @features = sort {$a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
-		next if $#features == -1;
+		my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
+		my $overlaps;
 		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
-		for my $f1 (@features){		
+		for my $i (0..$#features){
+			my $f1 = $features[$i];
+
 			my $source = $f1->source;	
 			$source =~ s/GORAP//;
-			my $overlaps;
+			
 			my @id = split /\./ , $f1->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 			my $f1id = $abbr.'.'.$orig;
+
 			if ($f1->display_name eq '!'){
-				for my $f2 (@features){
-					if ($f2->display_name eq '!'){
-						next if $f1->seq_id eq $f2->seq_id;
-						my @tmp = split /\./, $f2->seq_id;
-						pop @tmp;
-						next unless $f1id eq join '.' , @tmp;
-						my ($start, $stop, $strand) = $f1->intersection($f2);
-						# push @overlaps , $f2->seq_id if $f1->overlaps($f2);
-						# allows start == stop
-						$overlaps->{$f2->primary_tag}=1 if $start && ($stop - $start) > 0;
-					}
+				for ($i+1..$#features){
+					my $f2 = $features[$_];
+					next unless $f2->display_name eq '!';
+					last if $f1->strand != $f2->strand;
+					last if $f2->start > $f1->stop;
+					$overlaps->{$f1->seq_id}->{$f2->primary_tag}=1;
+					$overlaps->{$f2->seq_id}->{$f1->primary_tag}=1;
 				}
 			}
-			
+						
 			$overlaps->{'.'}=1 if scalar keys %$overlaps == 0;
 
-			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Overlaps='.join(',',keys %$overlaps);
+			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Overlaps='.join(',',keys %{$overlaps->{$f1->seq_id}});
 
 			if ( $f1->display_name eq '!' ){
 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						

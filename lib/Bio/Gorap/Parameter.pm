@@ -247,7 +247,7 @@ sub BUILD {
 			}
 		}		
 				
-		&set_queries($self,$queries) if defined $queries;
+		&set_queries($self,[split(/\s*,\s*/,$queries)]) if defined $queries;
 		
 		if ($bams){
 			my @bams;
@@ -318,7 +318,7 @@ sub set_queries {
 	$self->queries(&_set_queries()) , return unless defined $queries;
 	#get the rfam queries related gorap configuration files
 	my @queries = ();
-	for (split(/\s*,\s*/,$queries)){
+	for (@{$queries}){
 		if ($_ eq '0'){
 			@queries = ();
 			$self->skip_comp(1);

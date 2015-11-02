@@ -38,7 +38,7 @@ sub _set_db {
 	for (@{$self->parameter->queries}){
 		my $rf_rna = basename($_);
 		$rf_rna=~s/\.cfg//;				
-		my $file = catfile($self->parameter->output,'alignments',$rf_rna.'.stk');				
+		my $file = catfile($self->parameter->output,'alignments',$rf_rna.'.stk');
 
 		#use gorap specific access ids: the rfam id and rna name		
 		&add_stk($self,$rf_rna,$file) if -e $file;							

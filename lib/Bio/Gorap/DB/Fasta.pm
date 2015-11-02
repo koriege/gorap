@@ -60,7 +60,8 @@ sub _set_db {
 	
 	print "Reading FASTA files\n" if $self->parameter->verbose;
 	for my $i (0..$#{$self->parameter->genomes}){
-		my $genome = ${$self->parameter->genomes}[$i];		
+		my $genome = ${$self->parameter->genomes}[$i];	
+		print $genome."\n";	
 		$set_db_abbr = ${$self->parameter->abbreviations}[$i];
 		#make headers uniq by adding an abbreviation/filname in front of \S+
 		&add_fasta($self,$genome,\&_parse_id); 
