@@ -3,6 +3,7 @@ package Bio::Gorap::Functions::STK;
 use Bio::AlignIO;
 use Bio::SimpleAlign;
 use POSIX;
+use Switch;
 
 sub score_filter {
 	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;
@@ -235,6 +236,7 @@ sub user_filter {
 	my ($self, $stk, $features, $cssep , $csindels) = @_;	
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+
 	my @update;
 	my $write;
 
@@ -252,44 +254,86 @@ sub user_filter {
 		}
 	}
 	
-	my $csposstart = 0;
+	my $csposstart;
 	my $csposend = 0;
 	my $rmfeature;
 	for my $i (0..$#{$cssep}){		
 		my $c = 0;
-		for($csposstart..$#cs){
+		for((defined $csposstart ? $csposstart : 0)..$#cs){
 			if ($cs[$_]=~/\w/){
 				$c++;
+				$csposstart = $_ unless defined $csposstart;
 			}
 			if ($c == ${$cssep}[$i]){
 				$csposend = $_;
 				last;
 			}
-		}		
-		if (${$csindels}[$i]>-1){			
+		}	
+
+		if (${$csindels}[$i]>-1){
 			#for each feature seq get csstart csstop subseq to compare with cs[csstart..csend];
 			for my $k (keys %{$features}){
 				next if exists $rmfeature->{$k};
 				my $f = $features->{$k};		
-				my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($csstart+1,$csposend+1);				
+				my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($csposstart+1,$csposend+1);	
 				my $mm = 0;
-				for (0..$#seq){					
-					if ($seq[$_]=~/\w/ || $cs[$csstart+$_]=~/\w/){
-						$mm++ if lc($seq[$_]) ne lc($cs[$csstart+$_]);
+				for (0..$#seq){	
+					if ($cs[$csposstart+$_]=~/\w/){	
+						switch(lc($cs[$csposstart+$_])){
+							case /[acgtu]/ {
+								$mm++ unless lc($seq[$_]) eq lc($cs[$csposstart+$_]);
+							}
+							case "r" {
+								$mm++ unless lc($seq[$_])=~/[ag]/;
+							}
+							case "y" {
+								$mm++ unless lc($seq[$_])=~/[ctu]/;	
+							}
+							case "s" {
+								$mm++ unless lc($seq[$_])=~/[gc]/;	
+							}
+							case "w" {
+								$mm++ unless lc($seq[$_])=~/[atu]/;	
+							}
+							case "k" {
+								$mm++ unless lc($seq[$_])=~/[gtu]/;	
+							}
+							case "m" {
+								$mm++ unless lc($seq[$_])=~/[ac]/;	
+							}
+							case "b" {
+								$mm++ unless lc($seq[$_])=~/[cgtu]/;	
+							}
+							case "d" {
+								$mm++ unless lc($seq[$_])=~/[agtu]/;	
+							}
+							case "h" {
+								$mm++ unless lc($seq[$_])=~/[actu]/;	
+							}
+							case "v" {
+								$mm++ unless lc($seq[$_])=~/[acg]/;	
+							}
+							case "n" {
+								$mm++ unless lc($seq[$_])=~/[acgtu]/;	
+							}
+							else {}
+						}						
+					} else {
+						$mm++ if $seq[$_]=~/\w/;
 					}
-				}				
+				}	
 				$rmfeature->{$k}=1 if $mm > ${$csindels}[$i];
-			}
-			for(keys %$rmfeature){
-				my $f = $features->{$_};				
-				$write = 1;
-				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' P';				
-				delete $features->{$_};
-			}
-			return ($stk , $features, \@update , $write) if scalar keys %$features == 0;
+			}			
 		}
 		$csposstart=$csposend+1;
+	}
+
+	for(keys %$rmfeature){
+		my $f = $features->{$_};				
+		$write = 1;
+		$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+		push @update , $f->seq_id.' '.$f->primary_tag.' P';				
+		delete $features->{$_};
 	}
 
 	return ($stk , $features, \@update , $write);	

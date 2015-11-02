@@ -273,7 +273,7 @@ sub run {
 		}
 
 		#store annotations already in the database in case of errors
-		$gffdb->store;
+		$gffdb->store($parameter->cfg->rf);
 
 		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp);
 	}
