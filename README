@@ -134,7 +134,7 @@ perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 9:11,373
 perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 1315:1379
 
 # example to avoid time consuming parsing of NCBI Taxonomy if -s and -r are not used
-perl Gorap_noTaxonomy.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac
+perl Gorap.pl -notax -i $GORAP/example/ecoli.fa -a ecoli -k bac
 
 # example to update GFF files for manual amended alignments (i.e. deletion of sequences) 
 # hint: use same parameter set as for the gorap run to complete info area in html file

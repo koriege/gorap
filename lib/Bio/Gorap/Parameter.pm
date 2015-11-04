@@ -57,7 +57,7 @@ has 'threads' => (
 has 'abbreviations' => (
 	is => 'rw',
     isa => 'ArrayRef',
-    default => sub { [] }
+    default => sub { [ 'ecoli' ] }
 );
 
 has 'tmp' => (
@@ -79,6 +79,12 @@ has 'skip_comp' => (
 	is => 'rw',
     isa => 'Bool',		
     default => sub { 0 }
+);
+
+has 'taxonomy' => (
+	is => 'rw',
+    isa => 'Bool',		
+    default => sub { 1 }
 );
 
 has 'kingdoms' => (
@@ -114,7 +120,7 @@ has 'output' => (
 		make_path(catdir($self->pwd,'gorap_out','annotations'));
 		make_path(catdir($self->pwd,'gorap_out','meta'));
 		make_path(catdir($self->pwd,'gorap_out','html'));
-    	return catdir($self->pwd,'gorap_out') 
+    	return catdir($self->pwd,'gorap_out'); 
     },
     trigger => \&_make_paths
 );
@@ -170,106 +176,112 @@ sub BUILD {
 		'h|help' => \my $help,
 		'force|force' => \my $force,
 		't|tmp:s' => \my $tmp,
+		'notax|notaxonomy' => \my $notax,
 		'sort|sort' => \my $sort
-	) or pod2usage(-exitval => 0, -verbose => 2) if $self->commandline;
+	) or pod2usage(-exitval => 1, -verbose => 3) if $self->commandline;
 
-	if ($file && $file ne 'x'){		
-		&read_parameter($self,$file);
-	} else {
-		unless ($force || ! $self->commandline){
-			if($update){
-				#downloading and parsing latest databases
-				switch (lc $update) {
-					case 'ncbi' {
-						print "Updating NCBI Taxonomy\n";
-						Bio::Gorap::Update->dl_ncbi();
-						exit;
-					}
-					case 'silva' {
-						print "Updating Silva tree\n";
-						Bio::Gorap::Update->dl_silva($self);
-						exit;
-					}
-					case 'rfam' {
-						print "Updating Rfam database\n";
-						Bio::Gorap::Update->dl_rfam($self);
-						exit;
-					}
-					case 'cfg' {
-						print "Updating configuration files\n";
-						Bio::Gorap::Update->create_cfgs($self);
-						exit;
-					}
-					else {
-						print "Updating all databases\n";																	
-						Bio::Gorap::Update->dl_ncbi();
-						my $taxdb = Bio::Gorap::DB::Taxonomy->new(
-							parameter => $self
-						);
-						Bio::Gorap::Update->dl_silva($self,$taxdb);
-						Bio::Gorap::Update->dl_rfam($self,$taxdb);	
-						Bio::Gorap::Update->create_cfgs($self,$taxdb);											
-						exit;
-					}
+	
+	&read_parameter($self,$file) if $file && $file ne 'x';
+
+	unless ($force || ! $self->commandline){
+		if($update){
+			#downloading and parsing latest databases
+			switch (lc $update) {
+				case 'ncbi' {
+					print "Updating NCBI Taxonomy\n";
+					Bio::Gorap::Update->dl_ncbi();
+					exit;
 				}
-			}			
-			pod2usage(-exitval => 0, -verbose => 2) if $file eq 'x' && ($help || ! $genomes);
-		}
+				case 'silva' {
+					print "Updating Silva tree\n";
+					Bio::Gorap::Update->dl_silva($self);
+					exit;
+				}
+				case 'rfam' {
+					print "Updating Rfam database\n";
+					Bio::Gorap::Update->dl_rfam($self);
+					exit;
+				}
+				case 'cfg' {
+					print "Updating configuration files\n";
+					Bio::Gorap::Update->create_cfgs($self);
+					exit;
+				}
+				else {
+					print "Updating all databases\n";																	
+					Bio::Gorap::Update->dl_ncbi();
+					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
+						parameter => $self
+					);
+					Bio::Gorap::Update->dl_silva($self,$taxdb);
+					Bio::Gorap::Update->dl_rfam($self,$taxdb);	
+					Bio::Gorap::Update->create_cfgs($self,$taxdb);											
+					exit;
+				}
+			}
+		}			
+		pod2usage(-exitval => 1, -verbose => 3) if $file eq 'x' && $help;
+	}
 
-		#store arguments into data structure
-		$self->threads($threads) if $threads;
+	#store arguments into data structure
+	$self->threads($threads) if $threads;
+	if ($genomes){
 		my @g;
 		push @g , glob $_ for split(/\s*,\s*/,$genomes);
-		&set_genomes($self, \@g ,[split(/\s*,\s*/,$abbreviations)]);
+		&set_genomes($self, \@g ,[split(/\s*,\s*/,$abbreviations ? $abbreviations : "")]);
+	}
 
-		my @ogg;		
-		do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;	
-		if ($ogabbreviations){			
-			$self->ogabbreviations([split(/\s*,\s*/,$ogabbreviations)]);
-		} else {
-			my @ogabbre;
-			for(@ogg){
-				my $abbr = basename($_);
-				my @abbr = split /\./ , $abbr;
-				pop @abbr if $#abbr > 0;
-				$abbr = join '' , @abbr;				
-				$abbr=~s/\W//g;				
-				push @ogabbre , $abbr;
-			}
-			$self->ogabbreviations(\@ogabbre);
-		}		
-		if($kingdoms){
-			$self->kingdoms({});
-			for (split(/\s*,\s*/,$kingdoms)) {
-				my $s = lc $_;
-				pod2usage(-exitval => 0, -verbose => 2) unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
-				$self->kingdoms->{$s}=1
-			}
-		}		
-				
-		&set_queries($self,[split(/\s*,\s*/,$queries)]) if defined $queries;
-		
-		if ($bams){
-			my @bams;
-			push @bams , glob $_ for split(/\s*,\s*/,$bams);
-			$self->bams(\@bams);
-		}		
-		if ($output){
-		    try {
-				make_path(catdir(rootdir, $output)); 
-				$self->output($output);
-		    } catch {
-				$self->output(catdir($self->pwd, $output));
-		    };
-			
+	my @ogg;		
+	do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;	
+	if ($ogabbreviations){			
+		$self->ogabbreviations([split(/\s*,\s*/,$ogabbreviations)]);
+	} else {
+		my @ogabbre;
+		for(@ogg){
+			my $abbr = basename($_);
+			my @abbr = split /\./ , $abbr;
+			pop @abbr if $#abbr > 0;
+			$abbr = join '' , @abbr;				
+			$abbr=~s/\W//g;				
+			push @ogabbre , $abbr;
 		}
-		$self->rank($rank) if $rank;
-		$self->species($species) if $species;				
-		$self->tmp($tmp) if $tmp;
-		$self->sort(1) if $sort;
-	}	
+		$self->ogabbreviations(\@ogabbre);
+	}		
+	if($kingdoms){
+		$self->kingdoms({});
+		for (split(/\s*,\s*/,$kingdoms)) {
+			my $s = lc $_;
+			pod2usage(-exitval => 1, -verbose => 3) unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
+			$self->kingdoms->{$s}=1
+		}
+	}		
+			
+	&set_queries($self,[split(/\s*,\s*/,$queries)]) if defined $queries;
+	
+	if ($bams){
+		my @bams;
+		push @bams , glob $_ for split(/\s*,\s*/,$bams);
+		$self->bams(\@bams);
+	}		
+	if ($output){
+	    try {
+			make_path(catdir(rootdir, $output)); 
+			$self->output($output);
+	    } catch {
+			$self->output(catdir($self->pwd, $output));
+	    };
+		
+	}
+	$self->rank($rank) if $rank;
+	$self->species($species) if $species;
+
+	$self->tmp($tmp) if $tmp;
+	$self->sort(1) if ! $notax && $sort && ($self->has_rank || $self->has_species);
+	$self->taxonomy(0) if $notax || ! ($self->has_rank || $self->has_species);
+		
 	make_path(catdir($self->tmp,$self->pid));
-	$self->tmp(catdir($self->tmp,$self->pid))
+	$self->tmp(catdir($self->tmp,$self->pid));
+
 }
 
 sub _make_paths {

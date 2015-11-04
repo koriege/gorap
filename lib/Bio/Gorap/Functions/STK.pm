@@ -17,6 +17,8 @@ sub score_filter {
 		my $tmpfeatures;
 		for (keys %{$features}){		
 			my $f = $features->{$_};
+			next if $f->score eq '.';
+
 			my @id = split /\./ , $f->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			$tmpfeatures->{$abbr}++;
@@ -34,6 +36,8 @@ sub score_filter {
 
 		for (keys %{$features}){
 			my $f = $features->{$_};
+			next if $f->score eq '.';
+
 			my @id = split /\./ , $f->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			if ($tmpfeatures->{$abbr}==0){
@@ -76,6 +80,8 @@ sub score_filter {
 	} else {
 		for (keys %{$features}){		
 			my $f = $features->{$_};
+			next if $f->score eq '.';
+			
 			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
 				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
 				if (($f->get_tag_values('origscore'))[0] < $threshold){

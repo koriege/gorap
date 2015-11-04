@@ -48,7 +48,6 @@ sub get_workload {
 sub stop {
 	my ($self) = @_;
 
-	print "Waiting for background jobs to be finished\n" if scalar keys %{$self->thrList} > 0;
 	for (keys %{$self->thrList}){
 		waitpid($_,0);	
 		delete $self->thrList->{$_};					

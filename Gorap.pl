@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use sigtrap qw(handler ABORT normal-signals);
+use sigtrap qw(handler SIGABORT normal-signals);
 #TODO remove 
 use lib 'lib';
 
@@ -22,8 +22,8 @@ use Cwd 'abs_path';
 use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
-use File::Path qw(rmtree);
 
+print "\nFor help run Gorap.pl -h\n\n";
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
 $mon += 1;
@@ -65,10 +65,13 @@ my $stkdb = Bio::Gorap::DB::STK->new(
 	parameter => $parameter
 );
 
-my $taxdb = Bio::Gorap::DB::Taxonomy->new(
-	parameter => $parameter
-);
-$taxdb->findRelatedSpecies;
+my $taxdb;
+if ($parameter->taxonomy){
+	$taxdb = Bio::Gorap::DB::Taxonomy->new(
+		parameter => $parameter
+	);
+	$taxdb->findRelatedSpecies;
+}
 
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
@@ -88,16 +91,21 @@ $gffdb->store_overlaps;
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
 
 if ($parameter->has_outgroups){	
-	print "Preparing phylogeny reconstruction\n";
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
+	$year = $year + 1900;
+	$mon += 1;
+	print "$mday.$mon.$year-$hour:$min:$sec\n";
+
+	print "Preparing phylogeny reconstruction\n" if $parameter->verbose;
 	my @newQ;	
 	my @oldqueries = @{$parameter->queries};
 	my @genomes = @{$parameter->genomes};
 	my @abbres = @{$parameter->abbreviations};
 
 	$parameter->set_queries();
-	for my $cfg (@{$parameter->queries}){
+	for my $cfg (@{$parameter->queries}){		
 		$parameter->set_cfg($cfg);
-		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
+		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;		
 	}
 	
 	if ($#newQ > 1){	
@@ -113,7 +121,7 @@ if ($parameter->has_outgroups){
 		$parameter->set_queries(\@newQ);				
 		
 		unless ($parameter->skip_comp){
-			print "\nAnnotation of outgroups for phylogeny reconstruction\n";
+			print "\nAnnotation of outgroups for phylogeny reconstruction\n" if $parameter->verbose;
 			$gffdb->add_db($_) for @{$parameter->abbreviations};
 			$fastadb = Bio::Gorap::DB::Fasta->new(
 				parameter => $parameter
@@ -139,9 +147,11 @@ if ($parameter->has_outgroups){
 			print FA '>'.$_."\n".$speciesSSU->{$_}."\n" for keys %$speciesSSU;
 			close FA;
 
-			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
-			
+			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
+			&ABORT unless $ex == 0;
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
+			&ABORT unless $ex == 0;
+
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
 
@@ -156,9 +166,12 @@ if ($parameter->has_outgroups){
 			print FA '>'.$_."\n".$stkCoreFeatures->{$_}."\n" for keys %$stkCoreFeatures;			
 			close FA;
 
-			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
+			&ABORT unless $ex == 0;
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			&ABORT unless $ex == 0;
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			&ABORT unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
@@ -173,7 +186,8 @@ if ($parameter->has_outgroups){
 			print FA '>'.$_."\n".$stkFeatures->{$_}."\n" for keys %$stkFeatures;
 			close FA;
 			
-			system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
+			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
+			&ABORT unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
@@ -184,7 +198,8 @@ if ($parameter->has_outgroups){
 } 
 
 #remove temp files
-rmtree($parameter->tmp);
+unlink $_ for glob catfile($parameter->tmp,'*');
+system("rm -rf ".$parameter->tmp);
 
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
@@ -192,12 +207,14 @@ $mon += 1;
 print "$mday.$mon.$year-$hour:$min:$sec\n";
 
 sub run {
+	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
+
 	my $c=0;
 	for my $cfg (@{$parameter->queries}){
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);	
 		$c++;
-		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n";
+		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n" if $parameter->verbose;
 
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
@@ -273,11 +290,15 @@ sub run {
 		next if $#{$features} == -1;
 		#print "bgjob\n";
 		if ($thcalc){
-			my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload),$taxdb->relatedRankIDsToLineage,$taxdb->relatedSpeciesIDsToLineage);	
-			$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});	
+			if ($parameter->taxonomy){
+				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload),$taxdb->relatedRankIDsToLineage,$taxdb->relatedSpeciesIDsToLineage);	
+				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});	
+			} else {
+				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));				
+				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
+			}
 		} else {
-			$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
-			# $stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+			$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
 		}
 		#print "store\n";
 		#store annotations already in the database in case of errors
@@ -366,12 +387,16 @@ sub get_phylo_features {
 }
 
 sub ABORT {
-	print "Aborted..storing results\n";
-	rmtree($parameter->tmp) if $parameter;
-	$gffdb->store if $gffdb;
+	unlink $_ for glob catfile($parameter->tmp,'*');
+	system("rm -rf ".$parameter->tmp);
 	exit 1;
 }
 
+sub SIGABORT {	
+	$thrListener->stop;
+	$gffdb->store_overlaps if $gffdb && $#{$gffdb->get_features} > -1;	
+	&ABORT;
+}
 
 __END__
 
@@ -403,12 +428,14 @@ B<-update>, B<--update>=I<all,rfam,ncbi,silva,cfg>
 
 	(optional, default: all) 
 	updates internal used databases (Rfam, NCBI, Silva)
+	!!! updating the configuration files will cause loss of all mismatch/indel settings
 	
 B<-file>, B<--file>=F<FILE> 
 	
 	(optional)
-	(default: E. coli example with parameter file at: $GORAP/parameter/parameter.txt) 
+	(example file at: $GORAP/parameter/parameter.txt) 
 	run GORAP with a parameter file
+	following parameters will override settings from the parameter file
 	
 	
 -------------------------
@@ -416,40 +443,25 @@ B<-file>, B<--file>=F<FILE>
 		
 B<-i>, B<--fastas>=F<FILE>,...
 
-	(requierd) 
+	(optional, default $GORAP/example/ecoli.fa) 
 	(regex) path(s) of comma separated species FASTA file(s)
 		
 B<-a>, B<--abbreviations>=I<abbreviation,> ...	
 
-	(default: build from FASTA file name(s)) 
+	(optional, default: build from FASTA file name(s)) 
 	list of comma separated abbreviations as unique identifiers
-	
-B<-o>, B<--output>=F<PATH>	
 
-	(default: $PWD/gorap_out) 
-	output directory
-
-B<-t>, B<--tmp>=F<PATH>	
-
-	(default: $TMPDIR or /tmp or $GORAP/tmp) 
-	set the temporary directory
-	
-B<-c>, B<--cpu>=I<INT>	
-
-	(default: 1) 
-	count of cpu cores to use
-	
-B<-k>, B<--kingdom>=I<bac,arc,euk,fungi,virus>
-
-	(default: all) 
-	list of comma separated kingdoms to screen for kingdom specific ncRNAs only
-	
 B<-q>, B<--queries>=I<RF00001:RF00005,RF00008,> ...
 
 	(default: all Rfam families)
 	list of comma separated Rfam ids/numbers or ranges by ':'
 	to enable additional features only, skip annotation with 0
-	 
+
+B<-k>, B<--kingdom>=I<bac,arc,euk,fungi,virus>
+
+	(optional, default: all) 
+	list of comma separated kingdoms to screen for kingdom specific ncRNAs only
+
 B<-r>, B<--rank>=[I<INT/STRING>]	
 
 	(optional) 
@@ -477,17 +489,32 @@ B<-oga>, B<--ogabbreviation>=F<FILE>
 B<-b>, B<--bam>=F<FILE>,...
 
 	(optional) 
-	(regex) paths(s) of comma separated mapping results as SAM/BAM file(s)	
+	(regex) paths(s) of comma separated mapping results as SAM/BAM file(s)
+	
+B<-o>, B<--output>=F<PATH>	
 
+	(optional, default: $PWD/gorap_out) 
+	output directory
+
+B<-c>, B<--cpu>=I<INT>	
+
+	(optional, default: 1) 
+	count of cpu cores to use
+
+B<-t>, B<--tmp>=F<PATH>	
+
+	(optional, default: $TMPDIR or /tmp or $GORAP/tmp) 
+	set the temporary directory. temporary files will be removed afterwards
+	
 -sort, --sort
 	
 	(optional)
 	enable resulting alignments to be sorted taxonomical by given rank or species 
 
--force, --force
+-notax, --notaxonomy
 	
 	(optional)
-	avoid parameter restrictions for debugging and own implementations
+	disables taxonomic sorting and score filter to use given rank or species information
 
 =head1 AUTHOR
 

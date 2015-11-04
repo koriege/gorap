@@ -67,6 +67,8 @@ sub create {
 				print HTML '-og '.join('\\<br>'."\n",@{$parameter->{'outgroups'}}).'\\<br>'."\n" if $parameter->has_outgroups;
 				print HTML '-oga '.join(',',@{$parameter->{'ogabbreviations'}}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
 				print HTML '-b '.join(',\\<br>'."\n",@{$parameter->{'bams'}}).'\\<br>'."\n" if $parameter->has_bams;
+				print HTML '-notax\\<br>'."\n" if $parameter->taxonomy;
+				print HTML '-sort\\<br>'."\n" if $parameter->sort;				
 				print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
 			} elsif ($_=~/Used data/){
 				print HTML $_;

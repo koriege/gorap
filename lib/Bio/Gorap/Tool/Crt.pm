@@ -194,7 +194,7 @@ sub calc_features {
 				for my $i ( 0..1 ){
 					my $seq = $seqs[$i];							
 					
-					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "printf \"\>foo\\n$seq\" | cmalign --mxsize 7000 --noprob --sfile $scorefile --cpu ".$self->threads." $cm -", verbose => 0 );
+					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "printf \"\>foo\\n$seq\" | cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu ".$self->threads." $cm -", verbose => 0 );
 			
 					open S , '<'.$scorefile or die $!;
 					while(<S>){

@@ -254,7 +254,7 @@ sub add_seq {
 sub _read {
 	my ($self) = @_;
 
-	print "Reading GFF files\n" if $self->parameter->verbose;
+	print "Reading GFF files from ".$self->parameter->output."\n" if $self->parameter->verbose;
 	for my $file (glob catfile($self->parameter->output,'annotations','*.fa')){		
 		my $headerMapSeq={};		
 		open FA , '<'.$file or die $!;
