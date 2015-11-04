@@ -23,12 +23,12 @@ use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
 
-print "\nFor help run Gorap.pl -h\n\n";
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
 $mon += 1;
 print "$mday.$mon.$year-$hour:$min:$sec\n";
 my $stamp = "$mday.$mon.$year-$hour:$min:$sec";
+print "\nFor help run Gorap.pl -h\n\n";
 
 #push gorap tools to $PATH
 my $PATHtools;
@@ -107,8 +107,8 @@ if ($parameter->has_outgroups){
 		$parameter->set_cfg($cfg);
 		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;		
 	}
-	
-	if ($#newQ > 1){	
+
+	if ($#newQ > -1){	
 		my $outdir = catdir($parameter->output,'phylogeny');
 
 		unlink $_ for glob catfile($outdir,'RAxML_*');			
@@ -121,8 +121,11 @@ if ($parameter->has_outgroups){
 		$parameter->set_queries(\@newQ);				
 		
 		unless ($parameter->skip_comp){
+
 			print "\nAnnotation of outgroups for phylogeny reconstruction\n" if $parameter->verbose;
-			$gffdb->add_db($_) for @{$parameter->abbreviations};
+			
+			$gffdb->add_db($_) for @{$parameter->abbreviations};			
+
 			$fastadb = Bio::Gorap::DB::Fasta->new(
 				parameter => $parameter
 			);
@@ -393,7 +396,7 @@ sub ABORT {
 }
 
 sub SIGABORT {	
-	$thrListener->stop;
+	$thrListener->stop if $thrListener;
 	$gffdb->store_overlaps if $gffdb && $#{$gffdb->get_features} > -1;	
 	&ABORT;
 }

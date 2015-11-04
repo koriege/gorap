@@ -235,7 +235,7 @@ sub BUILD {
 	do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;	
 	if ($ogabbreviations){			
 		$self->ogabbreviations([split(/\s*,\s*/,$ogabbreviations)]);
-	} else {
+	} elsif ($outgroups) {
 		my @ogabbre;
 		for(@ogg){
 			my $abbr = basename($_);
@@ -460,7 +460,7 @@ sub read_parameter {
 					my @abbrPath =  split /\s+/ , $_;
 					if( $#abbrPath > 0 ){						
 						push @ogenomes , $abbrPath[1]; 
-						push @ogabbreviations , $abbrPath[0];
+						push @ogabbreviations , $abbrPath[0];						
 					} else {
 						push @ogenomes , glob $_;	
 						for (glob $_){
@@ -486,8 +486,7 @@ sub read_parameter {
 	$self->outgroups(\@ogenomes) if $#ogenomes > -1;
 	$self->ogabbreviations(\@ogabbreviations) if $#ogabbreviations > -1;
 	$self->queries(\@queries) if $#queries > -1;
-	$self->kingdoms($kingdoms);
-
+	$self->kingdoms($kingdoms) if $kingdoms;
 }
 
 1;

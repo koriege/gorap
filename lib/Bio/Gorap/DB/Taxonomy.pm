@@ -82,7 +82,7 @@ sub _set_db {
 	my ($self) = @_;
 
 	#initialize taxonomy database
-	print "Reading NCBI Taxonomy\n";
+	print "Reading NCBI Taxonomy (can take up to 15 minutes)\n";
 	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'data','taxonomy','names.dmp'), -directory => $self->parameter->tmp , -force => 1 , -verbose => -1 ));
 	
 	#read in silva phylogeny accession numbers, already mapped to ncbi taxonomy
