@@ -23,12 +23,14 @@ use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
 
+print "\nFor help run Gorap.pl -h\n\n";
+
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
 $mon += 1;
 print "$mday.$mon.$year-$hour:$min:$sec\n";
 my $stamp = "$mday.$mon.$year-$hour:$min:$sec";
-print "\nFor help run Gorap.pl -h\n\n";
+
 
 #push gorap tools to $PATH
 my $PATHtools;
