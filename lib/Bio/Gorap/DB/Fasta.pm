@@ -59,6 +59,7 @@ sub _set_db {
 	$self->db(Bio::Index::Fasta->new(-filename => catfile($self->parameter->tmp,$self->parameter->pid.'.faidx'), -write_flag => 1 , -verbose => -1));				
 	
 	print "Reading FASTA files\n" if $self->parameter->verbose;
+	
 	for my $i (0..$#{$self->parameter->genomes}){
 		my $genome = ${$self->parameter->genomes}[$i];
 		print $genome."\n" if $self->parameter->verbose;

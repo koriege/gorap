@@ -35,13 +35,11 @@ has 'idToPath' => (
 sub _set_db {
 	my ($self) = @_;	
 
-	for (@{$self->parameter->queries}){
-		my $rf_rna = basename($_);
-		$rf_rna=~s/\.cfg//;				
-		my $file = catfile($self->parameter->output,'alignments',$rf_rna.'.stk');
-
-		#use gorap specific access ids: the rfam id and rna name		
-		&add_stk($self,$rf_rna,$file) if -e $file;							
+	print "Reading STK files from ".$self->parameter->output."\n" if $self->parameter->verbose;
+	
+	for (glob catfile($self->parameter->output,'alignments','*.stk')){
+		#use gorap specific access ids: the rfam id and rna name				
+		&add_stk($self,substr(basename($_),0,-4),$_);
 	}
 }
 
@@ -144,9 +142,10 @@ sub align {
 
 	my ($cmd, $success, $error_code, $full_buf, $stdout_buf, $stderr_buf);	
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
+
 	if (exists $self->db->{$id}){
-		#save before merging files, to apply deletions of existing sequences in this object, performed in BUILD of Bio::Gorap::ToolI
-		&store($self,$id);
+		#save before merging files, to apply deletions of existing sequences in this object, performed in BUILD of Bio::Gorap::ToolI		
+		&store($self,$id);		
 
 		#align against gorap cfg default or given cm
 		if ($cm){

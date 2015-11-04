@@ -33,7 +33,7 @@ sub _set_db {
 	my ($self) = @_;	
 
 	return unless $self->parameter->has_bams;
-	print "Reading BAM files\n";
+	print "Reading BAM files\n" if $self->parameter->verbose;
 	for (@{$self->parameter->bams}){
 		
 		# push @{$self->ids} , {map { $_ => 1 } ${$self->db}[-1]->seq_ids};

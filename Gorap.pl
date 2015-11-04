@@ -48,6 +48,10 @@ my $parameter = Bio::Gorap::Parameter->new(
 	commandline => 1
 );
 
+my $stkdb = Bio::Gorap::DB::STK->new(
+	parameter => $parameter
+);
+
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
 );
@@ -59,10 +63,6 @@ my $gffdb = Bio::Gorap::DB::GFF->new(
 ); 
 
 my $fastadb = Bio::Gorap::DB::Fasta->new(
-	parameter => $parameter
-);
-
-my $stkdb = Bio::Gorap::DB::STK->new(
 	parameter => $parameter
 );
 
@@ -106,7 +106,7 @@ if ($parameter->has_outgroups){
 	$parameter->set_queries();
 	for my $cfg (@{$parameter->queries}){		
 		$parameter->set_cfg($cfg);
-		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;		
+		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
 	}
 
 	if ($#newQ > -1){	
@@ -119,7 +119,7 @@ if ($parameter->has_outgroups){
 		push @genomes, @{$parameter->genomes};
 		push @abbres, @{$parameter->abbreviations};	
 
-		$parameter->set_queries(\@newQ);				
+		$parameter->set_queries(\@newQ);
 		
 		unless ($parameter->skip_comp){
 
@@ -271,10 +271,9 @@ sub run {
 			$thrListener->push_obj($obj);
 
 			#run software, use parser, store new gff3 entries 
-			# print "calc\n";
 			$obj->calc_features;		
 		}
-		#print "getseqs\n";
+		
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
@@ -284,13 +283,14 @@ sub run {
 			$sequences,
 			($parameter->threads - $thrListener->get_workload)
 		);
-		#print "updatescores\n";
+		
 		$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
 		#start of time consuming single threaded background job with a subroutine reference,
 		#which returns an array of String, parsable by pipe_parser
 		#print "getfeatures\n";
 		my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
+
 		next if $#{$features} == -1;
 		#print "bgjob\n";
 		if ($thcalc){
@@ -304,9 +304,9 @@ sub run {
 		} else {
 			$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
 		}
-		#print "store\n";
+		
 		#store annotations already in the database in case of errors
-		$gffdb->store($parameter->cfg->rf);
+		$gffdb->store($parameter->cfg->rf_rna);
 		#print "eval\n";
 		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
 	}

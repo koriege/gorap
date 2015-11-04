@@ -300,7 +300,7 @@ sub store {
 	my ($self,$type) = @_;
 	
 	if ($type){
-		for my $abbr (keys %{$self->db}){
+		for my $abbr (keys %{$self->db}){			
 			my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type);
 			open GFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 			open FA , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
