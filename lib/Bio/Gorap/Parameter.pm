@@ -282,6 +282,8 @@ sub BUILD {
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
 
+	print "Running example\n" if $self->verbose && $#{$self->genomes} == 0 && ${$self->genomes}[0] eq catfile($ENV{GORAP},'example','ecoli.fa');
+
 }
 
 sub _make_paths {

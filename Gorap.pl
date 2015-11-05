@@ -148,7 +148,11 @@ if ($parameter->has_outgroups){
 
 		if ( (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations}) && scalar keys %$speciesSSU > 3){
 			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;	
-			print FA '>'.$_."\n".$speciesSSU->{$_}."\n" for keys %$speciesSSU;
+			for my $k (keys %$speciesSSU ){
+				print FA '>'.$k."\n";
+				$speciesSSU->{$k}=~s/(\W|_)/-/g;				
+				print FA $_."\n" for unpack("(a80)*",$speciesSSU->{$k});				
+			}			
 			close FA;
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
@@ -164,10 +168,18 @@ if ($parameter->has_outgroups){
 
 		if ( (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$coreFeatures > 3){
 			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;	
-			print FA '>'.$_."\n".$coreFeatures->{$_}."\n" for keys %$coreFeatures;
+			for my $k (keys %$coreFeatures ){
+				print FA '>'.$k."\n";
+				$coreFeatures->{$k}=~s/(\W|_)/-/g;				
+				print FA $_."\n" for unpack("(a80)*",$coreFeatures->{$k});				
+			}			
 			close FA;
-			open FA , '>'.catfile($outdir,'coreRNome.stkfa') or die $!;				
-			print FA '>'.$_."\n".$stkCoreFeatures->{$_}."\n" for keys %$stkCoreFeatures;			
+			open FA , '>'.catfile($outdir,'coreRNome.stkfa') or die $!;
+			for my $k (keys %$stkCoreFeatures ){
+				print FA '>'.$k."\n";
+				$stkCoreFeatures->{$k}=~s/(\W|_)/-/g;				
+				print FA $_."\n" for unpack("(a80)*",$stkCoreFeatures->{$k});				
+			}			
 			close FA;
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
@@ -186,8 +198,12 @@ if ($parameter->has_outgroups){
 		} 
 
 		if ( (any { exists $stkFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$stkFeatures > 3){
-			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;	
-			print FA '>'.$_."\n".$stkFeatures->{$_}."\n" for keys %$stkFeatures;
+			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;				
+			for my $k (keys %$stkFeatures ){
+				print FA '>'.$k."\n";
+				$stkFeatures->{$k}=~s/(\W|_)/-/g;				
+				print FA $_."\n" for unpack("(a80)*",$stkFeatures->{$k});				
+			}
 			close FA;
 			
 			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 100 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));

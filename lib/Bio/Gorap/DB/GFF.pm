@@ -157,6 +157,7 @@ sub get_features {
 	my @features;	
 	if ($filter) {		
 		for (@{$abbreviations}){
+			next unless exists $self->db->{$_};
 			for ($self->db->{$_}->features(-primary_tag => $type)){
 				push @features , $_ if $_->display_name eq $filter;
 			}			
