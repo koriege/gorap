@@ -53,7 +53,7 @@ tar -xzf data-12.tar.gz -C $GORAP/
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
 ./cpanm -l $GORAPLIB .
-# Change BioPerls print behaviour
+# Mute BioPerl warnings
 sed -i 's/%-4s%-22s%-3s%s/%-4s%-100s%-3s%s/g' $GORAPLIB/lib/perl5/Bio/AlignIO/stockholm.pm
 sed -i '/contains no residues/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
 sed -i '/Sequence excluded/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm

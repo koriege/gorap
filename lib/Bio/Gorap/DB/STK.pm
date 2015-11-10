@@ -291,8 +291,6 @@ sub filter_stk {
 	my $up;
 	my $write;
 		
-	
-
 	if ($self->parameter->cfg->userfilter){	
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, 10);
 		push @update , @{$up} if $up;

@@ -384,7 +384,7 @@ sub create_cfgs {
 			print CFG "arc,bac\n";	
 		} elsif ($rf_rna=~/_mir/ || $rf_rna=~/_MIR/){
 			print CFG "euk\n";	
-		} elsif ($rf_rna=~/_sn?o?(r|z|u|y)d?\d/i){
+		} elsif ($rf_rna=~/_SNOR/ || $rf_rna =~/_sn?o?[A-WYZ]+\d/){
 			print CFG "euk,fungi,arc\n";	
 		} elsif ($rf_rna=~/_6S/){
 			print CFG "arc,bac\n";	

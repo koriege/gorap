@@ -262,7 +262,9 @@ sub user_filter {
 	
 	my $csposstart;
 	my $csposend = 0;
-	my $rmfeature;
+	my $rmfeatures;
+	my $topfeatures;
+	my $userparts = 0;
 	for my $i (0..$#{$cssep}){		
 		my $c = 0;
 		for((defined $csposstart ? $csposstart : 0)..$#cs){
@@ -277,9 +279,10 @@ sub user_filter {
 		}	
 
 		if (${$csindels}[$i]>-1){
+			$userparts++;
 			#for each feature seq get csstart csstop subseq to compare with cs[csstart..csend];
 			for my $k (keys %{$features}){
-				next if exists $rmfeature->{$k};
+				next if exists $rmfeatures->{$k};
 				my $f = $features->{$k};		
 				my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($csposstart+1,$csposend+1);	
 				my $mm = 0;
@@ -328,18 +331,40 @@ sub user_filter {
 						$mm++ if $seq[$_]=~/\w/;
 					}
 				}	
-				$rmfeature->{$k}=1 if $mm > ${$csindels}[$i];
+				$rmfeatures->{$k}=1 if $mm > ${$csindels}[$i];				 	
+				$topfeatures->{$k}++ unless $mm;					
 			}			
 		}
 		$csposstart=$csposend+1;
 	}
 
-	for(keys %$rmfeature){
-		my $f = $features->{$_};				
-		$write = 1;
-		$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-		push @update , $f->seq_id.' '.$f->primary_tag.' P';				
-		delete $features->{$_};
+	my $perfectfeatures;
+	for my $k (keys %$topfeatures){		
+		next unless $topfeatures->{$k} == $userparts;
+		my $f = $features->{$k};
+		my @id = split /\./ , $f->seq_id;										
+		my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+		$perfectfeatures->{$abbr}->{$k}=1;		
+	}
+
+	for my $k (keys %{$features}){
+		my $f = $features->{$k};
+		my @id = split /\./ , $f->seq_id;										
+		my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+
+		if (exists $rmfeature->{$k}){
+			$write = 1;
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+			push @update , $f->seq_id.' '.$f->primary_tag.' P';				
+			delete $features->{$k};
+		} elsif (exists $perfectfeatures->{$abbr}){
+			unless (exists $perfectfeatures->{$abbr}->{$k}){
+				$write = 1;
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+				push @update , $f->seq_id.' '.$f->primary_tag.' P';				
+				delete $features->{$k};
+			}		
+		}		
 	}
 
 	return ($stk , $features, \@update , $write);	
