@@ -45,16 +45,15 @@ has 'kingdoms' => (
 	default => sub { {} }
 );
 
-has 'cssep' => (
+has 'constrains' => (
 	is => 'rw',
 	isa => 'ArrayRef',
 	default => sub { [] }
 );
 
-has 'csindels' => (
+has 'cs' => (
 	is => 'rw',
-	isa => 'ArrayRef',
-	default => sub { [] }
+	isa => 'Str'
 );
 
 has 'userfilter' => (
@@ -83,12 +82,7 @@ sub BUILD {
 				$self->rf_rna($1.'_'.$2);
 				$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
 			} elsif($c==9){	
-				for(split(/\|/,substr($_,1))){
-					push @csparts , length($_);
-					my @matches = $_=~/(\w)/g;					
-					push @{$self->cssep} , $#matches > -1 ? $#matches+1 : 0;
-					push @{$self->csindels} , -1;									
-				}
+				$self->cs(substr($_,1));
 			}			
 			next;
 		}		
@@ -129,17 +123,13 @@ sub BUILD {
 			case 8 {								
 				$self->kingdoms->{$_}=1 for split(/,/,$_);								
 			}
-			case 10 {					
+			case 9 {					
 				$self->userfilter(1);
-				my $l = substr($_,1);				
-				my $start=0;
-				for (0..$#csparts){																											
-					if (substr($l,$start,$csparts[$_]) =~ /(\d+)/){						
-						${$self->csindels}[$_] = $1;
-					}
-					$start += $csparts[$_]+1;
-					last if length($l) <= $start;
-				}											
+				while ($_=~/\|(\s*\d+\s*)\|/g){					
+					my ($sta,$sto) = ($-[0],$+[0]-2);					
+					$1=~/(\d+)/;
+					push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta)];
+				}
 			}
 			
 			else {

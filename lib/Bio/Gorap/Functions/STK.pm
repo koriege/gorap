@@ -105,7 +105,7 @@ sub score_filter {
 }
 
 sub structure_filter(){
-	my ($self, $stk, $features) = @_;
+	my ($self, $stk, $features, $minstructures) = @_;
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my @update;
@@ -167,7 +167,8 @@ sub structure_filter(){
 			$ssPresentCount->{$f->seq_id}++ if $tmpStk->get_seq_by_id($f->seq_id);						
 		}
 	}
-		
+	
+	$minstructures = ($#ssAreas +1)/2 unless $minstructures;	
 	for (keys %{$features}){
 		my $f = $features->{$_};
 		if ($#ssAreas == 1){
@@ -178,7 +179,7 @@ sub structure_filter(){
 				push @update , $f->seq_id.' '.$f->primary_tag.' S';
 			}
 		} else {
-			if ($ssPresentCount->{$f->seq_id} < ($#ssAreas +1)/2){
+			if ($ssPresentCount->{$f->seq_id} < $minstructures){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -239,135 +240,140 @@ sub sequence_filter { #$_!~/_snora/i && $_=~/_sn?o?(r|z|u|y)d?\d/i
 }
 
 sub user_filter {
-	my ($self, $stk, $features, $cssep , $csindels) = @_;	
+	my ($self, $stk, $features, $constrains, $cs, $seedstk) = @_;	
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-
 	my @update;
 	my $write;
+
+	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);
+	my @seedseq = split // , $seedseqo->seq;
+	my @newseedseq = split // , ($stk->get_seq_by_id($seedseqo->id))->seq;
+	my @seedcs;
+	open STK , '<'.$seedstk or die $!;
+	while(<STK>){
+		chomp $_;
+		if ($_=~/^#=GC\s+RF\s+(.+)/){			
+			push @seedcs , split( // , $1);
+		}
+	}
+	close STK;
 
 	my $out;
 	open my $READER, '>', \$out;
 	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
 	close $READER;
 	my @lines = split /\n/ , $out;
-	my @cs;
-	for(@lines){		
-		if ($_=~/^#=GC\s+RF\s+(.+)/){			
-			my $line=$1;
-			chomp $line;
-			push @cs , split(// , $line);
+	my $newcs;
+	for(@lines){
+		chomp $_;
+		if ($_=~/^#=GC\s+RF\s+(.+)/){
+			$newcs.=$1;
 		}
 	}
+
+	my @seedpos;
+	my @cs = split(//,$cs);
+	my $c=0;
+	for my $i (0..$#cs){
+		$c++ while lc($seedcs[$i+$c]) ne lc($cs[$i]);
+		push @seedpos , $i+$c;
+	}
+
+	my @csNewpos;
+	$c=0;
+	for my $i (0..$#cs){
+		$c++ while lc($seedseq[$seedpos[$i]]) ne lc($newseedseq[$seedpos[$i]+$c]);
+		push @csNewpos , $seedpos[$i]+$c;
+	}
+
 	
-	my $csposstart;
-	my $csposend = 0;
-	my $rmfeatures;
-	my $topfeatures;
-	my $userparts = 0;
-	for my $i (0..$#{$cssep}){		
-		my $c = 0;
-		for((defined $csposstart ? $csposstart : 0)..$#cs){
-			if ($cs[$_]=~/\w/){
-				$c++;
-				$csposstart = $_ unless defined $csposstart;
-			}
-			if ($c == ${$cssep}[$i] || $_ == $#cs){
-				$csposend = $_;
-				last;
-			}
-		}	
+	for my $k (keys %{$features}){				
+		my $f = $features->{$k};	
+		my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
 
-		if (${$csindels}[$i]>-1){
-			$userparts++;
-			#for each feature seq get csstart csstop subseq to compare with cs[csstart..csend];
-			for my $k (keys %{$features}){
-				next if exists $rmfeatures->{$k};
-				my $f = $features->{$k};		
-				my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($csposstart+1,$csposend+1);	
-				my $mm = 0;
-				for (0..$#seq){	
-					if ($cs[$csposstart+$_]=~/\w/){	
-						switch(lc($cs[$csposstart+$_])){
-							case /[acgtu]/ {
-								$mm++ unless lc($seq[$_]) eq lc($cs[$csposstart+$_]);
-							}
-							case "r" {
-								$mm++ unless lc($seq[$_])=~/[ag]/;
-							}
-							case "y" {
-								$mm++ unless lc($seq[$_])=~/[ctu]/;	
-							}
-							case "s" {
-								$mm++ unless lc($seq[$_])=~/[gc]/;	
-							}
-							case "w" {
-								$mm++ unless lc($seq[$_])=~/[atu]/;	
-							}
-							case "k" {
-								$mm++ unless lc($seq[$_])=~/[gtu]/;	
-							}
-							case "m" {
-								$mm++ unless lc($seq[$_])=~/[ac]/;	
-							}
-							case "b" {
-								$mm++ unless lc($seq[$_])=~/[cgtu]/;	
-							}
-							case "d" {
-								$mm++ unless lc($seq[$_])=~/[agtu]/;	
-							}
-							case "h" {
-								$mm++ unless lc($seq[$_])=~/[actu]/;	
-							}
-							case "v" {
-								$mm++ unless lc($seq[$_])=~/[acg]/;	
-							}
-							case "n" {
-								$mm++ unless lc($seq[$_])=~/[acgtu]/;	
-							}
-							else {}
-						}						
-					} else {
-						$mm++ if $seq[$_]=~/\w/;
+		my $presentu;
+		for (0..$#{$constrains}){			
+
+			my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
+			my @query = split // , $query;
+			$sta = $csNewpos[$sta-1]+1;
+			$sto = $csNewpos[$sto-1]+1;			
+			my @subseq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($sta,$sto);
+			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
+			$subseq =~ s/\W//g;	
+			if($f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+				$presentu++ if $_ == 0 && join('',$subseq[1..$#subseq])=~/[uU]/;
+				if ($_ == 1){
+					$presentu++ if join('',$subseq)=~/[uU]/;
+					unless ($presentu){
+						delete $features->{$k};
+						$write = 1;
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						push @update , $f->seq_id.' '.$f->primary_tag.' P';
+						last;
+					}				
+				}
+			}
+			my $i=-1;	
+			for(split // , $cssubseq){
+				$i++;
+				unless ($_=~/\w/){
+					$mm -- if $subseq[$i]=~/\w/;
+					next;
+				}
+				switch(lc($query[$i])){
+					case /[acgtu]/ {
+						$mm-- unless lc($subseq[$i]) eq lc($query[$i]);
 					}
-				}	
-				$rmfeatures->{$k}=1 if $mm > ${$csindels}[$i];				 	
-				$topfeatures->{$k}++ unless $mm;					
-			}			
-		}
-		$csposstart=$csposend+1;
-	}
-
-	my $perfectfeatures;
-	for my $k (keys %$topfeatures){		
-		next unless $topfeatures->{$k} == $userparts;
-		my $f = $features->{$k};
-		my @id = split /\./ , $f->seq_id;										
-		my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-		$perfectfeatures->{$abbr}->{$k}=1;		
-	}
-
-	for my $k (keys %{$features}){
-		my $f = $features->{$k};
-		my @id = split /\./ , $f->seq_id;										
-		my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-
-		if (exists $rmfeature->{$k}){
-			$write = 1;
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-			push @update , $f->seq_id.' '.$f->primary_tag.' P';				
-			delete $features->{$k};
-		} elsif (exists $perfectfeatures->{$abbr}){
-			unless (exists $perfectfeatures->{$abbr}->{$k}){
+					case "r" {
+						$mm-- unless lc($subseq[$i])=~/[ag]/;
+					}
+					case "y" {
+						$mm-- unless lc($subseq[$i])=~/[ctu]/;	
+					}
+					case "s" {
+						$mm-- unless lc($subseq[$i])=~/[gc]/;	
+					}
+					case "w" {
+						$mm-- unless lc($subseq[$i])=~/[atu]/;	
+					}
+					case "k" {
+						$mm-- unless lc($subseq[$i])=~/[gtu]/;	
+					}
+					case "m" {
+						$mm-- unless lc($subseq[$i])=~/[ac]/;	
+					}
+					case "b" {
+						$mm-- unless lc($subseq[$i])=~/[cgtu]/;	
+					}
+					case "d" {
+						$mm-- unless lc($subseq[$i])=~/[agtu]/;	
+					}
+					case "h" {
+						$mm-- unless lc($subseq[$i])=~/[actu]/;	
+					}
+					case "v" {
+						$mm-- unless lc($subseq[$i])=~/[acg]/;	
+					}
+					case "n" {
+						$mm-- unless lc($subseq[$i])=~/[acgtu]/;	
+					}
+					else {}
+				}						
+			}
+			# print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";
+			if ($mm < 0){
+				delete $features->{$k};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' P';				
-				delete $features->{$k};
-			}		
+				push @update , $f->seq_id.' '.$f->primary_tag.' P';
+				last;
+			}
 		}		
 	}
 
-	return ($stk , $features, \@update , $write);	
+	return ($stk , $features, \@update , $write);
 }
 
 sub get_ss_cs_from_file {
@@ -384,7 +390,6 @@ sub get_ss_cs_from_file {
 
 	return ($s,$c);
 }
-
 
 sub get_ss_cs_from_object {
 	my ($self,$stk) = @_;

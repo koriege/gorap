@@ -304,16 +304,17 @@ sub create_cfgs {
 		my $bitscore = Bio::Gorap::Functions::CM->get_min_score($cmfile);
 		my $rf_rna = Bio::Gorap::Functions::CM->get_rf_rna($cmfile);
 
-		my @userdescription;
+		my @userdescription =();
 		my ($cfg) = glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
 		if ($cfg){
 			open F , '<'.$cfg or die $!;
-			@userdescription = <F>;
-			while($userdescription[-1]=~/^\s*$/){
-				pop @userdescription;
+			my @tmp = <F>;
+			while($tmp[-1]!~/^#/){
+				my $s = pop @tmp;
+				unshift @userdescription , $s unless $s=~/^\s*$/;
 			}
 			close F;
-			@userdescription = () if $userdescription[-1]=~/^#/;
+
 		}
 
 		unlink $_ for glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
@@ -384,13 +385,13 @@ sub create_cfgs {
 			print CFG "arc,bac\n";	
 		} elsif ($rf_rna=~/_mir/ || $rf_rna=~/_MIR/){
 			print CFG "euk\n";	
-		} elsif ($rf_rna=~/_SNOR/ || $rf_rna =~/_sn?o?[A-WYZ]+\d/){
+		} elsif ($rf_rna=~/_SNOR/ || $rf_rna =~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 			print CFG "euk,fungi,arc\n";	
 		} elsif ($rf_rna=~/_6S/){
 			print CFG "arc,bac\n";	
 		} else {				
 			my $kingdoms;
-			my $seqio = Bio::SeqIO->new( -format => 'Fasta' , -file => substr($cmfile,0,-2).'fa', -verbose => -1);
+			my $seqio = Bio::SeqIO->new( -format => 'Fasta' , -file => catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.fa'), -verbose => -1);
 			while(my $seqobj = $seqio->next_seq()){
 				my @lineage = @{$taxdb->getLineageNodes((split /\./ ,$seqobj->id)[0])};				
 				next if $#lineage < 1;	
@@ -408,44 +409,9 @@ sub create_cfgs {
 				print CFG "arc,bac,euk,fungi,virus\n";	
 			}
 		}
-		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file(substr($cmfile,0,-2).'stk');
-		my @ss = split // , $ss;
-		my @cs = split // , $cs;
-		my @csp;
-		my @ssp; 
-		for my $i (0..$#cs){
-			if ( $cs[$i]=~/[a-zA-Z]/ || $ss[$i]=~/[<\[\(\{>\]\}\)]/){
-				if ($#ssp>-1){
-					if ( ($ss[$i]=~/[<\[\(\{]/ && $ssp[$#ssp]=~/[>\]\}\)]/) || ($ss[$i]=~/[>\]\}\)]/ && $ssp[$#ssp]=~/[<\[\(\{]/) ){
-						push @csp , '|';
-						push @ssp , '|';
-					} elsif ($ss[$i]!~/[<\[\(\{>\]\}\)]/ && $ssp[$#ssp]=~/[<\[\(\{>\]\}\)]/){
-						push @csp , '|';
-						push @ssp , '|';
-					} elsif ($ss[$i]=~/[<\[\(\{>\]\}\)]/ && $ssp[$#ssp]!~/[<\[\(\{>\]\}\)]/){
-						push @csp , '|';
-						push @ssp , '|';		
-					}
-				}	
-				push @csp , $cs[$i];
-				push @ssp , $ss[$i];
-			}
-		}
-		if ($#userdescription > -1){
-			my $usercs = $userdescription[-3];
-			$usercs =~ s/\|//g;
-			if ('#'.$cs eq $usercs ){
-				print CFG $userdescription[-3];
-				print CFG $userdescription[-2];
-				print CFG $userdescription[-1];
-			} else {
-				print CFG '#'.join('',@csp)."\n";
-				print CFG '#'.join('',@ssp)."\n\n";
-			}
-		} else {
-			print CFG '#'.join('',@csp)."\n";
-			print CFG '#'.join('',@ssp)."\n\n";	
-		}
+		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file(catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.stk'));
+		print CFG "#$cs\n";		
+		print CGF $_."\n" for @userdescription;
 		close CFG;
 	}
 }
