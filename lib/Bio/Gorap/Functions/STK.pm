@@ -276,7 +276,7 @@ sub user_filter {
 	my @cs = split(//,$cs);
 	my $c=0;
 	for my $i (0..$#cs){
-		$c++ while lc($seedcs[$i+$c]) ne lc($cs[$i]);
+		$c++ while lc($seedcs[$i+$c]) !~ /\w/;
 		push @seedpos , $i+$c;
 	}
 
@@ -290,8 +290,8 @@ sub user_filter {
 	
 	for my $k (keys %{$features}){				
 		my $f = $features->{$k};	
-		my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
-
+		#my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
+        #print $foo."\n";
 		my $presentu;
 		for (0..$#{$constrains}){			
 
@@ -302,7 +302,7 @@ sub user_filter {
 			my @subseq = split // , ($stk->get_seq_by_id($f->seq_id))->subseq($sta,$sto);
 			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
 			$subseq =~ s/\W//g;	
-			if($f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+			if($f->type=~/_Afu/ || $f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 				$presentu++ if $_ == 0 && join('',$subseq[1..$#subseq])=~/[uU]/;
 				if ($_ == 1){
 					$presentu++ if join('',$subseq)=~/[uU]/;
@@ -315,16 +315,19 @@ sub user_filter {
 					}				
 				}
 			}
-			my $i=-1;	
+			my $i=-1;
+            my $j=-1;
 			for(split // , $cssubseq){
-				$i++;
-				unless ($_=~/\w/){
-					$mm -- if $subseq[$i]=~/\w/;
+                $i++;
+                if($_=~/\w/){
+                  $j++;
+				} else {
+					$mm-- if $subseq[$i]=~/\w/;
 					next;
 				}
-				switch(lc($query[$i])){
+				switch(lc($query[$j])){
 					case /[acgtu]/ {
-						$mm-- unless lc($subseq[$i]) eq lc($query[$i]);
+						$mm-- unless lc($subseq[$i]) eq lc($query[$j]);
 					}
 					case "r" {
 						$mm-- unless lc($subseq[$i])=~/[ag]/;
@@ -362,7 +365,7 @@ sub user_filter {
 					else {}
 				}						
 			}
-			# print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";
+			#print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";
 			if ($mm < 0){
 				delete $features->{$k};
 				$write = 1;

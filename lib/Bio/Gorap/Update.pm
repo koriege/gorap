@@ -410,8 +410,19 @@ sub create_cfgs {
 			}
 		}
 		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file(catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.stk'));
+        my @ss = split // , $ss;
+        my @cs = split // , $cs;
+        $ss='';
+        $cs='';
+        for my $i (0..$#cs){
+          if ($cs[$i]=~/[a-zA-Z]/){
+            $cs.=$cs[$i];
+            $ss.=$ss[$i];
+          }
+        } 
+        print CFG "#$ss\n";
 		print CFG "#$cs\n";		
-		print CGF $_."\n" for @userdescription;
+		print CFG $_."\n" for @userdescription;
 		close CFG;
 	}
 }

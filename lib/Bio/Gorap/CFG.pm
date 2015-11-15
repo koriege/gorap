@@ -81,7 +81,7 @@ sub BUILD {
 				$self->rna($2);
 				$self->rf_rna($1.'_'.$2);
 				$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
-			} elsif($c==9){	
+			} elsif($c==10){	
 				$self->cs(substr($_,1));
 			}			
 			next;
@@ -122,8 +122,9 @@ sub BUILD {
 			}
 			case 8 {								
 				$self->kingdoms->{$_}=1 for split(/,/,$_);								
-			}
-			case 9 {					
+              }
+            case 9 {}
+			case 10 {					
 				$self->userfilter(1);
 				while ($_=~/\|(\s*\d+\s*)\|/g){					
 					my ($sta,$sto) = ($-[0],$+[0]-2);					
