@@ -247,8 +247,12 @@ sub user_filter {
 	my $write;
 
 	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);
-	my @seedseq = split // , $seedseqo->seq;
-	my @newseedseq = split // , ($stk->get_seq_by_id($seedseqo->id))->seq;
+    my $seq = $seedseqo->seq;
+    $seq=s/\./-/g;
+	my @seedseq = split // , $seq;
+    $seq = ($stk->get_seq_by_id($seedseqo->id))->seq;
+    $seq=s/\./-/g;
+	my @newseedseq = split // , $seq;
 	my @seedcs;
 	open STK , '<'.$seedstk or die $!;
 	while(<STK>){
@@ -286,10 +290,10 @@ sub user_filter {
 		$c++ while lc($seedseq[$seedpos[$i]]) ne lc($newseedseq[$seedpos[$i]+$c]);
 		push @csNewpos , $seedpos[$i]+$c;
 	}
-
 	
 	for my $k (keys %{$features}){				
-		my $f = $features->{$k};	
+      my $f = $features->{$k};
+
 		#my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
         #print $foo."\n";
 		my $presentu;
