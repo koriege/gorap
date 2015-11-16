@@ -134,7 +134,7 @@ sub BUILD {
 			}
 			
 			else {
-				die 'Check your parameter file!'
+				die 'Check your parameter file '.$self->cfg;
 			}
 		}
 	}

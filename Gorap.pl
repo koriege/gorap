@@ -294,12 +294,12 @@ sub run {
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
 		#print "align\n";
+		
 		my ($scorefile,$stk) = $stkdb->align(
 			$parameter->cfg->rf_rna,
 			$sequences,
 			($parameter->threads - $thrListener->get_workload)
-		);
-		
+		);		
 		$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
 		#start of time consuming single threaded background job with a subroutine reference,

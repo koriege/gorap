@@ -274,6 +274,7 @@ sub _read {
 			}
 		}
 		close FA;		
+		unlink $file;
 			
 		$headerMapSeq->{$seqid}=$seq if $seqid;
 
@@ -293,45 +294,46 @@ sub _read {
 			&add_gff3_entry($self,\@l, $headerMapSeq->{$id},$abbr);			
 		}
 		close GFF;			
+		unlink $file;
 	}	
 }
 
 sub store {
 	my ($self,$type) = @_;
 	
-	# if ($type){
-	# 	for my $abbr (keys %{$self->db}){			
-	# 		my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type);
-	# 		open GFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
-	# 		open FA , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
-	# 		open GFFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
-	# 		open FAF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
-	# 		for my $i (0..$#features){
-	# 			my $f1 = $features[$i];
+	if ($type){
+		for my $abbr (keys %{$self->db}){			
+			my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type);
+			open GFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
+			open FA , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
+			open GFFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
+			open FAF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+			for my $i (0..$#features){
+				my $f1 = $features[$i];
 
-	# 			my $source = $f1->source;	
-	# 			$source =~ s/GORAP//;
+				my $source = $f1->source;	
+				$source =~ s/GORAP//;
 
-	# 			my @id = split /\./ , $f1->seq_id;
-	# 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-	# 			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
+				my @id = split /\./ , $f1->seq_id;
+				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-	# 			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
+				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
 
-	# 			if ( $f1->display_name eq '!' ){
-	# 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
-	# 				print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
-	# 			} else {
-	# 				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
-	# 				print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
-	# 			}
-	# 		}
-	# 		close GFF;
-	# 		close FA;
-	# 		close GFFF;
-	# 		close FAF;
-	# 	}
-	# } else {
+				if ( $f1->display_name eq '!' ){
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
+					print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+				} else {
+					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
+					print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+				}
+			}
+			close GFF;
+			close FA;
+			close GFFF;
+			close FAF;
+		}
+	} else {
 
 		for my $abbr (keys %{$self->db}){
 			my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
@@ -365,7 +367,7 @@ sub store {
 			close GFFF;
 			close FAF;
 		}
-	# }
+	}
 }
 
 sub store_overlaps {

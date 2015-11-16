@@ -246,12 +246,14 @@ sub user_filter {
 	my @update;
 	my $write;
 
-	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);
-    my $seq = $seedseqo->seq;
-    $seq=s/\./-/g;
+	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);	
+    my $seq = $seedseqo->seq;    
+    $seq=~s/\./-/g;
+ 
 	my @seedseq = split // , $seq;
     $seq = ($stk->get_seq_by_id($seedseqo->id))->seq;
-    $seq=s/\./-/g;
+    $seq=~s/\./-/g;
+ 
 	my @newseedseq = split // , $seq;
 	my @seedcs;
 	open STK , '<'.$seedstk or die $!;
@@ -292,10 +294,9 @@ sub user_filter {
 	}
 	
 	for my $k (keys %{$features}){				
-      my $f = $features->{$k};
+    	my $f = $features->{$k};
 
-		#my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
-        #print $foo."\n";
+		# my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
 		my $presentu;
 		for (0..$#{$constrains}){			
 
@@ -369,7 +370,7 @@ sub user_filter {
 					else {}
 				}						
 			}
-			#print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";
+			# print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";			
 			if ($mm < 0){
 				delete $features->{$k};
 				$write = 1;
@@ -377,7 +378,7 @@ sub user_filter {
 				push @update , $f->seq_id.' '.$f->primary_tag.' P';
 				last;
 			}
-		}		
+		}				
 	}
 
 	return ($stk , $features, \@update , $write);
