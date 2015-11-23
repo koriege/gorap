@@ -224,12 +224,12 @@ sub chunk_backmap {
 	for (0..$#{$self->headerToPos->{$id}}){
 		my $e = ${$self->headerToPos->{$id}}[$_];
 		next if $start > $e->{'stop'};
-		
+
 		while ($stop > $e->{'stop'}){						
 			push @e , [$e, $start, $e->{'stop'}];
 			$start = $e->{'stop'} + 1;
 			$e = ${$self->headerToPos->{$id}}[++$_];
-		}		
+		}
 		push @e , [$e,$start,$stop];
 
 		@e = reverse sort {$$a[2]-$$a[1] <=> $$b[2]-$$b[1]} @e;

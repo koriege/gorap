@@ -558,7 +558,7 @@ at your option, any later version of Perl 5 you may have available.
 =head1 SEE ALSO
 
 The full description of all in-/outputs and parameters is maintained as PDF manual. 
-You can access it on L<www.rna.uni-jena.de/software.php>.
+You can access it at L<www.rna.uni-jena.de/software.php>.
 
 =cut
 

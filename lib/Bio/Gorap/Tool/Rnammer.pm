@@ -95,7 +95,7 @@ sub calc_features {
 
 	my $uid;
 	for (@out){
-		my @l = split /\s+/, $_;	
+		my @l = split /\s+/, $_;
 		for ($self->fastadb->chunk_backmap($l[0], $l[3], $l[4])){
 			($l[0],$l[3],$l[4]) = @{$_};			
 			my ($abbr, @header) = split /\./,$l[0];
