@@ -156,9 +156,9 @@ if ($parameter->has_outgroups){
 			close FA;			
 
 			my $ex = system('mafft --localpair --maxiterate 2000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
-			&ABORT unless $ex == 0;
+			&ABORT("mafft not found") unless $ex == 0;
 			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
-			&ABORT unless $ex == 0;
+			&ABORT("raxml not found") unless $ex == 0;
 
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
@@ -183,11 +183,11 @@ if ($parameter->has_outgroups){
 			close FA;
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
-			&ABORT unless $ex == 0;
+			&ABORT("mafft not found") unless $ex == 0;
 			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
-			&ABORT unless $ex == 0;
+			&ABORT("raxml not found") unless $ex == 0;
 			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
-			&ABORT unless $ex == 0;
+			&ABORT("raxml not found") unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
@@ -207,7 +207,7 @@ if ($parameter->has_outgroups){
 			close FA;
 			
 			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
-			&ABORT unless $ex == 0;
+			&ABORT("raxml not found") unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
@@ -294,7 +294,7 @@ sub run {
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
 		#print "align\n";
-		
+
 		my ($scorefile,$stk) = $stkdb->align(
 			$parameter->cfg->rf_rna,
 			$sequences,
@@ -413,6 +413,7 @@ sub get_phylo_features {
 }
 
 sub ABORT {
+	print $_[0]."\n";
 	unlink $_ for glob catfile($parameter->tmp,'*');
 	system("rm -rf ".$parameter->tmp);
 	exit 1;
