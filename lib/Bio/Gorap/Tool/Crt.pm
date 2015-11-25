@@ -164,7 +164,7 @@ sub calc_features {
 		}
 	}
 
-	my $uid;
+	my $uid=0;
 	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
 	for (@out){
 		my @l = split /\s+/, $_;				
@@ -172,8 +172,9 @@ sub calc_features {
 			($l[0],$l[3],$l[4]) = @{$_};
 			
 			my ($abbr, @header) = split /\./,$l[0];
-			$uid->{$l[0]}++;
-			$l[0] = $l[0].'.'.$uid->{$l[0]};
+			# $uid->{$l[0]}++;
+			$uid++;
+			$l[0] = $l[0].'.'.$uid;
 			my @gff3entry = @l;
 			$l[6] = '-';
 			my @seqs;

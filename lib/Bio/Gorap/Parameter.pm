@@ -78,13 +78,13 @@ has 'tmp' => (
 has 'skip_comp' => (
 	is => 'rw',
     isa => 'Bool',		
-    default => sub { 0 }
+    default => 0
 );
 
 has 'taxonomy' => (
 	is => 'rw',
     isa => 'Bool',		
-    default => sub { 1 }
+    default => 1
 );
 
 has 'kingdoms' => (
@@ -155,6 +155,12 @@ has 'ogabbreviations' => (
 	default => sub { [] }
 );
 
+has 'force' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 sub BUILD {
 	my ($self) = @_;
 	my $file='x';
@@ -222,6 +228,8 @@ sub BUILD {
 		}			
 		pod2usage(-exitval => 1, -verbose => 3) if $file eq 'x' && $help;
 	}
+
+	$self->force(1) if $force;
 
 	#store arguments into data structure
 	$self->threads($threads) if $threads;

@@ -74,7 +74,7 @@ sub _set_db {
 		
 		push @{$self->oheaderToDBsize} , [$oheader[0] , $residues];		
 		#transform into cpucount many chunks 		
-		do {push @{$self->chunks} , @{&chunk($self, $genome, $self->parameter->threads, 'g'.$i, \&_parse_id)} } if $self->do_chunks && $#{$self->parameter->queries} > -1;
+		do {push @{$self->chunks} , @{&chunk($self, $genome, $self->parameter->threads, 'g'.$i, \&_parse_id)} } if $self->do_chunks && ! $self->parameter->skip_comp;
 		@oheader=();
 	}
 }

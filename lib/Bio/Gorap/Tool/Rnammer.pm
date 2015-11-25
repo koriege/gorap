@@ -93,15 +93,16 @@ sub calc_features {
 		}
 	}
 
-	my $uid;
+	my $uid=0;
 	for (@out){
 		my @l = split /\s+/, $_;
 		for ($self->fastadb->chunk_backmap($l[0], $l[3], $l[4])){
 			($l[0],$l[3],$l[4]) = @{$_};			
 			my ($abbr, @header) = split /\./,$l[0];
 			$l[0] = join '.' , @header;
-			$uid->{$l[0]}++;
-			my @gff3entry = &{$self->tool_parser}($uid->{$l[0]},$abbr,$self->parameter->cfg->rf_rna,exists $self->parameter->kingdoms->{'fungi'} ? 'fungi' : $kingdom,\@l);
+			# $uid->{$l[0]}++;
+			$uid++;
+			my @gff3entry = &{$self->tool_parser}($uid,$abbr,$self->parameter->cfg->rf_rna,exists $self->parameter->kingdoms->{'fungi'} ? 'fungi' : $kingdom,\@l);
 			#due to overlapping chunks check for already annotated genes
 			my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry,$abbr);
 			next if $#{$existingFeatures} > -1;

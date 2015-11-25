@@ -197,19 +197,26 @@ sub get_feature {
 sub get_overlapping_features {
 	my ($self,$s,$abbr) = @_;
 	
+	my ($f,$id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes);
+
+	if (ref($s) eq 'ARRAY'){
 	#id consists of abbreviation.ori.g.inal.copy
-	my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand eq '+' ? 1 : -1);
+	} else {
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);
+		$f=$s;
+	}
 	my @tmp = split /\./, $id;
 	pop @tmp;
 	$id = join '.' , @tmp;
 
 	my @features;
-	my $f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand eq '+' ? 1 : -1);
 	for ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $source})){
 		next unless $_->strand == $f->strand;
 		@tmp = split /\./, $_->seq_id;
 		pop @tmp;
-		next unless join '.' , @tmp eq $id;
+		next unless join('.' , @tmp) eq $id;
 		my ($start, $stop, $strand) = $f->intersection($_);
 		push @features , $_ if $start && ($stop - $start) > 0;
 	}

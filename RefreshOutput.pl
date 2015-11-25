@@ -47,19 +47,63 @@ my $stkdb = Bio::Gorap::DB::STK->new(
 	parameter => $parameter
 );
 
+sub get_overlaps {
+	my ($f) = @_;
+		
+	my @tmp = split /\./, $f->seq_id;
+	my $abbr = $tmp[0];
+	pop @tmp;
+	my $id = join '.' , @tmp;
+
+	my @features;
+	for ($gffdb->db->{$abbr}->features()){		
+		next unless $_->display_name eq '!';
+		@tmp = split /\./, $_->seq_id;
+		pop @tmp;		
+		next unless join('.' , @tmp) eq $id;
+		my ($start, $stop, $strand) = $f->intersection($_);
+		push @features , $_ if $start && ($stop - $start) > 10;
+	}
+	
+	return @features;
+}
+
 for my $cfg (@{$parameter->queries}){
 	$parameter->set_cfg($cfg);
 	my $type = $parameter->cfg->rf_rna;
-	for (@{$gffdb->get_all_features($type)}){		
+	my $hold;
+	for my $f (@{$gffdb->get_all_features($type)}){
 		my $seq;
-		$seq = $stkdb->db->{$type}->get_seq_by_id($_->seq_id) if exists $stkdb->db->{$type};				
+		$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
 		if ($seq){
-			$gffdb->update_filter($_->seq_id,$type,'!');
+			if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+				my $higherscore;
+				for (&get_overlaps($f)){
+					if($_->type=~/_Afu/ || $_->type=~/_SNORD/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+						$higherscore = 1 if $_->score > $f->score;
+					}
+				}
+				if ($higherscore){
+					$gffdb->update_filter($f->seq_id,$type,'O');
+					$stkdb->db->{$type}->remove_seq($seq);
+				} else {
+					$hold=1;
+					$gffdb->update_filter($f->seq_id,$type,'!');	
+				}
+			} else {
+				$hold=1;
+				$gffdb->update_filter($f->seq_id,$type,'!');
+			}
 		} else {
-			$gffdb->update_filter($_->seq_id,$type,'X') if $_->display_name eq '!' && $_->primary_tag!~/SU_rRNA/;
+			$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
 		}		
 	}	
+	if ( ! $hold && exists $stkdb->db->{$type} && $parameter->force){
+		unlink $stkdb->idToPath->{$type};
+		delete $stkdb->db->{$type};
+	}
 }
+print "Storing changes\n";
 $stkdb->store;
 $gffdb->store_overlaps;
 
@@ -170,7 +214,7 @@ B<-b>, B<--bam>=F<FILE>,...
 -force, --force
 	
 	(optional)
-	avoid parameter restrictions for debugging and own implementations
+	remove alignment files of no query sequence hits remains
 
 =head1 AUTHOR
 

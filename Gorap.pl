@@ -155,7 +155,7 @@ if ($parameter->has_outgroups){
 			}			
 			close FA;			
 
-			my $ex = system('mafft --localpair --maxiterate 2000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
+			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
 			&ABORT("mafft not found") unless $ex == 0;
 			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
 			&ABORT("raxml not found") unless $ex == 0;
