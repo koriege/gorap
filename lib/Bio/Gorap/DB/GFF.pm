@@ -37,19 +37,21 @@ sub add_gff3_entry {
 		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
 		
 		my @overlaps = ('.');
-		my ($rpkm,$reads,$filter) = ('.','.','!');
+		my ($rpkm,$reads,$filter,$notes) = ('.','.','!','.');
 
 		if ($attributes && $#{$self->parameter->queries} > -1){
 			$attributes.=';';
 			$rpkm = $1 ? $1 : '.' if $attributes=~/RPKM=(.+?);/;
 			$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
-			$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;		
+			$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;
+			$notes = $1 ? $1 : '!' if $attributes=~/Notes=(.+?);/;
 			@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
 		} else {
 			$attributes.=';' if $attributes;
 			$rpkm = $1 ? $1 : '.' if $attributes && $attributes=~/RPKM=(.+?);/;
 			$reads = $1 ? $1 : '.' if $attributes && $attributes=~/Reads=(.+?);/;
 			$filter = $1 ? $1 : '!' if $attributes && $attributes=~/Filter=(.+?);/;		
+			$notes = $1 ? $1 : '!' if $attributes && $attributes=~/Notes=(.+?);/;
 			@overlaps = split /,/ , $1 if $attributes && $attributes=~/Overlaps=(.+?);/;
 			if ($self->parameter->has_bams){
 				my @id = split /\./ , $id;										
@@ -78,7 +80,8 @@ sub add_gff3_entry {
 	        	seq => $seq,
 	        	source => $source,
 	        	#search score
-	        	origscore => $score
+	        	origscore => $score,
+	        	notes => $notes
 	        }
 		);
 	}	
@@ -325,7 +328,7 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
+				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -359,7 +362,7 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name;
+				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -417,7 +420,7 @@ sub store_overlaps {
 			
 			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
 			$o='.' unless $o;			
-			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Overlaps='.$o;
+			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 
 			if ( $f1->display_name eq '!' ){
 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";				

@@ -40,7 +40,7 @@ sub trnascanse_parser {
 	} else {
 		$rfrna = 'RF00005_tRNA';
 	}
-	return ($abbr.'.'.${$s}[0].'.'.$uid , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.');
+	return ($abbr.'.'.${$s}[0].'.'.$uid , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Notes='.${$s}[4].'_'.${$s}[5]);
 }
 
 #gorap specific RNAmmer tabular output parser for Bio::DB::SeqFeature objects
