@@ -337,7 +337,7 @@ sub user_filter {
 			my @subseq = split // , lc(($stk->get_seq_by_id($f->seq_id))->subseq($sta,$sto));
 			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
 			$subseq =~ s/\W//g;	
-			if($f->type=~/_Afu/ || $f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+			if($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 				$presentu++ if $ci == 0 && join('',$subseq[1..$#subseq])=~/[uU]/;
 				if ($ci == 1){
 					$presentu++ if join('',$subseq)=~/[uU]/;
@@ -362,7 +362,7 @@ sub user_filter {
 					next;
 				}
 				#check covalent bp of uga(ug)a and (cu)ga
-				if ($f->type=~/_Afu/ || $f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+				if ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 					if ($ci==0){						
 						push @uga_ug , $subseq[$i] if $j==3 || $j==4;							
 					} elsif ($ci==1){

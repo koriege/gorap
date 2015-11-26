@@ -48,9 +48,22 @@ my $parameter = Bio::Gorap::Parameter->new(
 	commandline => 1
 );
 
-my $stkdb = Bio::Gorap::DB::STK->new(
-	parameter => $parameter
-);
+my $taxdb;
+my $stkdb;
+if ($parameter->taxonomy){
+	$taxdb = Bio::Gorap::DB::Taxonomy->new(
+		parameter => $parameter
+	);
+	$taxdb->findRelatedSpecies;
+	$stkdb = Bio::Gorap::DB::STK->new(
+		parameter => $parameter,
+		taxonomy => $taxdb
+	);
+} else {
+	$stkdb = Bio::Gorap::DB::STK->new(
+		parameter => $parameter
+	);
+}
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
@@ -66,13 +79,7 @@ my $fastadb = Bio::Gorap::DB::Fasta->new(
 	parameter => $parameter
 );
 
-my $taxdb;
-if ($parameter->taxonomy){
-	$taxdb = Bio::Gorap::DB::Taxonomy->new(
-		parameter => $parameter
-	);
-	$taxdb->findRelatedSpecies;
-}
+
 
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
@@ -310,13 +317,8 @@ sub run {
 		next if $#{$features} == -1;
 		#print "bgjob\n";
 		if ($thcalc){
-			if ($parameter->taxonomy){
-				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload),$taxdb->relatedRankIDsToLineage,$taxdb->relatedSpeciesIDsToLineage);	
-				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});	
-			} else {
 				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));				
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
-			}
 		} else {
 			$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
 		}

@@ -6,6 +6,7 @@ use File::Basename;
 use File::Spec::Functions;
 use Bio::Gorap::Functions::STK;
 use IPC::Cmd qw(run);
+use List::Util qw(any);
 use POSIX;
 
 #uses the gorap parameter object to initialize the 
@@ -15,6 +16,12 @@ has 'parameter' => (
 	isa => 'Bio::Gorap::Parameter',
 	required => 1 ,
 	trigger => \&_set_db 
+);
+
+has 'taxonomy' => (
+	is => 'ro',
+	isa => 'Bio::Gorap::DB::Taxonomy',
+	predicate => 'has_taxonomy'	
 );
 
 #genome file based hashmap of Bio::Align::AlignI databases
@@ -205,64 +212,89 @@ sub align {
 }
 
 sub calculate_threshold {
-	my ($self,$cpus,$relatedRankIDsToLineage,$relatedSpeciesIDsToLineage) = @_;
-	$relatedRankIDsToLineage = {} unless $relatedRankIDsToLineage;
-	$relatedSpeciesIDsToLineage = {} unless $relatedSpeciesIDsToLineage;	
+	# my ($self,$cpus,$relatedRankIDsToLineage,$relatedSpeciesIDsToLineage) = @_;
+	my ($self,$cpus) = @_;
+		
 
 	my $threshold=999999;	
 	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
-		#check taxonomy to create own bitscore, else use Rfam bitscore threshold
-		if (scalar keys %$relatedSpeciesIDsToLineage > 0 || scalar keys %$relatedRankIDsToLineage > 0){
-			
-			my @sequences;
+		if ($self->has_taxonomy && ($self->taxonomy->rankID || $self->taxonomy->speciesID) ){ #taxonomy filter is enabled
+
 			my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
-
-			my ($inRank,$inSpecies);	
+			my $ancestors;
+			my $seqc=0;
 			while ( my $s = $fasta->next_seq() ) {				
-				if ($s->id=~/^(\d+)/){
-					push @{$inSpecies} , $s if exists $relatedSpeciesIDsToLineage->{$1};
-					push @{$inRank} , $s if exists $relatedRankIDsToLineage->{$1};
+				$seqc++;
+				if ($s->id=~/^(\d+)/){					
+					$ancestors->{${$self->taxonomy->getLineageNodes($1)}[-1]->id}++; 
 				}
 			}
-
-			my ($scorefile,$taxstk);
-			if ($#{$inSpecies} > -1 ){
-				($scorefile,$taxstk) = &align(
-					$self,
-					$self->parameter->cfg->rf_rna.'.tax',
-					$inSpecies,
-					$cpus,
-					$self->parameter->cfg->cm,
-					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')					
-				);
-			}elsif($#{$inRank} > -1){
-				($scorefile,$taxstk) = &align(
-					$self,
-					$self->parameter->cfg->rf_rna.'.tax',
-					$inRank,
-					$cpus,
-					$self->parameter->cfg->cm,
-					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')
-				);
-			}
-			
-			if ($scorefile){
-				open S , '<'.$scorefile or die $!;
-				while(<S>){								
-					chomp $_ ;
-					$_ =~ s/^\s+|\s+$//g;
-					next if $_=~/^#/;
-					my @l = split /\s+/ , $_;					
-					$threshold = $l[6] if $l[6] < $threshold;
+			#if a third of seed sequneces is one species from an other kingdom, don't trust in any hit
+			if (defined $ancestors && any { $ancestors->{$_} > $seqc/3 } keys %$ancestors){
+				my $kingdom;
+				for (keys %$ancestors){						
+					$kingdom->{${$self->taxonomy->getLineageNodes($_)}[2]->id} = 1 if $ancestors->{$_} >= $seqc/3;
 				}
-				close S;
+				if(exists $kingdom->{${$self->taxonomy->getLineageNodes($self->taxonomy->rankID)}[2]->id} || exists $kingdom->{${$self->taxonomy->getLineageNodes($self->taxonomy->speciesID)}[2]->id}){
+					return ($threshold,0);
+				}
+			}
+		
+			#check taxonomy to create own bitscore, else use Rfam bitscore threshold	
 
-				$threshold = $threshold * 0.8 > $self->parameter->cfg->bitscore ? floor($threshold * 0.7) : floor($threshold * 0.8);
-				#returns threshold and nonTaxThreshold
-				return ($threshold,floor($self->parameter->cfg->bitscore * 0.8));			
+			if (scalar keys %{$self->taxonomy->relatedSpeciesIDsToLineage} > 0 || scalar keys %{$self->taxonomy->relatedRankIDsToLineage} > 0){
+							
+				my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+
+				my ($inRank,$inSpecies);	
+				while ( my $s = $fasta->next_seq() ) {				
+					if ($s->id=~/^(\d+)/){
+						push @{$inSpecies} , $s if exists $self->taxonomy->relatedSpeciesIDsToLineage->{$1};
+						push @{$inRank} , $s if exists $self->taxonomy->relatedRankIDsToLineage->{$1};
+					}
+				}
+
+				my ($scorefile,$taxstk);
+				if ($#{$inSpecies} > -1 ){
+					($scorefile,$taxstk) = &align(
+						$self,
+						$self->parameter->cfg->rf_rna.'.tax',
+						$inSpecies,
+						$cpus,
+						$self->parameter->cfg->cm,
+						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')					
+					);
+				}elsif($#{$inRank} > -1){
+					($scorefile,$taxstk) = &align(
+						$self,
+						$self->parameter->cfg->rf_rna.'.tax',
+						$inRank,
+						$cpus,
+						$self->parameter->cfg->cm,
+						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')
+					);
+				}
+				
+				if ($scorefile){
+					open S , '<'.$scorefile or die $!;
+					while(<S>){								
+						chomp $_ ;
+						$_ =~ s/^\s+|\s+$//g;
+						next if $_=~/^#/;
+						my @l = split /\s+/ , $_;					
+						$threshold = $l[6] if $l[6] < $threshold;
+					}
+					close S;
+
+					$threshold = $threshold * 0.8 > $self->parameter->cfg->bitscore ? floor($threshold * 0.7) : floor($threshold * 0.8);
+					#returns threshold and nonTaxThreshold
+					return ($threshold,floor($self->parameter->cfg->bitscore * 0.8));			
+				} else {
+					$threshold = floor($self->parameter->cfg->bitscore * 0.8) ;
+					return ($threshold,0);
+				}
 			} else {
-				$threshold = floor($self->parameter->cfg->bitscore * 0.8) ;
-				return ($threshold,0);
+				$threshold = floor($self->parameter->cfg->bitscore * 0.8);	
 			}
 		} else {
 			$threshold = floor($self->parameter->cfg->bitscore * 0.8);

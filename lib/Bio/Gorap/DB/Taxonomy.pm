@@ -107,7 +107,7 @@ sub _set_db {
 }
 
 #from taxid or Bio::Taxon
-sub getLineageNodes {
+sub getLineageNodes { #does not include node of it self
 	my ($self , $taxid) = @_;
 
 	my $taxon;	
