@@ -229,8 +229,9 @@ sub calculate_threshold {
 					$ancestors->{${$self->taxonomy->getLineageNodes($1)}[-1]->id}++; 
 				}
 			}
+			$seqc = 6 if $seqc < 6 && $seqc > 1; #at least 2 sequences of same species;
 			#if a third of seed sequneces is one species from an other kingdom, don't trust in any hit
-			if (defined $ancestors && any { $ancestors->{$_} > $seqc/3 } keys %$ancestors){
+			if (defined $ancestors && any { $ancestors->{$_} >= $seqc/3 } keys %$ancestors){				
 				my $kingdom;
 				for (keys %$ancestors){						
 					$kingdom->{${$self->taxonomy->getLineageNodes($_)}[2]->id} = 1 if $ancestors->{$_} >= $seqc/3;
