@@ -13,7 +13,7 @@ sub score_filter {
 	my $write;
 	my @update;
 
-	if ($nonTaxThreshold){		
+	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
 		my $tmpfeatures;
 		for (keys %{$features}){		
 			my $f = $features->{$_};
@@ -24,7 +24,7 @@ sub score_filter {
 			$tmpfeatures->{$abbr}++;
 
 			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
-				if (($f->get_tag_values('origscore'))[0] < $threshold){
+				if (($f->get_tag_values('origscore'))[0] < $threshold){ #check for hits witch cmsearch score - usually higher than cmalign scores
 					$tmpfeatures->{$abbr}--;
 				}
 			} else {
@@ -34,23 +34,25 @@ sub score_filter {
 			}
 		}
 
+		$threshold = $threshold-$threshold*0.1;
+
 		for (keys %{$features}){
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 
 			my @id = split /\./ , $f->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			if ($tmpfeatures->{$abbr}==0){
+			if ($tmpfeatures->{$abbr}==0){ #if hits, but not in this species, lower threshold again 
 				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
 					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (($f->get_tag_values('origscore'))[0] < $nonTaxThreshold){
+					if (($f->get_tag_values('origscore'))[0] < $nonTaxThreshold && ($f->get_tag_values('origscore'))[0] < $threshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
 				} else {
-					if ($f->score < $nonTaxThreshold){
+					if ($f->score < $nonTaxThreshold && $f->score < $threshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
