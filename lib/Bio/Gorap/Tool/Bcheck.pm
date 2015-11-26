@@ -101,7 +101,7 @@ sub calc_features {
 		}
 	}
 
-	my $uid=0;
+	my $uid;
 	for (@out){
 		my @l = split /\s+/, $_;				
 
@@ -111,9 +111,9 @@ sub calc_features {
 			($l[0],$l[3],$l[4]) = @{$_};							
 
 			my ($abbr, @header) = split /\./,$l[0];
-			#$uid->{$l[0]}++;
-			$uid=0;
-			$l[0] .='.'.$uid;
+			$uid->{$abbr}++;
+			
+			$l[0] .='.'.$uid->{$abbr};
 			
 			my @gff3entry = @l;
 			#due to overlapping chunks check for already annotated genes

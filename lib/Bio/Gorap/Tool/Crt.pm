@@ -164,7 +164,7 @@ sub calc_features {
 		}
 	}
 
-	my $uid=0;
+	my $uid;
 	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
 	for (@out){
 		my @l = split /\s+/, $_;				
@@ -172,9 +172,9 @@ sub calc_features {
 			($l[0],$l[3],$l[4]) = @{$_};
 			
 			my ($abbr, @header) = split /\./,$l[0];
-			# $uid->{$l[0]}++;
-			$uid++;
-			$l[0] = $l[0].'.'.$uid;
+			$uid->{$abbr}++;
+			
+			$l[0] = $l[0].'.'.$uid->{$abbr};
 			my @gff3entry = @l;
 			$l[6] = '-';
 			my @seqs;
@@ -193,7 +193,7 @@ sub calc_features {
 			for my $rf_rna ( @related_rf_rna){
 				my $cm = catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.cm');						
 				for my $i ( 0..1 ){
-					my $seq = $seqs[$i];							
+					my $seq = $seqs[$i];
 					
 					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "printf \"\>foo\\n$seq\" | cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu ".$self->threads." $cm -", verbose => 0 );
 			
