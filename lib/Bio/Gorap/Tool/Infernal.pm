@@ -30,7 +30,8 @@ sub calc_features {
 			next if $#l < 11;			
 			
 			#tool_parser is set to infernal_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser			
-			my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);						
+			my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);
+			next if $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/3;
 			my $seq = $self->fastadb->get_gff3seq(\@gff3entry);			
 			$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr);
 		}

@@ -62,7 +62,8 @@ sub calc_features {
 				$add = 0 if $l[3] < $_->stop && $l[4] > $_->start;								
 			}		
 			if ($add){
-				my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);										
+				my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);
+				next if $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/3;
 				my $seq = $self->fastadb->get_gff3seq(\@gff3entry);	
 				$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr) if $add;
 			}
