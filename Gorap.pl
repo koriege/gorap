@@ -317,11 +317,12 @@ sub run {
 		next if $#{$features} == -1;
 		#print "bgjob\n";
 		if ($thcalc){
-				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
-				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
-		} #else {
-			#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
-		#}
+			my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
+			$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
+		} else {
+			#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
+			$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+		}
 		
 		#store annotations already in the database in case of errors		
 		while($#{$thrListener->finished}>-1){
