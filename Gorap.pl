@@ -317,16 +317,17 @@ sub run {
 		next if $#{$features} == -1;
 		#print "bgjob\n";
 		if ($thcalc){
-				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));				
+				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
-		} else {
-			$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
-		}
+		} #else {
+			#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});			
+		#}
 		
-		#store annotations already in the database in case of errors
-		$gffdb->store($parameter->cfg->rf_rna);
-		#print "eval\n";
-		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
+		#store annotations already in the database in case of errors		
+		while($#{$thrListener->finished}>-1){
+			$gffdb->store(shift @{$thrListener->finished});
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
+		}				
 	}
 }
 
@@ -385,11 +386,11 @@ sub get_phylo_features {
 		next if scalar keys %$speciesFeature == 0;		
 		
 		my $l = length($speciesSTKseq->{(keys %$speciesSTKseq)[0]});
-		for(@$abbres){
-			$rnomeToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
-			if(exists $speciesSTKseq->{$_}){					
+		for(@$abbres){			
+			if(exists $speciesSTKseq->{$_}){
+				$rnomeToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 				$stkFeatures->{$_} .= $speciesSTKseq->{$_};
-			} else {			
+			} else {				
 				$stkFeatures->{$_} .= join('',('?') x $l);
 			}
 		}

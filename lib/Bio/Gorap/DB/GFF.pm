@@ -44,14 +44,14 @@ sub add_gff3_entry {
 			$rpkm = $1 ? $1 : '.' if $attributes=~/RPKM=(.+?);/;
 			$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
 			$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;
-			$notes = $1 ? $1 : '!' if $attributes=~/Notes=(.+?);/;
+			$notes = $1 ? $1 : '!' if $attributes=~/Notes?=(.+?);/;
 			@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
 		} else {
 			$attributes.=';' if $attributes;
 			$rpkm = $1 ? $1 : '.' if $attributes && $attributes=~/RPKM=(.+?);/;
 			$reads = $1 ? $1 : '.' if $attributes && $attributes=~/Reads=(.+?);/;
 			$filter = $1 ? $1 : '!' if $attributes && $attributes=~/Filter=(.+?);/;		
-			$notes = $1 ? $1 : '!' if $attributes && $attributes=~/Notes=(.+?);/;
+			$notes = $1 ? $1 : '!' if $attributes && $attributes=~/Notes?=(.+?);/;
 			@overlaps = split /,/ , $1 if $attributes && $attributes=~/Overlaps=(.+?);/;
 			if ($self->parameter->has_bams){
 				my @id = split /\./ , $id;										
@@ -92,13 +92,13 @@ sub update_filter {
 	my ($self,$id,$type,$filter) = @_;
 
 	my $abbr = (split /\./ , $id)[0];
-
 	return unless exists $self->db->{$abbr};	
 	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type );	 
-
 	return unless $feature;
 	$feature->display_name($filter);
 	$feature->update;
+
+	return $type;
 	# $self->db->{$abbr}->store($feature);
 }
 
@@ -265,7 +265,8 @@ sub add_seq {
 sub _read {
 	my ($self) = @_;
 
-	print "Reading GFF files from - !!!do not kill GORAP here!!!".$self->parameter->output."\n" if $self->parameter->verbose;
+	print "Reading GFF files from".$self->parameter->output."\n" if $self->parameter->verbose;
+	print "!!!do not kill GORAP here!!!\n";
 	for my $file (glob catfile($self->parameter->output,'annotations','*.fa')){		
 		my $headerMapSeq={};		
 		open FA , '<'.$file or die $!;
@@ -328,7 +329,7 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0];
+				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -362,7 +363,7 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0];
+				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -420,7 +421,7 @@ sub store_overlaps {
 			
 			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
 			$o='.' unless $o;			
-			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Notes='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
+			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 
 			if ( $f1->display_name eq '!' ){
 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";				

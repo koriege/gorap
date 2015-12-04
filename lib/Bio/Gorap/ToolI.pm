@@ -51,7 +51,7 @@ sub BUILD {
 	for (0..$#{$self->parameter->genomes}){		
 		my $genome = ${$self->parameter->genomes}[$_];
 		my $abbr = ${$self->parameter->abbreviations}[$_];
-		$abbres->{$abbr}=1;
+		$abbres->{$abbr}=1; #removes all old entries, i.e. String don't start with GORAP+toolname
 		for ($self->gffdb->db->{$abbr}->features(-primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => $self->tool})){												
 			$self->gffdb->db->{$abbr}->delete($_);			
 		}		

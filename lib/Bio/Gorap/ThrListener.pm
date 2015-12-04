@@ -28,13 +28,19 @@ has 'select' => (
 	is => 'ro',
     isa => 'IO::Select',
     init_arg => undef,
-	default => sub { IO::Select->new },	
+	default => sub { IO::Select->new }	
 );
 
 has 'storage_saver' => (
 	is => 'ro',
 	isa => 'CodeRef',
 	required => 1
+);
+
+has 'finished' => (
+	is => 'rw',
+	isa => 'ArrayRef',
+	default => sub {[]}
 );
 
 #returns running background threads
@@ -63,7 +69,7 @@ sub push_obj {
 		waitpid($_, &WNOHANG);		
 		if (WIFEXITED($?)){			
 			delete $self->thrList->{$_};	
-			&_read($self);							
+			push @{$self->finished} , &_read($self);							
 		} 
 	}
 
@@ -72,22 +78,24 @@ sub push_obj {
 		my ($key) = keys %{$self->thrList};
 		waitpid($key,0);	
 		delete $self->thrList->{$key};			
-		&_read($self);
+		push @{$self->finished} , &_read($self);
 	}	
 }
 
 #prints final results from IPC into a datastructure by code referenced subroutine
 sub _read {	
 	my ($self) = @_;
-	
+	my $type;
 	while( my @responses = $self->select->can_read(0) ){
 		for my $pipe (@responses){			
 			while(<$pipe>){	
-				&{$self->storage_saver}($self->storage,split(/\s+/,$_));				
+				$type = &{$self->storage_saver}($self->storage,split(/\s+/,$_));				
 			}			
 			$self->select->remove($pipe->fileno);
 		}
 	}
+
+	return $type;
 }
 
 sub calc_background {

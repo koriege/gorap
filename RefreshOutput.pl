@@ -76,10 +76,15 @@ for my $cfg (@{$parameter->queries}){
 		my $seq;
 		$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
 		if ($seq){
-			if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNORD/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+          if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+				if($f->score <15){
+					$gffdb->update_filter($f->seq_id,$type,'B');
+					$stkdb->db->{$type}->remove_seq($seq);
+					next;
+				}
 				my $higherscore;
 				for (&get_overlaps($f)){
-					if($_->type=~/_Afu/ || $_->type=~/_SNORD/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+					if($_->type=~/_Afu/ || $_->type=~/_SNOR.?D/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 						$higherscore = 1 if $_->score > $f->score;
 					}
 				}
@@ -215,6 +220,7 @@ B<-b>, B<--bam>=F<FILE>,...
 	
 	(optional)
 	remove alignment files of no query sequence hits remains
+	remove overlapping snoRNA annotations
 
 =head1 AUTHOR
 

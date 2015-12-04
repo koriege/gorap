@@ -79,12 +79,12 @@ sub score_filter {
 			}
 		}
 
-	} else {
+	} else { 
 		for (keys %{$features}){		
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 			
-			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
+			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
 				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
 				if (($f->get_tag_values('origscore'))[0] < $threshold){
 					delete $features->{$_};
@@ -338,6 +338,13 @@ sub user_filter {
 			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
 			$subseq =~ s/\W//g;	
 			if($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+				if ($f->score ne '.' && $f->score < 15){
+					delete $features->{$k};
+					$write = 1;
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					push @update , $f->seq_id.' '.$f->primary_tag.' B';
+					last;
+				}
 				$presentu++ if $ci == 0 && join('',$subseq[1..$#subseq])=~/[uU]/;
 				if ($ci == 1){
 					$presentu++ if join('',$subseq)=~/[uU]/;

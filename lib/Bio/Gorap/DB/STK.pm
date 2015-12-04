@@ -225,18 +225,27 @@ sub calculate_threshold {
 			my $seqc=0;
 			while ( my $s = $fasta->next_seq() ) {				
 				$seqc++;
-				if ($s->id=~/^(\d+)/){					
-					$ancestors->{${$self->taxonomy->getLineageNodes($1)}[-1]->id}++; 
+				if ($s->id=~/^(\d+)/){
+					my @nodes =  @{$self->taxonomy->getLineageNodes($1)};
+					$ancestors->{$nodes[-1]->id}++ if $#nodes > -1;
 				}
 			}
 			$seqc = 6 if $seqc < 6 && $seqc > 1; #at least 2 sequences of same species;
 			#if a third of seed sequneces is one species from an other kingdom, don't trust in any hit
 			if (defined $ancestors && any { $ancestors->{$_} >= $seqc/3 } keys %$ancestors){				
 				my $kingdom;
-				for (keys %$ancestors){						
-					$kingdom->{${$self->taxonomy->getLineageNodes($_)}[2]->id} = 1 if $ancestors->{$_} >= $seqc/3;
+				for (keys %$ancestors){
+					next if $ancestors->{$_} < $seqc/3;
+					my @nodes =  @{$self->taxonomy->getLineageNodes($_)};
+					$kingdom->{$#nodes > 1 ? $nodes[2]->id : 'unclassified'} = 1 
 				}
-				if(exists $kingdom->{${$self->taxonomy->getLineageNodes($self->taxonomy->rankID)}[2]->id} || exists $kingdom->{${$self->taxonomy->getLineageNodes($self->taxonomy->speciesID)}[2]->id}){
+				my @rankids;
+				push @rankids , $_->id for @{$self->taxonomy->getLineageNodes($self->taxonomy->rankID)};
+				push @rankids , $self->taxonomy->rankID;
+				my @speciesids;
+				push @speciesids , $_->id for @{$self->taxonomy->getLineageNodes($self->taxonomy->speciesID)};
+				push @speciesids , $self->taxonomy->speciesID;				
+				if( ($#rankids > 1 && exists $kingdom->{$rankids[2]}) || ($#speciesids > 1 && exists $kingdom->{$speciesids[2]})){
 					return ($threshold,0);
 				}
 			}
