@@ -76,7 +76,7 @@ sub store {
 sub store_stk {
 	my ($self,$stk, $file, $taxdb) = @_;
 
-	$stk = $taxdb->sort_stk($stk) if $taxdb;
+	$stk = $taxdb->sort_stk($stk) if $taxdb && $self->parameter->sort;
 	(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$file, -verbose => -1))->write_aln($stk);
 }
 

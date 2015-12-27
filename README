@@ -37,7 +37,7 @@ export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
 
 1.2 INSTALLATION
 
-# Download GORAP library
+# Download latest GORAP library
 wget https://github.com/rna-hta-jena/gorap/archive/master.zip
 # Extract library
 unzip master.zip
@@ -45,7 +45,7 @@ unzip master.zip
 cd gorap-master
 # Download and local installation of missing software into $GORAP
 bash install_tools.sh
-# Download latest databases
+# Download corresponding databases
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz
 # Extract databases into $GORAP
 tar -xzf data-12.tar.gz -C $GORAP/
@@ -54,13 +54,9 @@ export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
 ./cpanm -l $GORAPLIB .
 # Mute BioPerl warnings
-sed -i 's/%-4s%-22s%-3s%s/%-4s%-100s%-3s%s/g' $GORAPLIB/lib/perl5/Bio/AlignIO/stockholm.pm
-sed -i '/contains no residues/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
-sed -i '/Sequence excluded/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
-sed -i '/Replacing one sequence/d' $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm
+bash nowarnings.sh
 # Copy all scripts to the $GORAP directory
 cp *.pl $GORAP
-
 # you are done - go rapping!
 
 
