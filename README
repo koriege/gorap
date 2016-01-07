@@ -33,29 +33,26 @@ export GORAPLIB=$HOME/perl5
 
 # Now tell Perl where to find the GORAP and additional modules by typing
 export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
-
+# Also set path to necessary and always downloaded Samtools software
+export SAMTOOLS=$GORAP/samtools-0.1.19
 
 1.2 INSTALLATION
 
-# Download latest GORAP library
+# Download lates GORAP library, extract and enter directory
 wget https://github.com/rna-hta-jena/gorap/archive/master.zip
-# Extract library
 unzip master.zip
-# Enter extracted directory
 cd gorap-master
 # Download and local installation of missing software into $GORAP
 bash install_tools.sh
-# Download corresponding databases
+
+# Download corresponding databases and extract them
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz
-# Extract databases into $GORAP
 tar -xzf data-12.tar.gz -C $GORAP/
-# Set path to necessary and always downloaded Samtools software
-export SAMTOOLS=$GORAP/samtools-0.1.19
-# Installation of GORAP and latest required Perl modules
+# Installation of GORAP and latest required Perl modules (can be very time consuming if you are on a very old machine)
 ./cpanm -l $GORAPLIB .
-# Mute BioPerl warnings
-bash nowarnings.sh
-# Copy all scripts to the $GORAP directory
+# To make Gorap convenient to use, Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
+bash nowarnings.sh on
+# Copy all GORAP scripts to the $GORAP directory
 cp *.pl $GORAP
 # you are done - go rapping!
 
