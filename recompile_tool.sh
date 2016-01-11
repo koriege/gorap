@@ -48,7 +48,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 
 		if [[ $cpu -eq 0 ]]; then
 			cd $GORAP/$tool
-			make clean
+			make clean -f Makefile.SSE3.PTHREADS.gcc
 			make -f Makefile.SSE3.PTHREADS.gcc
 			if [[ $? -gt 0 ]]; then				
 				exit 1
@@ -57,7 +57,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			mv raxmlHPC-PTHREADS-SSE3 bin/raxml 						
 		else
 			cd $GORAP/$tool 
-			make clean
+			make clean -f Makefile.AVX.PTHREADS.gcc 
 			make -f Makefile.AVX.PTHREADS.gcc 
 			if [[ $? -gt 0 ]]; then				
 				exit 1
@@ -248,9 +248,8 @@ tool='ncbi-blast-2.2.27+'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then		
 		cd $GORAP/$tool
-		./configure --without-debug --with-strip --with-mt --with-build-root=`pwd`
-		cd $GORAP/$tool/src
-		make clean
+		./configure --without-debug --with-strip --with-mt --with-build-root=`pwd` --without-caution
+		cd $GORAP/$tool/src		
 		make
 		if [[ $? -gt 0 ]]; then				
 			exit 1

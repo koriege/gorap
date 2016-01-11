@@ -144,7 +144,7 @@ perl RefreshOutput.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
 # 3) run Gorap with same parameters, but -q 0 and select <FASTA> files as outgroups
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -o <GORAPOUT> -q 0
 
-# example with RPKM=FPKM (even for paired end reads) calculation from sorted and indexed BAM files
+# example with FPKM (even for paired end reads) calculation from sorted and indexed BAM files
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> 
 # hint: to add FPKM values to already existing Gorap results, use -q 0
 perl Gorap.pl -i <FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -q 0
