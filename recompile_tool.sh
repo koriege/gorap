@@ -16,19 +16,23 @@ if [[ $retool = '' ]]; then
 fi
 
 pwd=$PWD
-mkdir -p  $GORAP
+bit=$(uname -m | awk '{if ($0 == "i686"){print "32-"}else{print ""}}')
+if [[ $OSTYPE == darwin* ]]; then 
+	bit='mac-'
+fi
+mkdir -p $GORAP
 
 download () {
 	if [[ ! -d $GORAP/$tool ]] && [[ $ex -eq 0 ]]; then
 		echo 'Downloading '$tool	
-		wget -T 10 -N www.rna.uni-jena.de/supplements/gorap/$tool.tar.gz
+		wget -T 10 -N www.rna.uni-jena.de/supplements/gorap/$bit$tool.tar.gz
 		if [[ $? -gt 0 ]]; then
-			echo $tool' installation failed'
+			echo $tool' download failed'
 			exit 1
 		fi 
 		echo 'Extracting '$tool
-		tar -xzf $tool.tar.gz -C $GORAP
-		rm $tool.tar.gz
+		tar -xzf $bit$tool.tar.gz -C $GORAP
+		rm $bit$tool.tar.gz
 	fi
 }
 
@@ -44,6 +48,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 
 		if [[ $cpu -eq 0 ]]; then
 			cd $GORAP/$tool
+			make clean
 			make -f Makefile.SSE3.PTHREADS.gcc
 			if [[ $? -gt 0 ]]; then				
 				exit 1
@@ -52,6 +57,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			mv raxmlHPC-PTHREADS-SSE3 bin/raxml 						
 		else
 			cd $GORAP/$tool 
+			make clean
 			make -f Makefile.AVX.PTHREADS.gcc 
 			if [[ $? -gt 0 ]]; then				
 				exit 1
@@ -69,6 +75,7 @@ tool='mafft-7.017-with-extensions'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool/core
+		make clean
 		make
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -80,11 +87,13 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='infernal-1.1rc2'
 infernal=$tool
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool
+		make clean
 		./configure --prefix=`pwd`
 		make
 		if [[ $? -gt 0 ]]; then				
@@ -105,6 +114,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			cd $GORAP/$tool
 			mkdir -p build
 			cd build
+						
 			../configure --prefix=$GORAP/$infernal/easel
 			make
 			if [[ $? -gt 0 ]]; then				
@@ -114,8 +124,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			make clean
 
 			cd $GORAP/$infernal/easel
-			cp -r include/* .
-			
+			cp -r include/* .			
 			./configure --prefix=$GORAP/$infernal
 			sed -i '/^CFLAGS/ c\CFLAGS = -O3 -fomit-frame-pointer -fstrict-aliasing -pthread -fPIC -I. -I..' Makefile							
 			make
@@ -140,6 +149,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='esl-alimerge'
 infernal='infernal-1.1rc2'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
@@ -157,6 +167,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			cd $GORAP/$infernal
 			mkdir -p build
 			cd build
+			make clean
 			../configure --prefix=$GORAP/$infernal/easel
 			make
 			if [[ $? -gt 0 ]]; then				
@@ -166,8 +177,8 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			make clean
 
 			cd $GORAP/$infernal/easel
-			cp -r include/* .
-			
+			make clean
+			cp -r include/* .			
 			./configure --prefix=$GORAP/$infernal
 			sed -i '/^CFLAGS/ c\CFLAGS = -O3 -fomit-frame-pointer -fstrict-aliasing -pthread -fPIC -I. -I..' Makefile							
 			make
@@ -178,6 +189,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			make clean
 		else
 			cd $GORAP/$infernal/easel
+			make clean
 			./configure --prefix=$GORAP/$infernal
 			make 
 			if [[ $? -gt 0 ]]; then				
@@ -191,10 +203,12 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='infernal-1.0'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then		
 		cd $GORAP/$tool
+		make clean
 		./configure --prefix=`pwd` 
 		make
 		if [[ $? -gt 0 ]]; then				
@@ -207,10 +221,17 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='rnabob-2.2'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then			
 		cd $GORAP/$tool
+		mkdir -p bin
+		mkdir -p man
+		mkdir -p man/man1
+		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile
+		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
+		make clean
 		make
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -222,12 +243,14 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='ncbi-blast-2.2.27+'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then		
 		cd $GORAP/$tool
 		./configure --without-debug --with-strip --with-mt --with-build-root=`pwd`
 		cd $GORAP/$tool/src
+		make clean
 		make
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -242,10 +265,20 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='tRNAscan-SE-1.3.1' 
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d "$GORAP/$tool" ]]; then
 		cd $GORAP/$tool
+		mkdir -p bin
+		mkdir -p man
+		mkdir -p man/man1
+		mkdir -p lib
+		mkdir -p lib/tRNAscan-SE
+		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile 
+		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
+		sed -i '/^LIBDIR/ c\LIBDIR = $(CURDIR)/lib/tRNAscan-SE' Makefile
+		make clean
 		make
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -257,6 +290,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='samtools-0.1.19'
 samtool=$tool
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
@@ -266,6 +300,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		download				
 		
 		cd $GORAP/$tool 
+		make clean
 		./configure --prefix=$GORAP/$samtool				
 		make
 		if [[ $? -gt 0 ]]; then				
@@ -279,6 +314,7 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		download
 		
 		cd $GORAP/$tool  
+		make clean
 		./configure --prefix=$GORAP/$samtool
 		make
 		if [[ $? -gt 0 ]]; then				
@@ -287,10 +323,12 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make install
 		make clean
 
-		cd $GORAP/$samtool		
+		cd $GORAP/$samtool
+		sed -i '/^CFLAGS/ c\CFLAGS = -g -Wall -O2 -fPIC -I. -I.. -I./include -I../include -L. -L.. -L./lib -L../lib #-m64 #-arch ppc' Makefile
+		make clean
 		cp -r include/* .
         cp -r lib/* .                
-		make 2>> $pwd/install.log >> $pwd/install.log
+		make 
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi                       
@@ -301,10 +339,12 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	fi
 fi
 
+cd $pwd
 tool='hmmer-2.3.2'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then	
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool
+		make clean
 		./configure --enable-threads --enable-lfs --prefix=`pwd` 
 		make
 		if [[ $? -gt 0 ]]; then				
