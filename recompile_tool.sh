@@ -244,21 +244,28 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 fi
 
 cd $pwd
-tool='ncbi-blast-2.2.27+'
+tool='ncbi-blast-2.2.30+'
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
-	if [[ -d $GORAP/$tool ]]; then		
-		cd $GORAP/$tool
-		./configure --without-debug --with-strip --with-mt --with-build-root=`pwd` --without-caution
-		cd $GORAP/$tool/src		
-		make
-		if [[ $? -gt 0 ]]; then				
+	if [[ -d $GORAP/$tool ]]; then
+		bin/blastn -h 
+		if [[ $? -gt 0 ]]; then		
+			echo 'GORAP is unable to install Blast for you.'
+			echo 'Please install Blast by yourself, then try again'
+			echo 'See: https://www.ncbi.nlm.nih.gov/books/NBK279671/'
 			exit 1
 		fi
-		make all_r
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
-		make clean
+		# cd $GORAP/$tool
+		# ./configure --without-debug --with-strip --with-mt --with-build-root=`pwd` --without-caution
+		# cd $GORAP/$tool/src		
+		# make
+		# if [[ $? -gt 0 ]]; then				
+		# 	exit 1
+		# fi
+		# make all_r
+		# if [[ $? -gt 0 ]]; then				
+		# 	exit 1
+		# fi
+		# make clean
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi

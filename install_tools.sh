@@ -176,7 +176,7 @@ if [[ $ex -eq 0 ]]; then
 fi
 
 cd $pwd
-tool='ncbi-blast-2.2.27+'
+tool='ncbi-blast-2.2.30+'
 ex=$(which blastn | wc | awk '{print $1}') 
 if [[ $ex -gt 0 ]]; then
 	blastn -h 2>> $pwd/install.log >> $pwd/install.log
@@ -189,7 +189,7 @@ fi
 download
 if [[ $ex -eq 0 ]]; then
 	$GORAP/$tool/bin/blastn -h 2>> $pwd/install.log >> $pwd/install.log
-	if [[ $? -gt 0 ]]; then
+	if [[ $? -gt 0 ]]; then		
 		recompile
 	fi
 fi
