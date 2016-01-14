@@ -297,6 +297,24 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 fi
 
 cd $pwd
+tool='hmmer-2.3.2'
+if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then	
+	if [[ -d $GORAP/$tool ]]; then
+		cd $GORAP/$tool
+		make clean
+		./configure --enable-threads --enable-lfs --prefix=`pwd` 
+		make
+		if [[ $? -gt 0 ]]; then				
+			exit 1
+		fi
+		make install
+		make clean
+	else 
+		echo 'Please run install_tools.sh first, then try again'
+	fi
+fi
+
+cd $pwd
 tool='samtools-0.1.19'
 samtool=$tool
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
@@ -309,9 +327,9 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make clean
 		./configure --prefix=$GORAP/$samtool				
 		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
+		# if [[ $? -gt 0 ]]; then				
+		# 	exit 1
+		# fi
 		make install
 		make clean
 		
@@ -323,9 +341,9 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make clean
 		./configure --prefix=$GORAP/$samtool
 		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
+		# if [[ $? -gt 0 ]]; then				
+		# 	exit 1
+		# fi
 		make install
 		make clean
 
@@ -342,23 +360,5 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		cp samtools bin/samtools
 	else 
 		echo 'Please run install_tools.sh first, then try again'		
-	fi
-fi
-
-cd $pwd
-tool='hmmer-2.3.2'
-if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then	
-	if [[ -d $GORAP/$tool ]]; then
-		cd $GORAP/$tool
-		make clean
-		./configure --enable-threads --enable-lfs --prefix=`pwd` 
-		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
-		make install
-		make clean
-	else 
-		echo 'Please run install_tools.sh first, then try again'
 	fi
 fi

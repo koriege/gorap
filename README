@@ -3,15 +3,14 @@
 ###########
 
 1   INSTALLATION
-1.1 PREPARATION
+1.1 INFORMATION
 1.2 INSTALLATION
 1.3 HIGHLY RECOMMENDED POST INSTALLATION
 2   UPDATE GORAP
 2.1 UPDATE GORAP LIBRARY
-2.2 UPDATE GORAP DATABASES
+2.2 UPDATE GORAP TOOLS
+2.3 UPDATE GORAP DATABASES
 3   RUNNING GORAP
-3.1 PREPARATION OF INPUT DATA
-3.2 EXAMPLES
 4   KNOWN ISSUES AND SOLUTIONS
 5   MISSING STUFF
 6	CONTACT
@@ -20,40 +19,45 @@
 1 INSTALLATION
 --------------
 
-1.1 PREPARATION
+1.1 INFORAMTION
 
-# GORAP will be installed in the following directory, which can be changed.
-export GORAP=$HOME/gorap
+GORAP will be installed in the following directory, which can be changed
+during the INSTALLATION step: $HOME/gorap
 
-# GORAP requires some Perl modules. By default missing ones will be installed 
-# into a conventional shared perl5 directory in your home. These modules can 
-# be used by other Perl scripts automatically, too.
-# The following directory can be changed.
-export GORAPLIB=$HOME/perl5
-
-# Now tell Perl where to find the GORAP and additional modules by typing
-export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
-# Also set path to necessary and always downloaded Samtools software
-export SAMTOOLS=$GORAP/samtools-0.1.19
+GORAP requires some Perl modules. By default missing ones will be installed 
+into a conventional shared perl5 directory in your home. These modules can 
+be used by other Perl scripts automatically, too and changed during the
+INSTALLATION step: $HOME/perl5
 
 1.2 INSTALLATION
 
-# Download lates GORAP library, extract and enter directory
+# Set the two following directories, which can be changed
+export GORAP=$HOME/gorap
+export GORAPLIB=$HOME/perl5	
+# Update the Perl library path
+export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
+# Update the binaries path to make GORAP available globally
+export PATH=$GORAP:$PATH
+# Download latest GORAP library
 wget https://github.com/rna-hta-jena/gorap/archive/master.zip
+# Extract library
 unzip master.zip
+# Enter extracted directory
 cd gorap-master
 # Download and local installation of missing software into $GORAP
 bash install_tools.sh
-
-# Download corresponding databases and extract them
+# Download corresponding databases
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz
+# Extract databases into $GORAP
 tar -xzf data-12.tar.gz -C $GORAP/
-# Installation of GORAP and latest required Perl modules (can be very time consuming if you are on a very old machine)
-./cpanm -l $GORAPLIB .
-# To make Gorap convenient to use, Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
+# Set path to necessary and always downloaded Samtools software
+export SAMTOOLS=$GORAP/samtools-0.1.19
+# Installation of GORAP and latest required Perl modules
+./cpanm -l $GORAPLIB . --force
+# Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
 bash nowarnings.sh on
-# Copy all GORAP scripts to the $GORAP directory
-cp *.pl $GORAP
+# Copy all scripts to the $GORAP directory
+cp *.pl $GORAP	
 # you are done - go rapping!
 
 
@@ -72,15 +76,24 @@ echo 'export PERL5LIB='$PERL5LIB >> $HOME/.bashrc
 
 2.1 UPDATE GORAP LIBRARY
 
-# wget does not overwrite an existing gorap-2.0.tar.gz file
-wget http://www.rna.uni-jena.de/supplements/gorap/gorap-2.0.tar.gz
-tar -xzf gorap-2.0.tar.gz
-cd gorap-2.0
+# wget does not overwrite an existing master.zip file
+wget https://github.com/rna-hta-jena/gorap/archive/master.zip
+unzip master.zip
+cd gorap-master
+# make sure to have $GORAP and $GORAPLIB exported first/permanent
 ./cpanm -l $GORAPLIB --reinstall .
 cp *.pl $GORAP
 
 
-2.2 UPDATE GORAP DATABASES
+2.2 UPDATE GORAP TOOLS
+
+# wget does not overwrite an existing master.zip file
+wget https://github.com/rna-hta-jena/gorap/archive/master.zip
+unzip master.zip
+cd gorap-master
+bash install_tools.sh
+
+2.3 UPDATE GORAP DATABASES
 
 # Update all databases or in single by typing silva, ncbi, rfam or cfg instead
 perl Gorap.pl -update all
@@ -90,64 +103,34 @@ perl Gorap.pl -update all
 3 RUNNING GORAP
 ---------------
 
-3.1 PREPARATION OF INPUT DATA
+# hint 1: Multiple runs can be saved into the same output directory
+# hint 2: Restart a run with same parameters, but -q 0 skips annotation, but does additional computations
+# hint 3: Command line parameters are priorized over parameter file settings
 
-FASTA headers of given input needs to be unique till the first space character.
-RIGHT:
->Header1 some description
->Header2 some description
-...
-WRONG:
->Header some description 1
->Header some description 2
-...
-
-
-3.2 EXAMPLES
-
-# hint 1: multiple runs can be saved into the same output directory
-# hint 2: restart a run with same parameters, but -q 0 skips annotation, but does additional computations
-
-# example with a parameter file 
+# Run GORAP using a parameter file 
 perl Gorap.pl -file $GORAP/parameter/parameter.txt
 
-# example with command line parameters
-perl Gorap.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac -s 562 -r 543
+# Run GORAP using command line parameters
+perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -s 562 -r 543 -b $GORAP/example/ecoli.bam
 
-# example for annotating all tRNAs - Rfam families 5,1852
-perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 5,1852
+# Run GORAP without time consuming reading of NCBI Taxonomy if -s and -r are not used
+perl Gorap.pl -notax -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac	
 
-# example for annotating all rRNAs - Rfam families 1,177,1959,1960,2540 to 2543
-perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 1,177,1959,1960,2540:2543
+# Screen for a subset of families: ids 1 to 5, 8 and all greater equals 100
+perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:
+  
+# Example of annotation and SSU/RNome phylogeny reconstruction in one step. 
+# A given outgroup will be screened only for families predicted in input files (-i)
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
+  
+# Phylogeny reconstruction from a full annotation and after hand curation
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac
+# Evaluate alignments and update annotation files
+perl RefreshOutput.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac	
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -q 0
 
-# example for annotating all RNaseP RNAs - Rfam families 9 to 11,373
-perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 9:11,373
-
-# example for annotating all CRISPR RNAs - Rfam families 1315 to 1379
-perl Gorap.pl -i $GORAP/example/ecoli.fa -k bac -q 1315:1379
-
-# example to avoid time consuming parsing of NCBI Taxonomy if -s and -r are not used
-perl Gorap.pl -notax -i $GORAP/example/ecoli.fa -a ecoli -k bac
-
-# example to update GFF files for manual amended alignments (i.e. deletion of sequences) 
-# hint: use same parameter set as for the gorap run to complete info area in html file
-perl RefreshOutput.pl -i $GORAP/example/ecoli.fa -a ecoli -k bac -o <GORAPOUT>
-
-# example with phylogeny reconstruction from rRNA and full RNome annotation
-# hint: outgroup file will be screened only for Rfam families predicted in files given by -i
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac
-# improved workflow: 
-# 1) run Gorap 
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
-# 2) manual correct alignments and afterwards update related GFF files
-perl RefreshOutput.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -o <GORAPOUT>
-# 3) run Gorap with same parameters, but -q 0 and select <FASTA> files as outgroups
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -o <GORAPOUT> -q 0
-
-# example with FPKM (even for paired end reads) calculation from sorted and indexed BAM files
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> 
-# hint: to add FPKM values to already existing Gorap results, use -q 0
-perl Gorap.pl -i <FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -q 0
+# Adding FPKM value from a BAM files to a previous run or after hand curation
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -q 0
 
 
 ----------------------------

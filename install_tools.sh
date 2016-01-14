@@ -212,12 +212,6 @@ if [[ $ex -eq 0 ]]; then
 fi
 
 cd $pwd
-tool='samtools-0.1.19'
-ex=0
-download
-recompile
-
-cd $pwd
 tool='hmmer-2.3.2'
 ex=$(which hmmsearch | wc | awk '{print $1}')
 if [[ $ex -gt 0 ]]; then
@@ -262,6 +256,17 @@ cd $pwd
 tool='crt-1.2'
 ex=$(which CRT1.2-CLI.jar | wc | awk '{print $1}')
 download
+
+cd $pwd
+tool='samtools-0.1.19'
+ex=0
+download
+if [[ $ex -eq 0 ]]; then
+	$GORAP/$tool/bin/samtools 2>> $pwd/install.log >> $pwd/install.log
+	if [[ $? -gt 0 ]]; then
+		recompile
+	fi
+fi
 
 echo
 echo 'GORAP was successfully installed'
