@@ -26,22 +26,23 @@ download () {
 	if [[ ! -d $GORAP/$tool ]] && [[ $ex -eq 0 ]]; then
 		echo
 		echo 'Downloading '$tool	
-		echo
+		echo		
 		wget -T 10 -N www.rna.uni-jena.de/supplements/gorap/$bit$tool.tar.gz
 		if [[ $? -gt 0 ]]; then
 			echo
 			echo $tool' download failed'
 			exit 1
 		fi 
-		echo 'Extracting '$tool
-		echo
+		echo 'Extracting '$tool		
 		tar -xzf $bit$tool.tar.gz -C $GORAP
 		rm $bit$tool.tar.gz
 	fi
 }
 
 recompile () {
+	echo
 	echo 'Installing '$tool
+	echo
 	progress &
 	pid=$!
 	bash recompile_tool.sh $tool 2>> $pwd/install.log >> $pwd/install.log
@@ -54,6 +55,7 @@ recompile () {
 	fi 
 	kill $pid 2>/dev/null > /dev/null
 	wait $pid 2>/dev/null > /dev/null
+	echo
 }
 
 if [[ $bit = '32-' ]]; then
@@ -86,7 +88,7 @@ else
 		tool='mafft-7.017-with-extensions' 
 		ex=$(which mafft | wc | awk '{print $1}')
 		if [[ $ex -gt 0 ]]; then
-			mafft -h 2>> $pwd/install.log >> $pwd/install.log
+			mafft --help 2>> $pwd/install.log >> $pwd/install.log
 			if [[ $? -gt 0 ]]; then
 				ex=0
 			fi
@@ -131,10 +133,10 @@ if [[ $ex -gt 0 ]]; then
 	fi			
 fi
 download
-tool='esl-alimerge'
 if [[ $ex -eq 0 ]]; then
 	$GORAP/$tool/bin/esl-alimerge -h 2>> $pwd/install.log >> $pwd/install.log
 	if [[ $? -gt 0 ]]; then
+		tool='esl-alimerge'
 		recompile
 	fi
 fi
@@ -147,7 +149,7 @@ if [[ $ex -gt 0 ]]; then
 	if [[ $? -gt 0 ]]; then
 		ex=0
 	else
-		ex=$(cmsearch -h | grep INFERNAL | awk '{if($3>=1 && $3<1.1){print "1"}else{print "0"}}')
+		ex=$(cmsearch -h | grep INFERNAL | awk '{if($3=="1.0"){print "1"}else{print "0"}}')
 	fi
 fi
 download
@@ -160,6 +162,7 @@ fi
 
 cd $pwd
 tool='rnabob-2.2'
+ex=0
 ex=$(which rnabob | wc | awk '{print $1}')
 if [[ $ex -gt 0 ]]; then
 	rnabob -h 2>> $pwd/install.log >> $pwd/install.log
@@ -183,7 +186,7 @@ if [[ $ex -gt 0 ]]; then
 	if [[ $? -gt 0 ]]; then
 		ex=0
 	else
-		ex=$(blastn -h | grep DESCRIPTION -A 1 | tail -n 1 | awk '{print $3; if ($3~/^2\.2\.2.+\+$/){print "1"}else{print "0"}}')
+		ex=$(blastn -h | grep DESCRIPTION -A 1 | tail -n 1 | awk '{if ($3~/^2\.2\.2.+\+$/ || $3~/^2\.2\.3.+\+$/ || $3~/^2\.3\..+\+$/){print "1"}else{print "0"}}')		
 	fi
 fi
 download
@@ -269,4 +272,4 @@ if [[ $ex -eq 0 ]]; then
 fi
 
 echo
-echo 'GORAP was successfully installed'
+echo 'All tools are successfully installed'

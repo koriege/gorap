@@ -55,6 +55,7 @@ sub add_stk {
 	my ($self,$id,$file) = @_;
 
 	$self->idToPath->{$id} = $file;
+	
 	my $io = Bio::AlignIO->new(-format => 'stockholm', -file => $file, -verbose => -1);
 
 	$self->db->{$id} = $io->next_aln;
@@ -150,25 +151,24 @@ sub align {
 	my ($cmd, $success, $error_code, $full_buf, $stdout_buf, $stderr_buf);	
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
 
-	if (exists $self->db->{$id}){
+	if (exists $self->db->{$id}){		
 		#save before merging files, to apply deletions of existing sequences in this object, performed in BUILD of Bio::Gorap::ToolI		
 		&store($self,$id);		
 
 		#align against gorap cfg default or given cm
-		if ($cm){
+		if ($cm){			
 			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile";			
-		} else {			
+		} else {					
 			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";			
 		}
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 
 		#try to merge both alignments, which is oly possible, if both were created by the same cm
-		#if it fails, all sequences are extracted as fasta to align them in total
-		$cmd = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";		
-
+		#if it fails, all sequences are extracted as fasta to align them in total		
+		$cmd = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";				
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 		unless ($success){
-			open FA , '>'.$fastafile or die $!;			
+			open FA , '>'.$fastafile or die $!;
 			for ($self->db->{$id}->each_seq){				
 				my $s = $_->seq; 
 				$s=~s/\W//g;
@@ -178,14 +178,15 @@ sub align {
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FA;
 			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";		
+
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );			
 		}
-	} else { 
+	} else { 		
 		#if no alignment is present, the seed alignment the cm is build from, is added to the alignment process
 		$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
 
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );		
-		unless ($success) {
+		unless ($success) {			
 			$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.fa');
 			open FA , '>'.$tmpfile or die $!;			
 			open FAI , '<'.$self->parameter->cfg->fasta or die $!;
@@ -199,8 +200,9 @@ sub align {
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FAI;
 			close FA;
-			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";
-			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
+			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";			
+
+			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );			
 		}
 	}
 	

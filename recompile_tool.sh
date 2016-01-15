@@ -327,9 +327,9 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make clean
 		./configure --prefix=$GORAP/$samtool				
 		make
-		# if [[ $? -gt 0 ]]; then				
-		# 	exit 1
-		# fi
+		if [[ $? -gt 0 ]]; then				
+			exit 1
+		fi
 		make install
 		make clean
 		
@@ -341,9 +341,9 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make clean
 		./configure --prefix=$GORAP/$samtool
 		make
-		# if [[ $? -gt 0 ]]; then				
-		# 	exit 1
-		# fi
+		if [[ $? -gt 0 ]]; then				
+			exit 1
+		fi
 		make install
 		make clean
 

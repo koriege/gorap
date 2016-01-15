@@ -92,27 +92,28 @@ sub calc_features {
 			}
 		}
 	
-}
+	}
+
 	my $uid;
 	for (@out){
 		my @l = split /\s+/, $_;
-		for ($self->fastadb->chunk_backmap($l[0], $l[3], $l[4])){
-			($l[0],$l[3],$l[4]) = @{$_};	
 
-			my ($abbr, @header) = split /\./,$l[0];
-			$l[0] = join '.' , @header;
-			$uid->{$abbr}++;
-			
-			my @gff3entry = &{$self->tool_parser}($uid->{$abbr},$abbr,$self->parameter->cfg->rf_rna,exists $self->parameter->kingdoms->{'fungi'} ? 'fungi' : $kingdom,\@l);
-			next if $gff3entry[4]-$gff3entry[3]<400 && $gff3entry[2]=~/_SSU/;
-			next if $gff3entry[4]-$gff3entry[3]<1000 && $gff3entry[2]=~/_LSU/;
-			next if $gff3entry[4]-$gff3entry[3]<40 && $gff3entry[2]=~/5S/;
-			#due to overlapping chunks check for already annotated genes
-			my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry,$abbr);
-			next if $#{$existingFeatures} > -1;
-			my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
-			$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr);
+		my @gff3entry = &{$self->tool_parser}(exists $self->parameter->kingdoms->{'fungi'} ? 'fungi' : $kingdom,\@l);
+		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
+
+		my ($abbr,@orig) = split /\./ , $gff3entry[0];
+		$uid->{$abbr.'.'.$gff3entry[2]}++;
+		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
+		
+		# due to overlapping chunks check for already annotated genes
+		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
+		if ($#{$existingFeatures} > -1){
+			$uid->{$abbr.'.'.$gff3entry[2]}--;	
+			next;
 		}
+		
+		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}
 }
 

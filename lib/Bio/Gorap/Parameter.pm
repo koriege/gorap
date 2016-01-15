@@ -16,7 +16,7 @@ use List::Util qw(min max);
 has 'mem' => (
 	is => 'ro',
 	isa => 'Int',
-	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem() * 0.9)) }
+	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem()/1024/1024 * 0.95)) }
 );
 
 has 'pwd' => (
@@ -308,10 +308,10 @@ sub set_genomes {
 	my ($self, $genomes, $abbreviations) = @_;
 
 	undef @{$self->genomes};
+	undef @{$self->abbreviations};
 	$self->genomes($genomes);
 
-	if ($#{$abbreviations}>-1){
-		undef @{$self->abbreviations};
+	if ($#{$abbreviations}>-1){		
 		$self->abbreviations($abbreviations);
 	} else {
 		for(@{$self->genomes}){

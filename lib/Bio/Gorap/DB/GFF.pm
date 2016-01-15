@@ -30,11 +30,12 @@ has 'bamdb' => (
 
 #add a gff3 entry into this Bio::DB::SeqFeature database
 sub add_gff3_entry {	
-	my ($self,$s,$seq,$abbr) = @_;
+	my ($self,$s,$seq) = @_;
 	
 	#id consists of abbreviation.original.copy	
 	if ($#{$s} > 6 && $seq){
-		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
+		my ($abbr,@orig) = split /\./ , $id;
 		
 		my @overlaps = ('.');
 		my ($rpkm,$reads,$filter,$notes) = ('.','.','!','.');
@@ -198,26 +199,27 @@ sub get_feature {
 }
 
 sub get_overlapping_features {
-	my ($self,$s,$abbr) = @_;
+	my ($self,$s) = @_;
 	
 	my ($f,$id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes);
 
 	if (ref($s) eq 'ARRAY'){
 	#id consists of abbreviation.ori.g.inal.copy
-		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};
+		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand eq '+' ? 1 : -1);
 	} else {
-		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);
-		$f=$s;
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);		
+		$f = $s;
 	}
-	my @tmp = split /\./, $id;
-	pop @tmp;
-	$id = join '.' , @tmp;
+	my ($abbr,@orig) = split /\./ , $id;
+	pop @orig;
+	$id = join '.' , ($abbr,@orig);
 
 	my @features;
 	for ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $source})){
-		next unless $_->strand == $f->strand;
-		@tmp = split /\./, $_->seq_id;
+
+		next unless $_->strand == $f->strand;		
+		my @tmp = split /\./, $_->seq_id;
 		pop @tmp;
 		next unless join('.' , @tmp) eq $id;
 		my ($start, $stop, $strand) = $f->intersection($_);

@@ -34,18 +34,20 @@ sub blast_parser {
 
 #gorap specific tRNAscan-SE tabular output parser for Bio::DB::SeqFeature objects
 sub trnascanse_parser {	
-	my ($uid,$abbr,$rfrna,$s) = @_;	
+	my ($s) = @_;	
+	my $rfrna;
 	if (${$s}[4]=~/SeC/){
 		$rfrna = 'RF01852_tRNA-Sec';
 	} else {
 		$rfrna = 'RF00005_tRNA';
 	}
-	return ($abbr.'.'.${$s}[0].'.'.$uid , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Notes='.${$s}[4].'_'.${$s}[5]);
+	return (${$s}[0].'.'.$uid , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Notes='.${$s}[4].'_'.${$s}[5]);
 }
 
 #gorap specific RNAmmer tabular output parser for Bio::DB::SeqFeature objects
 sub rnammer_parser {	
-	my ($uid,$abbr,$rfrna,$kingdom,$s) = @_;	
+	my ($kingdom,$s) = @_;	
+	my $rfrna;
 
 	if ($kingdom eq 'bac'){
 		if (${$s}[8] eq '16s_rRNA'){
@@ -82,12 +84,13 @@ sub rnammer_parser {
 		}
 	}
 	
-	return ($abbr.'.'.${$s}[0].'.'.$uid , 'GORAPrnammer' , $rfrna , ${$s}[3] , ${$s}[4] , ${$s}[5] , ${$s}[6] , '.');
+	return (${$s}[0] , 'GORAPrnammer' , $rfrna , ${$s}[3] , ${$s}[4] , ${$s}[5] , ${$s}[6] , '.');
 }
 
 #gorap specific Bcheck tabular output parser for Bio::DB::SeqFeature objects
 sub bcheck_parser {
-	my ($uid,$abbr,$rfrna,$s) = @_;	
+	my ($s) = @_;
+	my $rfrna;
 
 	${$s}[0] = substr ${$s}[0] , 1;
 	my @l = ( split(/\//,${$s}[0]) , substr((split(/\s+/,${$s}[1]))[2] , 0 , -1) );
@@ -101,7 +104,7 @@ sub bcheck_parser {
 		$rfrna = 'RF00009_RNaseP_nuc';
 	}
 
-	return ($abbr.'.'.$l[0].'.'.$uid , 'GORAPbcheck' , $rfrna , $sta , $sto , $l[4] , $l[2] == -1 ? '-' : '+' , '.');	
+	return ($l[0] , 'GORAPbcheck' , $rfrna , $sta , $sto , $l[4] , $l[2] == -1 ? '-' : '+' , '.');	
 }
 
 1;

@@ -1,4 +1,4 @@
-#! /usr/bin/perl -w
+#! /usr/bin/perl
 
 use strict;
 use warnings;
@@ -33,7 +33,7 @@ print "\nFor help run Gorap.pl -h\n\n";
 
 #push gorap tools to $PATH
 my $PATHtools;
-for(reverse glob(catdir($ENV{GORAP},'*','bin'))){
+for(reverse glob(catdir($ENV{GORAP},'*','bin'))){	
 	$PATHtools .= $PATHtools ? ":$_" : $_;
 }
 local $ENV{PATH} = $ENV{PATH} ? "$PATHtools:$ENV{PATH}" : $PATHtools;
@@ -545,7 +545,7 @@ B<-t>, B<--tmp>=F<PATH>
 -notax, --notaxonomy
 	
 	(optional)
-	disables taxonomic sorting and score filter to use given rank or species information
+	disables taxonomic sorting and score filter using given rank or species information
 
 =head1 AUTHOR
 

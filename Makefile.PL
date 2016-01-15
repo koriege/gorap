@@ -28,6 +28,7 @@ WriteMakefile(
 		'File::Path'	=> '0',
 		'Bio::SeqIO'	=> '0',
 		'List::Util'	=>	'0',
+		'List::MoreUtils' => '0',
 		'Try::Tiny'	=>	'0',
 		'IPC::Cmd'	=>	'0',
 		'IPC::Run'	=>	'0',

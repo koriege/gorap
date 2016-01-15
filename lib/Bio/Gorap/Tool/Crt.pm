@@ -167,62 +167,60 @@ sub calc_features {
 	my $uid;
 	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
 	for (@out){
-		my @l = split /\s+/, $_;				
-		for ($self->fastadb->chunk_backmap($l[0], $l[3], $l[4])){
-			($l[0],$l[3],$l[4]) = @{$_};
-			
-			my ($abbr, @header) = split /\./,$l[0];
-			$uid->{$abbr}++;
-			
-			$l[0] = $l[0].'.'.$uid->{$abbr};
-			my @gff3entry = @l;
-			$l[6] = '-';
-			my @seqs;
-			
-			#due to overlapping chunks check for already annotated genes
-			my $existingFeatures = [@{$self->gffdb->get_overlapping_features(\@gff3entry,$abbr)},
-									@{$self->gffdb->get_overlapping_features(\@l,$abbr)}];
-			next if $#{$existingFeatures} > -1;
-							
-			push @seqs , $self->fastadb->get_gff3seq(\@gff3entry);					
-			push @seqs , $self->fastadb->get_gff3seq(\@l);
+		my @gff3entry = split /\s+/, $_;
+		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);		
+		$gff3entry[0].='.0';
 
-			my $maxscore = -999999;
-			my $maxfamily;
-			my $strand;
-			for my $rf_rna ( @related_rf_rna){
-				my $cm = catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.cm');						
-				for my $i ( 0..1 ){
-					my $seq = $seqs[$i];
-					
-					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "printf \"\>foo\\n$seq\" | cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu ".$self->threads." $cm -", verbose => 0 );
-			
-					open S , '<'.$scorefile or die $!;
-					while(<S>){
-						chomp $_;
-						$_ =~ s/^\s+|\s+$//g;
-						next if $_=~/^#/;
-						next if $_=~/^\s*$/;
-						my $score = (split /\s+/ , $_)[6];
-						if ($score > $maxscore){
-							$maxscore = $score;
-							$maxfamily = $rf_rna;
-							$strand = $i == 0 ? '+' : '-'; 
-						}
+		my @seqs;
+		push @seqs , $self->fastadb->get_gff3seq(\@gff3entry);
+		$gff3entry[6] = '-';
+		push @seqs , $self->fastadb->get_gff3seq(\@gff3entry);
+
+		my $maxscore = -999999;
+		my $maxfamily;
+		my $strand;
+		for my $rf_rna (@related_rf_rna){
+			my $cm = catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.cm');						
+			for my $i ( 0..1 ){
+				my $seq = $seqs[$i];
+				
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "printf \"\>foo\\n$seq\" | cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu ".$self->threads." $cm -", verbose => 0 );
+		
+				open S , '<'.$scorefile or die $!;
+				while(<S>){
+					chomp $_;
+					$_ =~ s/^\s+|\s+$//g;
+					next if $_=~/^#/;
+					next if $_=~/^\s*$/;
+					my $score = (split /\s+/ , $_)[6];
+					if ($score > $maxscore){
+						$maxscore = $score;
+						$maxfamily = $rf_rna;
+						$strand = $i == 0 ? '+' : '-'; 
 					}
-					close S;
 				}
-			}					
-
-			if ($maxscore >= 10){					
-				$gff3entry[2] = $maxfamily;
-				$gff3entry[5] = $maxscore;
-				$gff3entry[6] = $strand;
-				$self->gffdb->add_gff3_entry(\@gff3entry,$seqs[$strand eq '+' ? 0 : 1],$abbr);					
-			} else {
-				$self->gffdb->add_gff3_entry(\@gff3entry,$seqs[0],$abbr);
+				close S;
+				unlink $scorefile;
 			}
+		}					
+
+		if ($maxscore >= 10){					
+			$gff3entry[2] = $maxfamily;
+			$gff3entry[5] = $maxscore;
+			$gff3entry[6] = $strand;						
 		}
+
+		my ($abbr,@orig) = split /\./ , $gff3entry[0];
+		pop @orig;
+		$uid->{$abbr.'.'.$gff3entry[2]}++;
+		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
+
+		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
+		if ($#{$existingFeatures} > -1){
+			$uid->{$abbr.'.'.$gff3entry[2]}--;
+			next;
+		}		
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seqs[$strand eq '+' ? 0 : 1]);	
 	}		
 }
 

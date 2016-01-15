@@ -113,8 +113,8 @@ perl Gorap.pl -file $GORAP/parameter/parameter.txt
 # Run GORAP using command line parameters
 perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -s 562 -r 543 -b $GORAP/example/ecoli.bam
 
-# Run GORAP without time consuming reading of NCBI Taxonomy if -s and -r are not used
-perl Gorap.pl -notax -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac	
+# Run GORAP without taxonomy filter and reading of NCBI Taxonomy even if -s or -r are used
+perl Gorap.pl -notax -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac	-s 562 -r 543
 
 # Screen for a subset of families: ids 1 to 5, 8 and all greater equals 100
 perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:

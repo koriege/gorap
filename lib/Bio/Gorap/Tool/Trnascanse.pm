@@ -92,42 +92,29 @@ sub calc_features {
 			}
 		}
 	}
-	my $uid;
+	
+	my $uid;	
 	for (@out){		
 		
 		my @l = split /\s+/, $_;
 		next if $#l<8;		
+				
+		my @gff3entry = &{$self->tool_parser}(\@l);
+		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
 
-		my @backmap;
-		my $plus = 1;	
+		my ($abbr,@orig) = split /\./ , $gff3entry[0];
+		$uid->{$abbr.'.'.$gff3entry[2]}++;
+		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
 		
-		if ($l[2]<$l[3]){
-			@backmap = $self->fastadb->chunk_backmap($l[0], $l[2], $l[3]);	
-		} else {
-			$plus = 0;
-			@backmap = $self->fastadb->chunk_backmap($l[0], $l[3], $l[2]);
-		}	
-
-
-		for (@backmap){			
-			if ($plus){
-				($l[0],$l[2],$l[3]) = @{$_};
-			} else {
-				($l[0],$l[3],$l[2]) = @{$_};
-			}			
-
-			my ($abbr, @header) = split /\./,$l[0];
-			$l[0] = join '.' , @header;
-			$uid->{$abbr}++;
-			
-			my @gff3entry = &{$self->tool_parser}($uid->{$abbr},$abbr,$self->parameter->cfg->rf_rna,\@l);
-			#due to overlapping chunks check for already annotated genes
-			# my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry,$abbr);
-			# next if $#{$existingFeatures} > -1;
-							
-			my $seq = $self->fastadb->get_gff3seq(\@gff3entry);			
-			$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr);
+		# due to overlapping chunks check for already annotated genes
+		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
+		if ($#{$existingFeatures} > -1){
+			$uid->{$abbr.'.'.$gff3entry[2]}--;	
+			next;
 		}
+		
+		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);		
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);		
 	}
 
 }

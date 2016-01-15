@@ -219,7 +219,7 @@ B<-b>, B<--bam>=F<FILE>,...
 -force, --force
 	
 	(optional)
-	remove alignment files of no query sequence hits remains
+	remove alignment files if no query sequence hits remains
 	remove overlapping snoRNA annotations
 
 =head1 AUTHOR
