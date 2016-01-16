@@ -50,19 +50,20 @@ sub BUILD {
 	my $abbres;
 	for (0..$#{$self->parameter->genomes}){		
 		my $genome = ${$self->parameter->genomes}[$_];
-		my $abbr = ${$self->parameter->abbreviations}[$_];
-		$abbres->{$abbr}=1; #removes all old entries, i.e. String don't start with GORAP+toolname
+		my $abbr = ${$self->parameter->abbreviations}[$_];		
+		$abbres->{$abbr}=1; #removes all old entries, i.e. String don't start with GORAP+toolname as source
 		for ($self->gffdb->db->{$abbr}->features(-primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => $self->tool})){												
 			$self->gffdb->db->{$abbr}->delete($_);			
 		}		
 	}
-	if (exists $self->stkdb->db->{$self->parameter->cfg->rf_rna}){	
-		for ($self->stkdb->db->{$self->parameter->cfg->rf_rna}->each_seq){
+	if (exists $self->stkdb->db->{$self->parameter->cfg->rf_rna}){			
+		for ($self->stkdb->db->{$self->parameter->cfg->rf_rna}->each_seq){			
 			my @id = split /\./ , $_->id;
 			next if $#id < 2;
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			$self->stkdb->db->{$self->parameter->cfg->rf_rna}->remove_seq($_) if exists $abbres->{$abbr} && exists $self->fastadb->oheaders->{$orig};
-		}
+			pop @id;
+			my $abbr=shift @id;			
+			$self->stkdb->db->{$self->parameter->cfg->rf_rna}->remove_seq($_) if exists $abbres->{$abbr} && exists $self->fastadb->oheaders->{join(".",@id)};
+		}		
 	}	
 }
 

@@ -38,6 +38,7 @@ has 'oheaderToDBsize' => (
 	default => sub {[]}
 );
 
+#for fast access during ToolI deletions
 has 'oheaders' => (
 	is => 'rw',
 	isa => 'HashRef',
@@ -67,7 +68,8 @@ sub _set_db {
 		#make headers uniq by adding an abbreviation/filname in front of \S+
 		&add_fasta($self,$genome,\&_parse_id); 
 		my $residues=0;		
-		for (@oheader){			
+		for (@oheader){	
+			$self->oheaders->{$_}=1;	
 			push @{$self->nheaders} , $set_db_abbr.'.'.$_;
 			$residues += ($self->db->fetch($set_db_abbr.'.'.$_))->length;			
 		}		

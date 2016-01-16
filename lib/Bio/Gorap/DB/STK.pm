@@ -66,7 +66,7 @@ sub store {
 	my ($self,$id) = @_;
 	
 	if ($id){
-		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$self->idToPath->{$id}, -verbose => -1))->write_aln($self->db->{$id});
+		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$self->idToPath->{$id}, -verbose => -1))->write_aln($self->db->{$id});		
 	} else {
 		for (keys %{$self->db}){
 			&remove_gap_columns_and_write($self,$self->db->{$_},$self->idToPath->{$_});			
@@ -78,7 +78,7 @@ sub store_stk {
 	my ($self,$stk, $file, $taxdb) = @_;
 
 	$stk = $taxdb->sort_stk($stk) if $taxdb && $self->parameter->sort;
-	(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$file, -verbose => -1))->write_aln($stk);
+	(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$file, -verbose => -1))->write_aln($stk);	
 }
 
 sub remove_gap_columns_and_write {
@@ -152,8 +152,8 @@ sub align {
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
 
 	if (exists $self->db->{$id}){		
-		#save before merging files, to apply deletions of existing sequences in this object, performed in BUILD of Bio::Gorap::ToolI		
-		&store($self,$id);		
+		#save before merging files, to apply deletions of Bio::Gorap::ToolI after reading in
+		&store($self,$id);
 
 		#align against gorap cfg default or given cm
 		if ($cm){			
@@ -161,8 +161,9 @@ sub align {
 		} else {					
 			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";			
 		}
-		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 
+		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );		
+		
 		#try to merge both alignments, which is oly possible, if both were created by the same cm
 		#if it fails, all sequences are extracted as fasta to align them in total		
 		$cmd = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";				

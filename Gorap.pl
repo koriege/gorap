@@ -69,17 +69,15 @@ my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
 );
 
+my $fastadb = Bio::Gorap::DB::Fasta->new(
+	parameter => $parameter
+);
+
 #gorap gff3 storage database initialization without loss of existing data in output directory 
 my $gffdb = Bio::Gorap::DB::GFF->new(
 	parameter => $parameter,
 	bamdb => $bamdb
 ); 
-
-my $fastadb = Bio::Gorap::DB::Fasta->new(
-	parameter => $parameter
-);
-
-
 
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
@@ -268,12 +266,13 @@ sub run {
 		    	require $f;
 			} catch {
 				if (/^Can't locate .*?\.pm in \@INC/){
+					print 'Unknown tool '.$tool.': using Default.pm'."\n";
 					$toolparser = 'gff3_parser';
 					$f = catfile('Bio','Gorap','Tool','Default.pm');
 					$class = 'Bio::Gorap::Tool::Default';				
 					require $f;
-				} else {
-					print $_;
+				} else {					
+					&SIGABORT($_);
 				}
 			};
 			$class->import;		
@@ -302,11 +301,16 @@ sub run {
 		next if $#{$sequences} == -1;
 		#print "align\n";
 
-		my ($scorefile,$stk) = $stkdb->align(
-			$parameter->cfg->rf_rna,
-			$sequences,
-			($parameter->threads - $thrListener->get_workload)
-		);		
+		my ($scorefile,$stk);
+		try{
+			($scorefile,$stk) = $stkdb->align(
+				$parameter->cfg->rf_rna,
+				$sequences,
+				($parameter->threads - $thrListener->get_workload)
+			);		
+		} catch {
+			&SIGABORT($_);
+		};
 		$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
 		#start of time consuming single threaded background job with a subroutine reference,
@@ -425,6 +429,7 @@ sub ABORT {
 
 sub SIGABORT {	
 	$thrListener->stop if $thrListener;
+	print "\n".'Safety store in progress..'."\n";
 	$gffdb->store_overlaps if $gffdb && $#{$gffdb->get_features} > -1;	
 	&ABORT;
 }
