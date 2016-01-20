@@ -150,7 +150,7 @@ sub chunk {
 	my $written=0;
 	my $pos=0;
 	for my $h (@{$self->nheaders}){
-		$pos=1;
+		$pos=0;
 		print O '>'.$pos.'.'.$h."\n";
 		my $seqo = $self->db->fetch($h);		
 		my @seqparts = unpack("(A80)*", $seqo->seq);

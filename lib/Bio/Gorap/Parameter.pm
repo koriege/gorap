@@ -176,7 +176,8 @@ sub BUILD {
 		's|species=s' => \my $species,		
 		'og|outgroups=s' => \my $outgroups,
 		'oga|outgroupabbreviations=s' => \my $ogabbreviations,
-		'b|bam=s' => \my $bams,	
+		'b|bams=s' => \my $bams,	
+		'g|gffs=s'
 		'update|update=s' => \my $update,
  		'file|file:s' => \$file,
 		'h|help' => \my $help,

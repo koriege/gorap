@@ -30,35 +30,28 @@ has 'bamdb' => (
 
 #add a gff3 entry into this Bio::DB::SeqFeature database
 sub add_gff3_entry {	
-	my ($self,$s,$seq) = @_;
-	
+	my ($self,$s,$seq) = @_;	
+
 	#id consists of abbreviation.original.copy	
 	if ($#{$s} > 6 && $seq){
 		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		my ($abbr,@orig) = split /\./ , $id;
 		
 		my @overlaps = ('.');
-		my ($rpkm,$reads,$filter,$notes) = ('.','.','!','.');
+		my ($tpm,$rpkm,$reads,$filter,$notes) = ('.','.','.','!','.');
+		
+		$attributes.=';';
+		$tpm = $1 ? $1 : '.' if $attributes=~/\wTPM=(.+?);/;
+		$rpkm = $1 ? $1 : '.' if $attributes=~/\wPKM=(.+?);/;
+		$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
+		$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;
+		$notes = $1 ? $1 : '!' if $attributes=~/Notes?=(.+?);/;
+		@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
 
-		if ($attributes && $#{$self->parameter->queries} > -1){
-			$attributes.=';';
-			$rpkm = $1 ? $1 : '.' if $attributes=~/RPKM=(.+?);/;
-			$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
-			$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;
-			$notes = $1 ? $1 : '!' if $attributes=~/Notes?=(.+?);/;
-			@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
-		} else {
-			$attributes.=';' if $attributes;
-			$rpkm = $1 ? $1 : '.' if $attributes && $attributes=~/RPKM=(.+?);/;
-			$reads = $1 ? $1 : '.' if $attributes && $attributes=~/Reads=(.+?);/;
-			$filter = $1 ? $1 : '!' if $attributes && $attributes=~/Filter=(.+?);/;		
-			$notes = $1 ? $1 : '!' if $attributes && $attributes=~/Notes?=(.+?);/;
-			@overlaps = split /,/ , $1 if $attributes && $attributes=~/Overlaps=(.+?);/;
-			if ($self->parameter->has_bams){
-				my @id = split /\./ , $id;										
-				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-				($rpkm,$reads) = $self->bamdb->rpkm($orig,$start,$stop);
-			}
+		if ($self->parameter->has_bams){			
+			my ($abbr,@orig) = split /\./ , $id;
+			pop @orig;
+			($tpm,$rpkm,$reads) = $self->bamdb->rpkm(join(".",@orig),$start,$stop);			
 		}
 
 		$self->db->{$abbr}->new_feature(
@@ -76,6 +69,7 @@ sub add_gff3_entry {
 	        -index => 1,	            
 	        -attributes => { 
 	        	rpkm => $rpkm, 
+	        	tpm => $tpm, 
 	        	reads =>  $reads,        	
 	        	overlaps => \@overlaps,
 	        	seq => $seq,
@@ -254,6 +248,20 @@ sub add_db {
 	}
 }
 
+sub add_attribute {
+	my ($self,$gffentry,$attribute,$value) = @_;
+
+	my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @$gffentry;
+	my ($abbr,@orig) = split /\./, $id;
+	pop @orig;
+
+	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type , -attributes => {source => $source});
+	$feature->remove_tag($attribute);
+	$feature->add_tag_value($attribute,$value);
+	$feature->update;
+}
+
+
 sub add_seq {
 	my ($self,$seq,$id,$type,$source,$abbr) = @_;
 
@@ -331,7 +339,14 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
+				my $reads = ($f1->get_tag_values('reads'))[0];
+				$reads = 0 unless $reads;
+				my $rpkm = ($f1->get_tag_values('rpkm'))[0];
+				$rpkm = 0 unless $rpkm;
+				my $tpm = ($f1->get_tag_values('tpm'))[0];
+				$tpm = 0 unless $tpm;
+
+				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -365,7 +380,14 @@ sub store {
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
 
-				my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
+				my $reads = ($f1->get_tag_values('reads'))[0];
+				$reads = 0 unless $reads;
+				my $rpkm = ($f1->get_tag_values('rpkm'))[0];
+				$rpkm = 0 unless $rpkm;
+				my $tpm = ($f1->get_tag_values('tpm'))[0];
+				$tpm = 0 unless $tpm;
+
+				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
@@ -422,8 +444,16 @@ sub store_overlaps {
 			}
 			
 			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
-			$o='.' unless $o;			
-			my $attributes = 'RPKM='.($f1->get_tag_values('rpkm'))[0].';Reads='.($f1->get_tag_values('reads'))[0].';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
+			$o='.' unless $o;
+
+			my $reads = ($f1->get_tag_values('reads'))[0];
+			$reads = 0 unless $reads;
+			my $rpkm = ($f1->get_tag_values('rpkm'))[0];
+			$rpkm = 0 unless $rpkm;
+			my $tpm = ($f1->get_tag_values('tpm'))[0];
+			$tpm = 0 unless $tpm;
+
+			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 
 			if ( $f1->display_name eq '!' ){
 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";				

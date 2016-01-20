@@ -71,7 +71,7 @@ sub calc_features {
 
 			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
 
-			open F , '<'.$tmpfile.'_rnpB.ss' or die $!;
+			open F , '<'.$tmpfile.'_rnpB.ss' or exit;
 			my @l;
 			while( <F> ) {		
 				chomp $_;

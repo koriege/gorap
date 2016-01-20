@@ -430,7 +430,7 @@ sub ABORT {
 sub SIGABORT {	
 	$thrListener->stop if $thrListener;
 	print "\n".'Safety store in progress..'."\n";
-	$gffdb->store_overlaps if $gffdb && $#{$gffdb->get_features} > -1;	
+	$gffdb->store_overlaps if $gffdb;
 	&ABORT;
 }
 
@@ -444,7 +444,7 @@ GORAP - Genomewide ncRNA Annotation Pipeline
 
 Gorap.pl [OPTION]...
   
-example: Gorap.pl -a ecoli -i $GORAP/example/ecoli.fa -o results -c 1 -k bac -q RF00001:RF00020,RF00169,RF001854: -r 543 -s Escherichia\\ coli
+example: Gorap.pl -a ecoli -i $GORAP/example/ecoli.fa -g $GORAP/example/ecoli_ncbi.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s Escherichia\\ coli
 
 =head1 DESCRIPTION
 
@@ -480,18 +480,19 @@ B<-file>, B<--file>=F<FILE>
 B<-i>, B<--fastas>=F<FILE>,...
 
 	(optional, default $GORAP/example/ecoli.fa) 
-	(regex) path(s) of comma separated species FASTA file(s)
+	path(s) of comma separated species FASTA file(s) - wildcards allowed
 		
 B<-a>, B<--abbreviations>=I<abbreviation,> ...	
 
 	(optional, default: build from FASTA file name(s)) 
 	list of comma separated abbreviations as unique identifiers
+	note: list lengths of B<-i> and B<-a> must be equal
 
 B<-q>, B<--queries>=I<RF00001:RF00005,RF00008,> ...
 
 	(default: all Rfam families)
 	list of comma separated Rfam ids/numbers or ranges by ':'
-	to enable additional features only, skip annotation with 0
+	to enable additional features only and skip annotation set B<-q> 0
 
 B<-k>, B<--kingdom>=I<bac,arc,euk,fungi,virus>
 
@@ -514,33 +515,38 @@ B<-og>, B<--outgroup>=F<FILE>
 
 	(optional) 
 	path to an additional species FASTA file to be used as outgroup for
-	SSU rRNA based phylogeny reconstruction including all given FASTA files of B<-i>
+	SSU rRNA based phylogeny reconstruction including all SSU rRNA annotations of B<-i>
 
-B<-oga>, B<--ogabbreviation>=F<FILE>
+B<-oga>, B<--ogabbreviations>=F<FILE>
 	
 	(optional)
 	(default: build from FASTA file name of B<-og> 
-	abbreviation as unique identifiers
+	list of comma separated abbreviations as unique identifiers
 	
-B<-b>, B<--bam>=F<FILE>,...
+B<-b>, B<--bams>=F<FILE>,...
 
 	(optional) 
-	(regex) paths(s) of comma separated mapping results as SAM/BAM file(s)
+	paths(s) of comma separated list of indexed BAM file(s) - wildcards alowed
+
+B<-g>, B<--gffs>=F<FILE>,...
+
+	(optional) 
+	paths(s) of comma separated list of GFF3 file(s) - wildcards alowed
 	
 B<-o>, B<--output>=F<PATH>	
 
-	(optional, default: $PWD/gorap_out) 
+	(optional, default: <woking directory>/gorap_out) 
 	output directory
 
 B<-c>, B<--cpu>=I<INT>	
 
 	(optional, default: 1) 
-	count of cpu cores to use
+	number of threads (cpu cores to use)
 
 B<-t>, B<--tmp>=F<PATH>	
 
 	(optional, default: $TMPDIR or /tmp or $GORAP/tmp) 
-	set the temporary directory. temporary files will be removed afterwards
+	set the temporary directory - will be removed afterwards
 	
 -sort, --sort
 	
@@ -550,7 +556,7 @@ B<-t>, B<--tmp>=F<PATH>
 -notax, --notaxonomy
 	
 	(optional)
-	disables taxonomic sorting and score filter using given rank or species information
+	disables taxonomic sorting and filter using rank and species information
 
 =head1 AUTHOR
 
