@@ -13,72 +13,67 @@ has 'parameter' => (
 
 has 'db' => (
 	is => 'rw',
-	isa => 'ArrayRef',
-	default => sub { [] }
-);
-
-has 'ids' => (
-	is => 'rw',
-	isa => 'ArrayRef',
-	default => sub { [] }
+	isa => 'HashRef',
+	default => sub { {} }
 );
 
 has 'sizes' => (
 	is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [] }
+    isa => 'HashRef',
+    default => sub { {} }
 );
 
-
 sub _set_db {
-	my ($self) = @_;	
-
+	my ($self) = @_;
 	return unless $self->parameter->has_bams;
 	print "Reading BAM files\n" if $self->parameter->verbose;
-	for (@{$self->parameter->bams}){
-		
-		# push @{$self->ids} , {map { $_ => 1 } ${$self->db}[-1]->seq_ids};
-		my $c = 0;
-		my $map = {};
-		my $next;
-		for (`samtools idxstats $_`){			
-			next if $_=~/^\*/;		
-			$next = 1 if $_=~/fail/;
-			last if $next;
-			my ($header , $mapped, $unmapped) = split /\s+/ , $_;
-			$c += $mapped + $unmapped;
-			$map->{$header} = $mapped + $unmapped;
+
+	my $sizes;
+	for (0..$#{$self->parameter->bams}){
+		my $abbr = ${$self->parameter->abbreviations}[$_];
+		$sizes->{$abbr}=0;
+		for my $f (@{${$self->parameter->bams}[$_]}){
+			my $c = 0;
+			my $map = {};
+			my $next;
+			for (`samtools idxstats $f`){
+				next if $_=~/^\*/;
+				$next = 1 if $_=~/fail/;
+				last if $next;
+				my ($header , $mapped, $unmapped) = split /\s+/ , $_;
+				$c += $mapped + $unmapped;
+				$map->{$header} = $mapped + $unmapped;
+			}
+			next if $next;
+			push @{$self->db->{$abbr}} , Bio::DB::Sam->new(-bam => $f, -autindex => 1, -verbose => -1);
+			# my ($foo) = ${$self->db->{$abbr}}[-1]->features();
+
+			# exit;
+			$sizes->{$abbr} += $c;
 		}
-		next if $next;		
-		push @{$self->db} , Bio::DB::Sam->new(-bam => $_, -autoindex => 1 , -verbose => -1);
-		push @{$self->sizes} , $c;
-		push @{$self->ids} , $map;
-	}	
+	}
+	$self->sizes($sizes);	
 }
 
-sub rpkm(){
-	my ($self,$id,$start,$stop) = @_;
+sub rpkm {
+	#TODO strand specific
+	my ($self,$abbr,$id,$start,$stop,$strand) = @_;
 
 	my $count = 0;
-	# my $max = 0;
-	my $libsize=0;
-	my $ex=0;
-	for (0..$#{$self->db}){
-		next unless exists ${$self->ids}[$_]->{$id};
-		my $bam = ${$self->db}[$_];		
+	my $ex;
+	for (0..$#{$self->db->{$abbr}}){		
+		my $bam = ${$self->db->{$abbr}}[$_];		
 		$ex=1;
-		$libsize += ${$self->sizes}[$_];
-		$count += scalar $bam->get_features_by_location(-seq_id => $id, -start => $start, -end => $stop);
-		# my ($coverage) = $bam->features(-type=>'coverage', -seq_id => $id, -start => $start, -stop => $stop);
-		# $max = max($max,@{$coverage->coverage()});		
+		$count += scalar $bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop);
 	}
-	unless($ex){
-		return ('.','.');
-	}	
+	
+	return ('.','.') unless $ex;
+	
+	my $libsize=$self->sizes->{$abbr};
 	my $rpkm = $libsize ? ($count / ($libsize/10^6)) / (($stop-$start)/10^3) : 0;
 	my $tpm = $libsize ? ($count / (($stop-$start)/10^3)) / ($libsize/10^6) : 0;
 
-	return ($tpm == 0 ? 0 : sprintf("%.10f",$tpm), $rpkm == 0 ? 0 : sprintf("%.10f",$rpkm),$count);
+	return ($tpm == 0 ? '.' : sprintf("%.10f",$tpm), $rpkm == 0 ? '.' : sprintf("%.10f",$rpkm), $count == 0 ? '.' : $count);
 }
 
 1;

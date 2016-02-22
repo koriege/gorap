@@ -14,6 +14,8 @@ use Bio::Gorap::DB::Fasta;
 use Bio::Gorap::DB::BAM;
 use Bio::Gorap::DB::Taxonomy;
 use Bio::Gorap::Evaluation::HTML;
+use Bio::Gorap::Tool::Piles;
+use Bio::Gorap::CFG;
 use Bio::Gorap::Functions::ToolParser;
 use File::Spec::Functions;
 use File::Basename;
@@ -65,11 +67,11 @@ if ($parameter->taxonomy){
 	);
 }
 
-my $bamdb = Bio::Gorap::DB::BAM->new(
+my $fastadb = Bio::Gorap::DB::Fasta->new(
 	parameter => $parameter
 );
 
-my $fastadb = Bio::Gorap::DB::Fasta->new(
+my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
 );
 
@@ -89,12 +91,12 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 	storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 );
 
-&run() unless $parameter->skip_comp;
+&run();
 #stops the thread listener and waits for remaining background jobs to be finished
 $thrListener->stop;
 #store final annotation results
 $gffdb->store_overlaps;
-Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp) unless $parameter->skip_comp;
+Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp);
 
 if ($parameter->has_outgroups){	
 	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
@@ -146,7 +148,7 @@ if ($parameter->has_outgroups){
 			$thrListener->stop;
 			#store final annotation results
 			$gffdb->store_overlaps;
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');
 		}
 				
 		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@abbres);		
@@ -168,7 +170,7 @@ if ($parameter->has_outgroups){
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
 		} 		
 
 		if ( (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$coreFeatures > 3){
@@ -199,7 +201,7 @@ if ($parameter->has_outgroups){
 			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
 		} 
 
 		if ( (any { exists $stkFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$stkFeatures > 3){
@@ -217,7 +219,7 @@ if ($parameter->has_outgroups){
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
 			
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,$stamp.'-outgroup');			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
 		}				
 	}
 } 
@@ -239,7 +241,7 @@ sub run {
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);	
 		$c++;
-		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n" if $parameter->verbose;
+		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\r" if $parameter->verbose;
 
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
@@ -285,9 +287,10 @@ sub run {
 				tool_parser => Bio::Gorap::Functions::ToolParser->can($toolparser) ? \&{'Bio::Gorap::Functions::ToolParser::'.$toolparser} : \&Bio::Gorap::Functions::ToolParser::gff3_parser,
 				gffdb => $gffdb,
 				fastadb => $fastadb,
-				stkdb => $stkdb,				
+				stkdb => $stkdb,
+				bamdb => $bamdb,
 				tool => $tool
-			);		
+			);
 			
 			#waits for resources
 			$thrListener->push_obj($obj);
@@ -331,9 +334,22 @@ sub run {
 		#store annotations already in the database in case of errors		
 		while($#{$thrListener->finished}>-1){
 			$gffdb->store(shift @{$thrListener->finished});
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
 		}				
 	}
+	
+	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
+	
+	(Bio::Gorap::Tool::Piles->new(
+		threads => $parameter->threads - $thrListener->get_workload,
+		parameter => $parameter,
+		tool_parser => \&Bio::Gorap::Functions::ToolParser::gff3_parser,
+		gffdb => $gffdb,
+		fastadb => $fastadb,
+		stkdb => $stkdb,
+		bamdb => $bamdb,
+		tool => 'de_novo'
+	))->calc_features;
 }
 
 sub get_phylo_features {
@@ -444,11 +460,11 @@ GORAP - Genomewide ncRNA Annotation Pipeline
 
 Gorap.pl [OPTION]...
   
-example: Gorap.pl -a ecoli -i $GORAP/example/ecoli.fa -g $GORAP/example/ecoli_ncbi.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s Escherichia\\ coli
+example: Gorap.pl -a x,y -i 1.fa,2.fa,*.fa -g x1.gff:x2.gff,,3.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s 'species name'
 
 =head1 DESCRIPTION
 
-For more parameters check also RNA family specific configuration files $GORAP/parameter/families/*.cfg
+For more parameters check also RNA family specific configuration files $GORAP/config/*.cfg
 Please read the manual for improved annotations by the use of specific:
 queries, 
 covariance models, 
@@ -459,6 +475,10 @@ and how to add own software or scripts
 B<-h>, B<--help>	
 
 	this (help) message
+
+B<-example>, B<--example>	
+
+	Apply GORAP on $GORAP/example/ecoli.fa
 	
 B<-update>, B<--update>=I<all,rfam,ncbi,silva,cfg>	
 
@@ -526,16 +546,26 @@ B<-oga>, B<--ogabbreviations>=F<FILE>
 B<-b>, B<--bams>=F<FILE>,...
 
 	(optional) 
-	paths(s) of comma separated list of indexed BAM file(s) - wildcards alowed
+	paths(s) of comma separated list of colon separated indexed BAM file(s) - wildcards allowed
+
+B<minl>, B<--minlength>=I<INT>
+	
+	(optional, default 50)
+	minimum length of de novo predicted genes
+
+B<minh>, B<--minheigth>=I<INT>
+
+	(optional, default 1000)
+	minimum number of reads at the same locus for de novo gene prediction
 
 B<-g>, B<--gffs>=F<FILE>,...
 
 	(optional) 
-	paths(s) of comma separated list of GFF3 file(s) - wildcards alowed
+	paths(s) of comma separated list of colon separated GFF3 file(s) - wildcards allowed
 	
 B<-o>, B<--output>=F<PATH>	
 
-	(optional, default: <woking directory>/gorap_out) 
+	(optional, default: <working directory>/gorap_out) 
 	output directory
 
 B<-c>, B<--cpu>=I<INT>	
@@ -548,15 +578,25 @@ B<-t>, B<--tmp>=F<PATH>
 	(optional, default: $TMPDIR or /tmp or $GORAP/tmp) 
 	set the temporary directory - will be removed afterwards
 	
--sort, --sort
+B<-sort>, B<--sort>
 	
 	(optional)
 	enable resulting alignments to be sorted taxonomical by given rank or species 
 
--notax, --notaxonomy
+B<-notax>, B<--notaxonomy>
 	
 	(optional)
 	disables taxonomic sorting and filter using rank and species information
+
+B<-no>, B<--nooverlap>
+	
+	(optional)
+	disables deletion of de novo predictions if they overlap with a given GFF3 file
+
+B<-notpm>, B<--notpm>
+	
+	(optional)
+	disables FPKM and TPM calculation
 
 =head1 AUTHOR
 

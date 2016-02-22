@@ -23,6 +23,12 @@ has 'db' => (
     default => sub { {} }
 );
 
+has 'userdb' => (
+	is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} }
+);
+
 has 'bamdb' => (
 	is => 'ro',
 	isa => 'Bio::Gorap::DB::BAM'
@@ -33,7 +39,7 @@ sub add_gff3_entry {
 	my ($self,$s,$seq) = @_;	
 
 	#id consists of abbreviation.original.copy	
-	if ($#{$s} > 6 && $seq){
+	if ($#{$s} > 6){
 		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		my ($abbr,@orig) = split /\./ , $id;
 		
@@ -41,23 +47,23 @@ sub add_gff3_entry {
 		my ($tpm,$rpkm,$reads,$filter,$notes) = ('.','.','.','!','.');
 		
 		$attributes.=';';
-		$tpm = $1 ? $1 : '.' if $attributes=~/\wTPM=(.+?);/;
+		$tpm = $1 ? $1 : '.' if $attributes=~/TPM=(.+?);/;
 		$rpkm = $1 ? $1 : '.' if $attributes=~/\wPKM=(.+?);/;
 		$reads = $1 ? $1 : '.' if $attributes=~/Reads=(.+?);/;
 		$filter = $1 ? $1 : '!' if $attributes=~/Filter=(.+?);/;
 		$notes = $1 ? $1 : '!' if $attributes=~/Notes?=(.+?);/;
 		@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
 
-		if ($self->parameter->has_bams){			
+		if (! $self->parameter->notpm && $self->parameter->has_bams){			
 			my ($abbr,@orig) = split /\./ , $id;
 			pop @orig;
-			($tpm,$rpkm,$reads) = $self->bamdb->rpkm(join(".",@orig),$start,$stop);			
+			($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,join(".",@orig),$start,$stop,$strand);
 		}
 
 		$self->db->{$abbr}->new_feature(
 		 	-start => $start, 
 	        -stop => $stop,
-	        -strand => $strand eq '+' ? +1 : -1,         
+	        -strand => $strand,
 	        -seq_id => $id,
 	        -primary_tag => $type,
 	        -phase => $phase,
@@ -69,7 +75,7 @@ sub add_gff3_entry {
 	        -index => 1,	            
 	        -attributes => { 
 	        	rpkm => $rpkm, 
-	        	tpm => $tpm, 
+	        	tpm => $tpm,
 	        	reads =>  $reads,        	
 	        	overlaps => \@overlaps,
 	        	seq => $seq,
@@ -200,7 +206,7 @@ sub get_overlapping_features {
 	if (ref($s) eq 'ARRAY'){
 	#id consists of abbreviation.ori.g.inal.copy
 		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
-		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand eq '+' ? 1 : -1);
+		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
 	} else {
 		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);		
 		$f = $s;
@@ -222,6 +228,16 @@ sub get_overlapping_features {
 	return \@features;
 }
 
+sub get_user_overlaps {
+	my ($self,$id,$start,$stop,$strand) = @_;
+	return () unless $strand || $strand eq '.';
+
+	my ($abbr,@orig) = split /\./ , $id;
+	my $orig = join '.' , @orig;
+
+	return $self->userdb->{$abbr}->features(-seq_id => $orig, -start => $start , -strand => $strand eq '+' ? 1 : -1, -stop => $stop , -range_type => 'overlaps');
+}
+
 #gorap specific set up databases for all genome files from parameter object and 
 #fill in existing data in defined output directory
 sub _set_db {
@@ -236,7 +252,80 @@ sub _set_db {
 		$self->db->{$_}->init_database([1]);
 	}		
 
-	&_read;		
+	&_read;
+
+	return unless $self->parameter->has_gffs;
+	if ($self->parameter->verbose){
+		print ! $self->parameter->has_bams && $self->parameter->notpm ? "Reading GFF files\n" : "Reading GFF files and calculating mapping statistics\n";
+	}
+	
+	my $idc=0;
+	for (0..$#{$self->parameter->gffs}){
+		my $abbr = ${$self->parameter->abbreviations}[$_];		
+		for my $f (@{${$self->parameter->gffs}[$_]}){
+			$self->userdb->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 ) unless $self->userdb->{$abbr};
+			print $f."\n";
+			open GFF, '<'.$f or die $!;
+			&add_user_entry($self,$self->userdb->{$abbr},$_,$abbr,(++$idc)) while <GFF>;
+			close GFF;
+		}		
+	}
+}
+
+sub add_user_entry(){
+	my ($self,$db,$line,$abbr,$idc) = @_;
+
+	chomp $line;
+	return unless $line || $line=~/^#/ || $line=~/^\s*$/;
+	my @line = split /\t+/ , $line;
+	
+	return if $#line < 7;
+	return if $line[2]=~/region/i;
+	
+	push @line , '.' if $#line == 7;	
+
+	$line[8].=';';
+	$line[8]=~/ID=(.+?);/i;
+
+	my $id;
+	my $attr;
+	if ($1){		
+		$id = $1;
+		$attr = substr($line[8],0,$-[0]).substr($line[8],$+[0],-1);
+	} else{		
+		$id = 'feature'.$idc;
+		if ($line[8] eq '.;'){
+			$attr = '';
+		} else {
+			$attr = length($line[8]) < 3 ? 'Note='.substr($line[8],0,-1) : substr($line[8],0,-1);	
+		}		
+	}
+
+	return if $attr=~/Note=(\?)/ || $attr=~/Filter=(\?)/;
+
+	my ($tpm,$rpkm,$reads) = ('.','.','.');
+	if (! $self->parameter->notpm && $self->parameter->has_bams && ($line[2]=~/exon/i || $attr!~/parent=/i)) {
+		($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,$line[0],$line[3],$line[4],$line[6]);		
+	}	
+	
+	$db->new_feature(
+		-start => $line[3],
+		-stop => $line[4],		
+		-seq_id => $line[0],
+		-display_name => '.', 
+		-strand => $line[6],
+		-primary_tag => $line[2],				
+		-source => $line[1],		
+		-score => $line[5],
+		-index => 1,
+		-attributes => { 
+			ID => $id,
+			attr => $attr,
+			RPKM => $rpkm,
+			TPM => $tpm,
+			Reads => $reads
+		}
+	);	
 }
 
 sub add_db {
@@ -275,9 +364,13 @@ sub add_seq {
 sub _read {
 	my ($self) = @_;
 
-	print "Reading GFF files from".$self->parameter->output."\n" if $self->parameter->verbose;
-	print "!!!do not kill GORAP here!!!\n";
-	for my $file (glob catfile($self->parameter->output,'annotations','*.fa')){		
+	my @fastas = glob catfile($self->parameter->output,'annotations','*.fa');
+	if ($self->parameter->verbose && $#fastas > -1 ){
+		print "Reading previous annotations from ".$self->parameter->output." : ";
+		print "!!!do not kill GORAP here!!!\n";
+	}	
+
+	for my $file (@fastas){		
 		my $headerMapSeq={};		
 		open FA , '<'.$file or die $!;
 		my $seqid;
@@ -312,7 +405,7 @@ sub _read {
 			my $id = join '.' , ($abbr,$orig,$l[2],$l[1],$copy);				
 			$l[1] =~ s/\W//g;
 			$l[1] = lc $l[1];
-			&add_gff3_entry($self,\@l, $headerMapSeq->{$id},$abbr);			
+			&add_gff3_entry($self,\@l, exists $headerMapSeq->{$id} ? $headerMapSeq->{$id} : '',$abbr);			
 		}
 		close GFF;			
 		unlink $file;
@@ -349,11 +442,13 @@ sub store {
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
-					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
-					print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					my ($seq) = $f1->get_tag_values('seq');
+					print FAF '>'.$faid."\n".$seq."\n" if $seq;
 				} else {
-					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
-					print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					my ($seq) = $f1->get_tag_values('seq');
+					print FA '>'.$faid."\n".$seq."\n" if $seq;
 				}
 			}
 			close GFF;
@@ -390,11 +485,13 @@ sub store {
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
-					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";						
-					print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";						
+					my $seq = $f1->get_tag_values('seq');
+					print FAF '>'.$faid."\n".$seq."\n" if $seq;
 				} else {
-					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
-					print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					my $seq = $f1->get_tag_values('seq');
+					print FA '>'.$faid."\n".$seq."\n" if $seq;
 				}
 			}
 			close GFF;
@@ -403,6 +500,26 @@ sub store {
 			close FAF;
 		}
 	}
+}
+
+sub get_user_entries {
+	my ($self,$abbr) = @_;
+
+	my @r;
+	for my $f ($self->userdb->{$abbr}->features()){
+		my @out = split /\s+/ , $f->gff_string;
+		splice @out , 8 , 2;
+		my @attributes;
+		for (sort {$a cmp $b} $f->get_all_tags()){
+			my ($v) = $f->get_tag_values($_);
+			push @attributes , $_ eq 'attr' ? $v: $_."=".$v if $v;
+		}	
+		push @out , (join ';' , @attributes);
+
+		push @r, join "\t" , @out;		
+	}
+
+	return @r;
 }
 
 sub store_overlaps {
@@ -415,6 +532,12 @@ sub store_overlaps {
 							} $self->db->{$abbr}->features();
 		my $overlaps;
 		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
+		if (exists $self->userdb->{$abbr}){
+			open GFFP , '>'.catfile($self->parameter->output,'annotations',$abbr.'.external.gff') or die $! ;			
+			print GFFP $_."\n" for &get_user_entries($self,$abbr);			
+			close GFFP if exists $self->userdb->{$abbr};
+		}		
+
 		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
@@ -442,6 +565,15 @@ sub store_overlaps {
 					$overlaps->{$f2->seq_id}->{$f1->primary_tag}=1;
 				}
 			}
+
+			#with given gff
+			if(exists $self->userdb->{$abbr}){
+				for($self->userdb->{$abbr}->features(-seq_id => $orig, -start => $f1->start , -strand => $f1->strand, -stop => $f1->stop , -range_type => 'overlaps')){
+					my ($userid) = $_->get_tag_values('ID');
+					next unless $userid;
+					$overlaps->{$f1->seq_id}->{$userid}=1;
+				}
+			}
 			
 			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
 			$o='.' unless $o;
@@ -456,11 +588,13 @@ sub store_overlaps {
 			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 
 			if ( $f1->display_name eq '!' ){
-				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";				
-				print FAF '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				my $seq = $f1->get_tag_values('seq');
+				print FAF '>'.$faid."\n".$seq."\n" if $seq;
 			} else {
-				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand > 0 ? '+' : '-',"\t".$f1->phase."\t".$attributes."\n";
-				print FA '>'.$faid."\n".($f1->get_tag_values('seq'))[0]."\n";
+				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				my $seq = $f1->get_tag_values('seq');
+				print FA '>'.$faid."\n".$seq."\n" if $seq;
 			}
 		}
 		close GFF;

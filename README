@@ -53,7 +53,7 @@ tar -xzf data-12.tar.gz -C $GORAP/
 # Set path to necessary and always downloaded Samtools software
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
-./cpanm -l $GORAPLIB . --force
+./cpanm -l $GORAPLIB .
 # Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
 bash nowarnings.sh on
 # Copy all scripts to the $GORAP directory

@@ -1,0 +1,51 @@
+[input]
+#single genome files with optional, unique abbreviation (default: file name)
+#or multiple genomes by using wildcards
+#genome<1..n>=<path>;<abbreviation>
+genome1=/my/genomes1/*.fa
+genome2=/my/genomes2/*.fa
+genome3=/my/genome1/g.fa;name1
+genome4=/my/genome2/g.fa
+
+[output]
+#optional: output directory
+out=/my/out
+
+[system]
+#all optional:
+threads=4
+temp=/tmp
+
+[query]
+#all optional:
+#kingdoms can be arc, bac, euk, fungi and virus
+kingdom=bac
+kingdom=arc
+#single Rfam search queries or ranges
+rfam=1
+rfam=5
+rfam=10:30
+rfam=1850:
+#family and species needs to be NCBI Taxon ID or scientififc name
+family=543
+species=Escherichia coli
+
+[addons]
+#all optional:
+#single outgroup genome files with optional, unique abbreviation (default: file name)
+#or multiple outgroup genomes by using wildcards for SSU and RNome based phylogeny reconstruction
+genome1=/my/outgroups1/*.fa
+genome2=/my/outgroups2/*.fa
+genome3=/my/outgroup1/g.fa;name2
+genome4=/my/outgroup2/g.fa
+#mapping results with input genome assignment for de novo annotation, RPKM and TPM calculations
+bam1=/my/mappings1/*.bam;genome1
+bam2=/my/mappings2/*.bam;genome2
+bam3=/my/mapping1/m.bam;genome3
+bam4=/my/mapping2/m.bam;genome4
+#gff3 annotation files with input genome assignment to exclude from 
+#de novo annotation, do RPKM/TPM calculations and overlap statement
+gff1=/my/annotations1/*.gff;genome1
+gff2=/my/annotations2/*.gff;genome2
+gff3=/my/annotation1/a.gff;genome3
+gff4=/my/annotation2/a.gff;genome4

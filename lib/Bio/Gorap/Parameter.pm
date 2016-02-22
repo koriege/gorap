@@ -12,6 +12,7 @@ use File::Path qw(make_path);
 use Try::Tiny;
 use Sys::MemInfo qw(totalmem);
 use List::Util qw(min max);
+use Config::IniFiles;
 
 has 'mem' => (
 	is => 'ro',
@@ -64,14 +65,14 @@ has 'tmp' => (
 	is => 'rw',
     isa => 'Str',
     default => sub { 
-    	if ($ENV{TMPDIR}){
-    		return $ENV{TMPDIR};
-    	} elsif (-e catdir(rootdir,'tmp')){
-    		return catdir(rootdir,'tmp');
-    	} else {
-    		make_path(catdir($ENV{GORAP},'tmp'));
-    		return catdir($ENV{GORAP},'tmp');
-    	}
+		if ($ENV{TMPDIR}){
+			return $ENV{TMPDIR};
+		} elsif (-e catdir(rootdir,'tmp')){
+			return catdir(rootdir,'tmp');
+		} else {
+			make_path(catdir($ENV{GORAP},'tmp'));
+			return catdir($ENV{GORAP},'tmp');
+		}
     }
 );
 
@@ -139,8 +140,14 @@ has 'species' => (
 
 has 'bams' => (
 	is => 'rw',
-    isa => 'ArrayRef',
-    predicate => 'has_bams',
+	isa => 'ArrayRef',
+	predicate => 'has_bams',
+);
+
+has 'gffs' => (
+	is => 'rw',
+	isa => 'ArrayRef',
+	predicate => 'has_gffs',
 );
 
 has 'outgroups' => (
@@ -159,6 +166,36 @@ has 'force' => (
 	is => 'rw',
 	isa => 'Bool',
 	default => 0
+);
+
+has 'notpm' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
+has 'querystring' => (
+	is => 'rw',
+	isa => 'Str',
+	default => ''
+);
+
+has 'check_overlaps' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 1
+);
+
+has 'denovolength' => (
+	is => 'rw',
+	isa => 'Int',
+	default => 50
+);
+
+has 'denovoheigth' => (
+	is => 'rw',
+	isa => 'Int',
+	default => 1000
 );
 
 sub BUILD {
@@ -184,7 +221,12 @@ sub BUILD {
 		'force|force' => \my $force,
 		't|tmp:s' => \my $tmp,
 		'notax|notaxonomy' => \my $notax,
-		'sort|sort' => \my $sort
+		'notpm|notpm' => \my $notpm,
+		'sort|sort' => \my $sort,
+		'example|example' => \my $example,
+		'no|nooverlap' => \my $nooverlaps,
+		'minl|minlength=i' => \my $denovolength,
+		'minh|minheigth=i' => \my $denovoheigth
 	) or pod2usage(-exitval => 1, -verbose => 3) if $self->commandline;
 
 	
@@ -226,8 +268,8 @@ sub BUILD {
 					exit;
 				}
 			}
-		}			
-		pod2usage(-exitval => 1, -verbose => 3) if $file eq 'x' && $help;
+		}					
+		pod2usage(-exitval => 1, -verbose => 3) if ($file eq 'x' && $help) || ($file eq 'x' && ! $genomes && ! $example);
 	}
 
 	$self->force(1) if $force;
@@ -265,13 +307,31 @@ sub BUILD {
 		}
 	}		
 			
-	&set_queries($self,[split(/\s*,\s*/,$queries)]) if defined $queries;
+	if (defined $queries){
+		$self->querystring($queries);
+		&set_queries($self,[split(/\s*,\s*/,$queries)]);
+	}
 	
 	if ($bams){
 		my @bams;
-		push @bams , glob $_ for split(/\s*,\s*/,$bams);
+		my $c=-1;
+		for (split(/\s*,\s*/,$bams)){
+			$c++;
+			next unless $_;
+			push @{$bams[$c]} , split(/\s*:\s*/,$_);
+		}		
 		$self->bams(\@bams);
 	}		
+	if ($gffs){
+		my @gffs;
+		my $c=-1;
+		for (split(/\s*,\s*/,$gffs)){
+			$c++;
+			next unless $_;
+			push @{$gffs[$c]} , split(/\s*:\s*/,$_);
+		}		
+		$self->gffs(\@gffs);
+	}
 	if ($output){
 	    try {
 			make_path(catdir(rootdir, $output)); 
@@ -287,12 +347,13 @@ sub BUILD {
 	$self->tmp($tmp) if $tmp;
 	$self->sort(1) if ! $notax && $sort && ($self->has_rank || $self->has_species);
 	$self->taxonomy(0) if $notax || ! ($self->has_rank || $self->has_species);
+	$self->notpm(1) if $notpm;
+	$self->check_overlaps(0) if $nooverlaps;
+	$self->denovoheigth($denovoheigth) if $denovoheigth;
+	$self->denovolength($denovolength) if $denovolength;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
-
-	print "Running example\n" if $self->verbose && $#{$self->genomes} == 0 && ${$self->genomes}[0] eq catfile($ENV{GORAP},'example','ecoli.fa');
-
 }
 
 sub _make_paths {
@@ -349,21 +410,21 @@ sub set_queries {
 		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
 			for ($1..$2){
-				my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}
 			
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
 			my $nr1 = $1;
-			my @q = glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
+			my @q = glob(catfile($ENV{GORAP},'config','*.cfg'));
 			basename($q[$#q])=~/R?F?0*(\d+)/;
 			my $nr2=$1;			
 			for ($nr1..$nr2){
-				my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}										
 		} elsif ($_=~/R?F?0*(\d+)/){
-			my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
+			my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 			push @queries , $q if $q;
 		} 
 	}
@@ -375,7 +436,7 @@ sub _set_queries {
 	my ($self) = @_;
 
 	my @queries;
-	push @queries , glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
+	push @queries , glob(catfile($ENV{GORAP},'config','*.cfg'));
 
 	return \@queries;
 }
@@ -383,121 +444,110 @@ sub _set_queries {
 sub read_parameter {
 	my ($self,$file) = @_;
 
-	my $c=-1;
+	my $cfg = Config::IniFiles->new( -file => $file , -nomultiline => 1, -handle_trailing_comment => 1);
 	my @genomes;
 	my @abbreviations;
 	my @ogenomes;
-	my @ogabbreviations;
-	my @queries;
-	my $kingdoms;
-	open PARAM , '<'.$file or die $!;
-	while(<PARAM>){
-		chomp $_ ;
-		$_ =~ s/^\s+|\s+$//g;
-		if ($_=~/^#/){
-			$c++;
-			next;
-		}
-		switch ($c) {
-			case 0 {
-				if ($_){															
-					my @abbrPath =  split /\s+/ , $_;
-					if( $#abbrPath > 0 ){						
-						push @genomes , $abbrPath[1]; 
-						push @abbreviations , $abbrPath[0];
-					} else {
-						push @genomes , glob $_;	
-						for (glob $_){
-							my $abbr = basename($_);
-							my @abbr = split /\./ , $abbr;
-							pop @abbr if $#abbr > 0;
-							$abbr = join '' , @abbr;
-							$abbr=~s/\W//g;
-							push @abbreviations , $abbr;
-						}						
-					}						
-				}	
-			}				
-			case 1 {
-				$self->output($_) if $_;				
+	my @ogabbreviations;	
+	my $assignment;
+
+	my $c=1;
+	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){		
+		if ($#g > 0){
+			for (@g){				
+				push @genomes , $_;
+				push @{$assignment->{'genome'.$c}} , $#genomes;
+				my $abbr = basename($_);
+				my @abbr = split /\./ , $abbr;
+				pop @abbr if $#abbr > 0;
+				$abbr = join '' , @abbr;
+				$abbr=~s/\W//g;
+				push @abbreviations , $abbr;
 			}
-			case 2 {				
-				$self->threads($_) if $_;				
+		} else {
+			push @genomes , $g[0];
+			push @{$assignment->{'genome'.$c}} , $#genomes;
+			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
+			unless ($abbr){
+				$abbr = basename($_);
+				my @abbr = split /\./ , $abbr;
+				pop @abbr if $#abbr > 0;
+				$abbr = join '' , @abbr;
+				$abbr=~s/\W//g;
 			}
-			case 3 {
-				if ($_) {				
-					if($_=~/,/){											
-						for (split(/\s*,\s*/,$_)) {
-							my $s = lc $_;
-							$kingdoms->{$s}=1;
-						}
-					} else {				
-						$kingdoms->{$_}=1
-					}
-				}				
-			}
-			case 4 { 
-				if ($_){								
-					if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
-						for ($1..$2){
-							my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
-							push @queries , $q if $q;
-						}						
-					}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
-						my $nr1 = $1;
-						my @q = glob(catfile($ENV{GORAP},'parameter','config','*.cfg'));
-						basename($q[-1])=~/R?F?0*(\d+)/;
-						my $nr2=$1;	
-						for ($nr1..$nr2){
-							my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
-							push @queries , $q if $q;
-						}										
-					} elsif ($_=~/R?F?0*(\d+)/){
-						my ($q) = glob(catfile($ENV{GORAP},'parameter','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
-						push @queries , $q if $q;
-					} 
-				} else {
-					$self->skip_comp(1) if $_ eq '0';
-				}		
-			}
-			case 5 {
-				$self->rank($_) if $_;
-			}
-			case 6 {
-				$self->species($_) if $_;
-			}
-			case 7 {
-				if ($_){															
-					my @abbrPath =  split /\s+/ , $_;
-					if( $#abbrPath > 0 ){						
-						push @ogenomes , $abbrPath[1]; 
-						push @ogabbreviations , $abbrPath[0];						
-					} else {
-						push @ogenomes , glob $_;	
-						for (glob $_){
-							my $abbr = basename($_);
-							my @abbr = split /\./ , $abbr;
-							pop @abbr if $#abbr > 0;
-							$abbr = join '' , @abbr;
-							$abbr=~s/\W//g;
-							push @ogabbreviations , $abbr;
-						}						
-					}						
-				} 
-			}															
-			case 8 {
-				push @{$self->bams} , glob $_ if $_; 
-			}			
-			else {}
-		}
+			push @abbreviations , $abbr;
+		}		
+		$c++;
 	}
-	close PARAM;
+	$c=1;
+	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
+		if ($#g > 0){
+			for (@g){
+				push @ogenomes , $_;
+				my $abbr = basename($_);
+				my @abbr = split /\./ , $abbr;
+				pop @abbr if $#abbr > 0;
+				$abbr = join '' , @abbr;
+				$abbr=~s/\W//g;
+				push @ogabbreviations , $abbr;
+			}
+		} else {
+			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
+			push @ogenomes , $g[0];
+			unless ($abbr){
+				$abbr = basename($_);
+				my @abbr = split /\./ , $abbr;
+				pop @abbr if $#abbr > 0;
+				$abbr = join '' , @abbr;
+				$abbr=~s/\W//g;
+			}
+			push @ogabbreviations , $abbr;
+		}		
+		$c++;
+	}
+	my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
+	$self->kingdoms(\%h) if scalar keys %h > 0;
+	&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
+	$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
+
+	my $v = $cfg->val('system','threads');
+	$self->threads($v) if $v;
+	$v = $cfg->val('output','out');
+	$self->output($v) if $v;
+	$v = $cfg->val('system','temp');
+	$self->tmp($v) if $v;
+
+	$v = $cfg->val('query','family');
+	$self->rank($v) if $v;
+	$v = $cfg->val('query','species');
+	$self->species($v) if $v;
+
 	$self->genomes(\@genomes) if $#genomes > -1;
 	$self->abbreviations(\@abbreviations) if $#abbreviations > -1;
 	$self->outgroups(\@ogenomes) if $#ogenomes > -1;
 	$self->ogabbreviations(\@ogabbreviations) if $#ogabbreviations > -1;
-	$self->queries(\@queries) if $#queries > -1;
-	$self->kingdoms($kingdoms) if $kingdoms;
+	
+	my @bams;
+	my @gffs;
+	$#bams=$#genomes;
+	$#gffs=$#genomes;
+	$c=1;	
+	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){		
+		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){			
+			push @{$bams[$_]} , @g;
+		}
+		$c++;
+	}
+	
+	$c=1;	
+	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){		
+		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
+			push @{$gffs[$_]} , @g;	
+		}		
+		$c++;
+	}
+	$self->bams(\@bams) if $#bams > -1;
+	$self->gffs(\@gffs) if $#gffs > -1;	
 }
 
 1;

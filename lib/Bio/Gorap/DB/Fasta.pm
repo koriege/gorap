@@ -32,12 +32,6 @@ has 'chunks' => (
 	default => sub {[]}
 );
 
-has 'oheaderToDBsize' => (
-	is => 'rw',
-	isa => 'ArrayRef',
-	default => sub {[]}
-);
-
 #for fast access during ToolI deletions
 has 'oheaders' => (
 	is => 'rw',
@@ -66,14 +60,11 @@ sub _set_db {
 		print $genome."\n" if $self->parameter->verbose;
 		$set_db_abbr = ${$self->parameter->abbreviations}[$i];
 		#make headers uniq by adding an abbreviation/filname in front of \S+
-		&add_fasta($self,$genome,\&_parse_id); 
-		my $residues=0;		
+		&add_fasta($self,$genome,\&_parse_id); 		
 		for (@oheader){	
 			$self->oheaders->{$_}=1;	
-			push @{$self->nheaders} , $set_db_abbr.'.'.$_;
-			$residues += ($self->db->fetch($set_db_abbr.'.'.$_))->length;			
-		}		
-		push @{$self->oheaderToDBsize} , [$oheader[0] , $residues];				
+			push @{$self->nheaders} , $set_db_abbr.'.'.$_;		
+		}			
 		@oheader=();
 	}	
 	$self->chunks(&chunk($self,$self->nheaders,$self->parameter->threads)) if $self->do_chunks && ! $self->parameter->skip_comp;	

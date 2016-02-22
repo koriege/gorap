@@ -4,15 +4,15 @@ use List::Util qw(min max);
 
 #gorap specific gff3 parser for Bio::DB::SeqFeature objects
 sub gff3_parser {	
-	my ($uid,$abbr,$rfrna,$s) = @_;	
+	my ($uid,$abbr,$s) = @_;	
 	
 	my @l = @{$s};
 	$l[0] = $abbr.'.'.$l[0].'.'.$uid;
 	$l[1] =~ s/\W//g;
-	$l[1] = lc $l[1];
+	$l[1] = 'GORAP'.lc $l[1];
 	$l[3] = min(${$s}[3],${$s}[4]);
 	$l[4] = max(${$s}[3],${$s}[4]);
-	$l[6] = ${$s}[3] < ${$s}[4] ? '+' : '-';
+	$l[6] = ${$s}[3] < ${$s}[4] ? '+' : '-' unless $l[6] eq '+' || $l[6] eq '-';
 	$#l = 6;
 	push @l , '.';
 	return @l;

@@ -23,7 +23,7 @@ sub calc_features {
 		for my $rfrna ( qw(RF00005_tRNA RF01852_tRNA-Sec) ){
 			for my $f ($self->gffdb->db->{$abbr}->features(-primary_tag => $rfrna , -attributes => {source => $self->tool})){
 				$self->gffdb->db->{$abbr}->delete($f);
-				if (exists $self->stkdb->db->{$rfrna}){								
+				if (exists $self->stkdb->db->{$rfrna}){
 					$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);								
 				}
 			}				
@@ -43,7 +43,7 @@ sub calc_features {
 			my $pid = wait();
 			delete $thrs->{$pid};		
 			while( my @responses = $select->can_read(0) ){
-				for my $pipe (@responses){					
+				for my $pipe (@responses){
 					push @out , $_ while <$pipe>;						
 					$select->remove( $pipe->fileno() );
 				}
@@ -74,7 +74,7 @@ sub calc_features {
 				next if $_=~/^\s*$/;	
 				my @l = split /\s+/ , $_;
 				next if $#l < 8;					
-				print $pipe $_."\n";					;
+				print $pipe $_."\n";
 			}
 			waitpid($pid, 0);
 			exit;
@@ -114,7 +114,7 @@ sub calc_features {
 		}
 		
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);		
-		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);		
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);	
 	}
 
 }

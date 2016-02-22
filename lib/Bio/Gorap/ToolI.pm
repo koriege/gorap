@@ -38,6 +38,12 @@ has 'stkdb' => (
 	required => 1
 );
 
+has 'bamdb' => (
+	is => 'ro',
+	isa => 'Bio::Gorap::DB::BAM',
+	required => 1
+);
+
 has 'tool' => (
 	is => 'ro',
 	isa => 'Str',
@@ -52,10 +58,10 @@ sub BUILD {
 		my $genome = ${$self->parameter->genomes}[$_];
 		my $abbr = ${$self->parameter->abbreviations}[$_];		
 		$abbres->{$abbr}=1; #removes all old entries, i.e. String don't start with GORAP+toolname as source
-		for ($self->gffdb->db->{$abbr}->features(-primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => $self->tool})){												
+		for ($self->gffdb->db->{$abbr}->features(-primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => $self->tool})){
 			$self->gffdb->db->{$abbr}->delete($_);			
 		}		
-	}
+	}	
 	if (exists $self->stkdb->db->{$self->parameter->cfg->rf_rna}){			
 		for ($self->stkdb->db->{$self->parameter->cfg->rf_rna}->each_seq){			
 			my @id = split /\./ , $_->id;
@@ -64,7 +70,7 @@ sub BUILD {
 			my $abbr=shift @id;			
 			$self->stkdb->db->{$self->parameter->cfg->rf_rna}->remove_seq($_) if exists $abbres->{$abbr} && exists $self->fastadb->oheaders->{join(".",@id)};
 		}		
-	}	
+	}
 }
 
 1;

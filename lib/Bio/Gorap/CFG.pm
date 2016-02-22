@@ -9,7 +9,7 @@ use List::Util qw(min max);
 has 'cfg' => (
 	is => 'ro',
     isa => 'Str',
-    required => 1
+    trigger => \&_set
 );
 
 has ['rf' , 'rna' , 'rf_rna' , 'query_dir' , 'fasta' , 'stk' , 'cm'] => (
@@ -62,7 +62,7 @@ has 'userfilter' => (
     default => 0
 );
 
-sub BUILD {
+sub _set {
 	my ($self) = @_;
 	#parse rfam query related gorap configuration file of interest into data structure
 	open PARAM , '<'.$self->cfg or die $!;

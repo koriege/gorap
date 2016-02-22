@@ -5,7 +5,7 @@ use File::Spec::Functions;
 use File::Basename;
 
 sub create {
-	my ($self,$parameter,$gffdb,$headerToDBsize,$idToStk,$filename) = @_;
+	my ($self,$parameter,$gffdb,$idToStk,$filename) = @_;
 	my $data_pos = tell DATA;
 	my $tablehtml=0;
 	open INDEX , '>'.catfile($parameter->output,'index.html') or die $!;
@@ -29,44 +29,32 @@ sub create {
 		} else {
 			if ($_=~/Parameter/){
 				print HTML $_;
-				print HTML '-i '.join('\\<br>'."\n",@{$parameter->{'genomes'}}).'\\<br>'."\n";
+				print HTML '-i '.join(',\\<br>'."\n",@{$parameter->{'genomes'}}).'\\<br>'."\n";
 				print HTML '-a '.join(',',@{$parameter->{'abbreviations'}}).'\\<br>'."\n";
 				print HTML '-o '.$parameter->output.'\\<br>'."\n";
 				print HTML '-c '.$parameter->threads.'\\<br>'."\n";
 				print HTML '-k '.join(',',keys %{$parameter->{'kingdoms'}}).'\\<br>'."\n";
-				if ($#{$parameter->queries}>-1){
-					basename(${$parameter->queries}[0])=~/RF0*(\d+)/;
-					my $q = $1;
-					my $qstring=$q;
-					for (my $i=1; $i<=$#{$parameter->queries}; $i++){
-						basename(${$parameter->queries}[$i])=~/RF0*(\d+)/;
-						my $q2 = $1;
-						my $range;
-						while($q2-$q==1 && $i<$#{$parameter->queries}){
-							$range = 1;
-							$i++;
-							$q = $q2;
-							basename(${$parameter->queries}[$i])=~/RF0*(\d+)/;
-							$q2 = $1;						
-						}
-						if ($range){
-							$qstring.= $q2-$q==1 ? ':'.$q2 : ':'.$q.','.$q2;
-						} else {
-							$qstring.=','.$q2;
-							$q = $q2;
-						}					
-					}
-					chomp $qstring;
-					my @q = $qstring=~/(.{1,100})/g;
-					print HTML '-q '.join('\\<br>'."\n",@q).'\\<br>'."\n";
+				if ($#{$parameter->queries}>-1){				
+					print HTML '-q '.$parameter->querystring.'\\<br>'."\n" if $parameter->querystring;
 				} else {
 					print HTML '-q 0\\<br>'."\n";
 				}
 				print HTML '-r '.$parameter->{'rank'}.'\\<br>'."\n" if $parameter->has_rank;
 				print HTML '-s '.$parameter->{'species'}.'\\<br>'."\n" if $parameter->has_species;
 				print HTML '-og '.join('\\<br>'."\n",@{$parameter->{'outgroups'}}).'\\<br>'."\n" if $parameter->has_outgroups;
-				print HTML '-oga '.join(',',@{$parameter->{'ogabbreviations'}}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
-				print HTML '-b '.join(',\\<br>'."\n",@{$parameter->{'bams'}}).'\\<br>'."\n" if $parameter->has_bams;
+				print HTML '-oga '.join(',',@{$parameter->{'ogabbreviations'}}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;				
+				if ($parameter->has_gffs){
+					my $gffs='';
+					$gffs .= join(',\\<br>',@{$_}).',\\<br>' for @{$parameter->{'gffs'}};
+					$gffs = substr($gffs,0,-6);
+					print HTML '-g '.$gffs.'\\<br>'."\n";
+				}
+				if ($parameter->has_bams){
+					my $bams='';
+					$bams .= join(',\\<br>',@{$_}).',\\<br>' for @{$parameter->{'bams'}};
+					$bams = substr($bams,0,-6);
+					print HTML '-b '.$bams.'\\<br>'."\n";
+				}
 				print HTML '-notax\\<br>'."\n" if $parameter->taxonomy;
 				print HTML '-sort\\<br>'."\n" if $parameter->sort;				
 				print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
@@ -75,15 +63,13 @@ sub create {
 				print HTML '<table class="tablesorter">'."\n";
 				print HTML '<thead>'."\n";
 				print HTML '<tr>'."\n";
-				print HTML '<th>Genome</th>'."\t".'<th>Abbreviation</th>'."\t".'<th>Genomesize</th>'."\t".'<th>File</th>'."\n";
+				print HTML '<th>Genome</th>'."\t".'<th>File</th>'."\n";
 				print HTML '</tr>'."\n";
 				print HTML '</thead>'."\n";
 				print HTML '<tbody>'."\n";
 				for (0..$#{$parameter->genomes}){
-					print HTML '<tr>'."\n";
-					print HTML '<td>'.${${$headerToDBsize}[$_]}[0].'</td>'."\t";
+					print HTML '<tr>'."\n";					
 					print HTML '<td>'.${$parameter->abbreviations}[$_].'</td>'."\t";
-					print HTML '<td>'.${${$headerToDBsize}[$_]}[1].'</td>'."\t";
 					print HTML '<td><a href="'.${$parameter->genomes}[$_].'">'.basename(${$parameter->genomes}[$_]).'</a></td>'."\n";
 					print HTML '</tr>'."\n";	
 				}				
