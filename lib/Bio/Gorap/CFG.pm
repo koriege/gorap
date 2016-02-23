@@ -14,7 +14,8 @@ has 'cfg' => (
 
 has ['rf' , 'rna' , 'rf_rna' , 'query_dir' , 'fasta' , 'stk' , 'cm'] => (
 	is => 'rw',
-    isa => 'Str'
+    isa => 'Str',
+    default => ''
 );
 
 has 'cmd' => (
@@ -108,7 +109,7 @@ sub _set {
 				if(catfile($self->query_dir,$self->rf_rna.'.cm')=~/$_$/){
 					$self->cm(catfile($self->query_dir,$self->rf_rna.'.cm'));					
 				} else {
-					$self->cm($_);					
+					$self->cm($_);
 				}
 			}
 			case 5 {
@@ -145,7 +146,7 @@ sub _set {
 	push @{$self->tools} , $tool;
 	push @{$self->tools} , lc ${$self->cmd}[1] if $#{$self->cmd} > 0 && ${$self->cmd}[1]=~/(B|b)last|(I|i)nfernal/ ;
 
-	my $score = Bio::Gorap::Functions::CM->get_min_score(catfile($self->query_dir,$self->rf_rna.'.cm'));		
+	my $score = $self->cm ? Bio::Gorap::Functions::CM->get_min_score($self->cm) : -1;		
 	$self->bitscore_cm($score == -1 ? $self->bitscore : $score);
 }
 

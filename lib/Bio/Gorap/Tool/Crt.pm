@@ -145,7 +145,7 @@ sub calc_features {
 					my @l = split /\s+/ , $_;
 					my $start = $l[0];
 					my $stop = $start + length($l[1]) - 1;
-					print $pipe join(' ' , ($id, 'GORAPcrt' , 'CRISPR' , $start , $stop , '.' , '+' , '.', "\n"));
+					print $pipe join(' ' , ($id, 'GORAPcrt' , 'CRISPR' , $start , $stop , '.' , '.' , '.', "\n"));
 					$start = $stop;
 				}
 			}
@@ -172,6 +172,7 @@ sub calc_features {
 		$gff3entry[0].='.0';
 
 		my @seqs;
+		$gff3entry[6] = '+';
 		push @seqs , $self->fastadb->get_gff3seq(\@gff3entry);
 		$gff3entry[6] = '-';
 		push @seqs , $self->fastadb->get_gff3seq(\@gff3entry);
@@ -202,12 +203,14 @@ sub calc_features {
 				close S;
 				unlink $scorefile;
 			}
-		}					
+		}
 
 		if ($maxscore >= 10){					
 			$gff3entry[2] = $maxfamily;
 			$gff3entry[5] = $maxscore;
-			$gff3entry[6] = $strand;						
+			$gff3entry[6] = $strand;
+		} else {
+			$gff3entry[6] = '.';
 		}
 
 		my ($abbr,@orig) = split /\./ , $gff3entry[0];
@@ -215,12 +218,14 @@ sub calc_features {
 		$uid->{$abbr.'.'.$gff3entry[2]}++;
 		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
 
+		# due to overlapping chunks check for already annotated genes
 		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
 		if ($#{$existingFeatures} > -1){
 			$uid->{$abbr.'.'.$gff3entry[2]}--;
 			next;
-		}		
-		$self->gffdb->add_gff3_entry(\@gff3entry,$seqs[$strand eq '+' ? 0 : 1]);	
+		}
+		my $seq = $gff3entry[6] eq '.' ? '' : $seqs[$gff3entry[6] eq '+' ? 0 : 1];
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}		
 }
 

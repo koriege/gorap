@@ -184,22 +184,26 @@ sub align {
 		}
 	} else { 		
 		#if no alignment is present, the seed alignment the cm is build from, is added to the alignment process
-		$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
-
-		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );		
-		unless ($success) {			
+		if ($self->parameter->cfg->stk){			
+			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
+			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
+		} 		
+				
+		if (! $success || ! $self->parameter->cfg->stk) {			
 			$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.fa');
-			open FA , '>'.$tmpfile or die $!;			
-			open FAI , '<'.$self->parameter->cfg->fasta or die $!;
-			while(<FAI>){
-				if($_=~/^>(.+?)\s+(.+?)\s*$/){
-					print FA '>'.($2 ? $2 : $1)."\n";					
-				} else {
-					print FA $_;
-				}				
+			open FA , '>'.$tmpfile or die $!;
+			if ($self->parameter->cfg->fasta){
+				open FAI , '<'.$self->parameter->cfg->fasta or die $!;
+				while(<FAI>){
+					if($_=~/^>(.+?)\s+(.+?)\s*$/){
+						print FA '>'.($2 ? $2 : $1)."\n";					
+					} else {
+						print FA $_;
+					}				
+				}
+				close FAI;
 			}
-			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
-			close FAI;
+			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};			
 			close FA;
 			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";			
 

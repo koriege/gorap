@@ -42,6 +42,7 @@ sub add_gff3_entry {
 	if ($#{$s} > 6){
 		my ($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		my ($abbr,@orig) = split /\./ , $id;
+		pop @orig;
 		
 		my @overlaps = ('.');
 		my ($tpm,$rpkm,$reads,$filter,$notes) = ('.','.','.','!','.');
@@ -54,10 +55,8 @@ sub add_gff3_entry {
 		$notes = $1 ? $1 : '!' if $attributes=~/Notes?=(.+?);/;
 		@overlaps = split /,/ , $1 if $attributes=~/Overlaps=(.+?);/;
 
-		if (! $self->parameter->notpm && $self->parameter->has_bams){			
-			my ($abbr,@orig) = split /\./ , $id;
-			pop @orig;
-			($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,join(".",@orig),$start,$stop,$strand);
+		if (! $self->parameter->notpm && $self->parameter->has_bams){
+			($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,join('.',@orig),$start,$stop,$strand);
 		}
 
 		$self->db->{$abbr}->new_feature(
@@ -74,6 +73,7 @@ sub add_gff3_entry {
 	        -score => $score,
 	        -index => 1,	            
 	        -attributes => { 
+	        	chr => join('.',@orig),
 	        	rpkm => $rpkm, 
 	        	tpm => $tpm,
 	        	reads =>  $reads,        	
@@ -115,7 +115,8 @@ sub update_score {
 
 	return unless $feature;
 	$feature->score($score);
-	$feature->update;		
+	
+	$feature->update;
 }
 
 #gorap specific update score into this Bio::DB::SeqFeature database
@@ -198,7 +199,7 @@ sub get_feature {
 	return $#features > -1 ? $features[0] : undef;
 }
 
-sub get_overlapping_features {
+sub get_overlapping_features { #bad name but returns all overlapping features of same type, strand independent
 	my ($self,$s) = @_;
 	
 	my ($f,$id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes);
@@ -216,15 +217,45 @@ sub get_overlapping_features {
 	$id = join '.' , ($abbr,@orig);
 
 	my @features;
-	for ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $source})){
+	#without strand info due to a) crt and b) same tool wont annotate same type of gene at both strands
 
-		next unless $_->strand == $f->strand;		
+	for ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $source})){		
 		my @tmp = split /\./, $_->seq_id;
 		pop @tmp;
 		next unless join('.' , @tmp) eq $id;
 		my ($start, $stop, $strand) = $f->intersection($_);
 		push @features , $_ if $start && ($stop - $start) > 0;
 	}
+	return \@features;
+}
+
+sub get_all_overlapping_features { #bad name but returns all features (type independent) overlapping at least 70% in both direction
+	my ($self,$s) = @_;
+	
+	my ($f,$id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes);
+
+	if (ref($s) eq 'ARRAY'){
+	#id consists of abbreviation.ori.g.inal.copy
+		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
+		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
+	} else {
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);		
+		$f = $s;
+	}
+	my ($abbr,@orig) = split /\./ , $id;
+	pop @orig;
+	$id = join '.' , ($abbr,@orig);
+
+	my @features;
+	
+	for ($self->db->{$abbr}->features(-attributes => {source => $source})){		
+		my @tmp = split /\./, $_->seq_id;
+		pop @tmp;
+		next unless join('.' , @tmp) eq $id;
+		my ($istart, $istop, $istrand) = $f->intersection($_);
+		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.7 && $istop - $istart >= ($_->stop - $_->start) * 0.7;
+	}
+	
 	return \@features;
 }
 
@@ -556,6 +587,90 @@ sub store_overlaps {
 				for ($i+1..$#features){					
 					my $f2 = $features[$_];
 					last if $f1->strand != $f2->strand;
+					last if $f2->start > $f1->stop;
+					next unless $f2->display_name eq '!';					
+					my @id2 = split /\./ , $f2->seq_id;
+					my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
+					next unless $orig eq $orig2;
+					$overlaps->{$f1->seq_id}->{$f2->primary_tag}=1;
+					$overlaps->{$f2->seq_id}->{$f1->primary_tag}=1;
+				}
+			}
+
+			#with given gff
+			if(exists $self->userdb->{$abbr}){
+				for($self->userdb->{$abbr}->features(-seq_id => $orig, -start => $f1->start , -strand => $f1->strand, -stop => $f1->stop , -range_type => 'overlaps')){
+					my ($userid) = $_->get_tag_values('ID');
+					next unless $userid;
+					$overlaps->{$f1->seq_id}->{$userid}=1;
+				}
+			}
+			
+			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
+			$o='.' unless $o;
+
+			my $reads = ($f1->get_tag_values('reads'))[0];
+			$reads = 0 unless $reads;
+			my $rpkm = ($f1->get_tag_values('rpkm'))[0];
+			$rpkm = 0 unless $rpkm;
+			my $tpm = ($f1->get_tag_values('tpm'))[0];
+			$tpm = 0 unless $tpm;
+
+			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
+
+			if ( $f1->display_name eq '!' ){
+				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				my $seq = $f1->get_tag_values('seq');
+				print FAF '>'.$faid."\n".$seq."\n" if $seq;
+			} else {
+				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				my $seq = $f1->get_tag_values('seq');
+				print FA '>'.$faid."\n".$seq."\n" if $seq;
+			}
+		}
+		close GFF;
+		close FA;
+		close GFFF;
+		close FAF;
+	}
+}
+
+sub store_overlaps {
+	my ($self) = @_;
+	
+	for my $abbr (keys %{$self->db}){		
+		my @features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
+								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop
+							} $self->db->{$abbr}->features();
+		my $overlaps;
+		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
+		if (exists $self->userdb->{$abbr}){
+			open GFFP , '>'.catfile($self->parameter->output,'annotations',$abbr.'.external.gff') or die $! ;			
+			print GFFP $_."\n" for &get_user_entries($self,$abbr);			
+			close GFFP if exists $self->userdb->{$abbr};
+		}		
+
+		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
+		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
+		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+		for my $i (0..$#features){
+			my $f1 = $features[$i];
+
+			my $source = $f1->source;	
+			$source =~ s/GORAP//;
+			
+			my @id = split /\./ , $f1->seq_id;
+			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
+			my $f1id = $abbr.'.'.$orig;
+
+			if ($f1->display_name eq '!'){
+				for ($i+1..$#features){					
+					my $f2 = $features[$_];
+					if ($f1->strand && $f2->strand){
+						last if $f1->strand != $f2->strand;
+					}
 					last if $f2->start > $f1->stop;
 					next unless $f2->display_name eq '!';					
 					my @id2 = split /\./ , $f2->seq_id;

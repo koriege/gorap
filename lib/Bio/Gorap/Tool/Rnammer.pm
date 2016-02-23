@@ -27,59 +27,62 @@ sub calc_features {
 		}
 	}
 		
-	my $kingdom;
+	my @kingdoms;
 	
-	$kingdom = 'arc' if exists $self->parameter->kingdoms->{'arc'};
-	$kingdom = 'bac' if exists $self->parameter->kingdoms->{'bac'};
-	$kingdom = 'euk' if exists $self->parameter->kingdoms->{'fungi'} || exists $self->parameter->kingdoms->{'euk'};
+	push @kingdoms , 'arc' if exists $self->parameter->kingdoms->{'arc'};
+	push @kingdoms , 'bac' if exists $self->parameter->kingdoms->{'bac'};
+	push @kingdoms , 'euk' if exists $self->parameter->kingdoms->{'fungi'} || exists $self->parameter->kingdoms->{'euk'};
 
 	splice @{$self->parameter->cfg->cmd}, 1, 0, '-T '.$self->parameter->tmp;
 
 	my $select = IO::Select->new();
 	my $thrs={};
-	my @out;	
-	for my $genome (@{$self->fastadb->chunks}){
-		if (scalar(keys %{$thrs}) >= $self->threads){
-			my $pid = wait();
-			delete $thrs->{$pid};	
-			while( my @responses = $select->can_read(0) ){
-				for my $pipe (@responses){					
-					push @out , $_ while <$pipe>;						
-					$select->remove( $pipe->fileno() );
+	my @out;
+	for my $kingdom (@kingdoms){
+
+		for my $genome (@{$self->fastadb->chunks}){
+			if (scalar(keys %{$thrs}) >= $self->threads){
+				my $pid = wait();
+				delete $thrs->{$pid};	
+				while( my @responses = $select->can_read(0) ){
+					for my $pipe (@responses){					
+						push @out , $_ while <$pipe>;						
+						$select->remove( $pipe->fileno() );
+					}
 				}
 			}
-		}
-		
-		my $pipe = IO::Pipe->new();			
-		if (my $pid = fork()) {
-			$pipe->reader();
-			$select->add( $pipe );
-			$thrs->{$pid}++;
-		} else {
-			$pipe->writer();
-			$pipe->autoflush(1);
 			
-			my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
-			for (@{$self->parameter->cfg->cmd}){
-				$_ =~ s/\$genome/$genome/;
-				$_ =~ s/\$kingdom/$kingdom/;
-				$_ =~ s/\$output/$tmpfile/;
-			}		
-						
-			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
-			open F ,'<'.$tmpfile or exit;
-			while( <F> ) {		
-				chomp $_;
-				$_ =~ s/^\s+|\s+$//g;
-				next if $_=~/^#/;
-				next if $_=~/^\s*$/;	
-				my @l = split /\s+/ , $_;
-				next if $#l < 8;	
-				print $pipe $_."\n";			
+			my $pipe = IO::Pipe->new();			
+			if (my $pid = fork()) {
+				$pipe->reader();
+				$select->add( $pipe );
+				$thrs->{$pid}++;
+			} else {
+				$pipe->writer();
+				$pipe->autoflush(1);
+				
+				my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
+				for (@{$self->parameter->cfg->cmd}){
+					$_ =~ s/\$genome/$genome/;
+					$_ =~ s/\$kingdom/$kingdom/;
+					$_ =~ s/\$output/$tmpfile/;
+				}		
+							
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
+				open F ,'<'.$tmpfile or exit;
+				while( <F> ) {		
+					chomp $_;
+					$_ =~ s/^\s+|\s+$//g;
+					next if $_=~/^#/;
+					next if $_=~/^\s*$/;	
+					my @l = split /\s+/ , $_;
+					next if $#l < 8;	
+					print $pipe $_."\n";			
+				}
+				close F;
+				unlink $tmpfile;			
+				exit;
 			}
-			close F;
-			unlink $tmpfile;			
-			exit;
 		}
 	}
 	for (keys %{$thrs} ) {

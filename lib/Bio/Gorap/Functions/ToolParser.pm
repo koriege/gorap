@@ -4,17 +4,24 @@ use List::Util qw(min max);
 
 #gorap specific gff3 parser for Bio::DB::SeqFeature objects
 sub gff3_parser {	
-	my ($uid,$abbr,$s) = @_;	
-	
+	my ($uid,$abbr,$rfrna,$tool,$s) = @_;
+
 	my @l = @{$s};
+
 	$l[0] = $abbr.'.'.$l[0].'.'.$uid;
+	$l[1] = $tool;
 	$l[1] =~ s/\W//g;
-	$l[1] = 'GORAP'.lc $l[1];
+	$l[1] = 'GORAP'.lc($l[1]);
+	$l[2] = $rfrna;
 	$l[3] = min(${$s}[3],${$s}[4]);
 	$l[4] = max(${$s}[3],${$s}[4]);
 	$l[6] = ${$s}[3] < ${$s}[4] ? '+' : '-' unless $l[6] eq '+' || $l[6] eq '-';
 	$#l = 6;
 	push @l , '.';
+	if ($$s[8]){
+		$$s[8]=~s/;/,/g;
+		push @l , 'Note='.$$s[8];
+	}	
 	return @l;
 }
 
@@ -34,14 +41,15 @@ sub blast_parser {
 
 #gorap specific tRNAscan-SE tabular output parser for Bio::DB::SeqFeature objects
 sub trnascanse_parser {	
-	my ($s) = @_;	
+	my ($s) = @_;
+
 	my $rfrna;
 	if (${$s}[4]=~/SeC/){
 		$rfrna = 'RF01852_tRNA-Sec';
 	} else {
 		$rfrna = 'RF00005_tRNA';
 	}
-	return (${$s}[0].'.'.$uid , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Notes='.${$s}[4].'_'.${$s}[5]);
+	return (${$s}[0] , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Note='.${$s}[4].'_'.${$s}[5]);
 }
 
 #gorap specific RNAmmer tabular output parser for Bio::DB::SeqFeature objects

@@ -11,7 +11,24 @@ sub score_filter {
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my $write;
-	my @update;
+	my @update;	
+	my $type = $features->{(keys %{$features})[0]}->type;
+	
+	if ($type=~/_Afu/ || $type=~/_SNOR.?D/ || $type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+		for (keys %{$features}){		
+			my $f = $features->{$_};
+			next if $f->score eq '.';
+
+			if ($f->score < 15){
+				delete $features->{$_};
+				$write = 1;
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+				push @update , $f->seq_id.' '.$f->primary_tag.' B';
+			}
+		}
+
+		return ($stk , $features, \@update , $write);
+	}
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
 		my $tmpfeatures;
@@ -232,7 +249,7 @@ sub sequence_filter { #$_!~/_snora/i && $_=~/_sn?o?(r|z|u|y)d?\d/i
 			if ($consC/$allCons < 0.7 ){
 				delete $features->{$_};
 				$write = 1;
-				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 				push @update , $f->seq_id.' '.$f->primary_tag.' P';
 			}
 		}		
@@ -338,6 +355,8 @@ sub user_filter {
 			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
 			$subseq =~ s/\W//g;	
 			if($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+				next if $f->score ne '.' && $f->score > 35;
+
 				if ($f->score ne '.' && $f->score < 15){
 					delete $features->{$k};
 					$write = 1;

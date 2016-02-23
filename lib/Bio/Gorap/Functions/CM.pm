@@ -8,7 +8,7 @@ sub get_min_score {
 	#open given covariance model and extract minimum of gathering-, trusted- and noise cutoff
 	my ($self,$cm) = @_;
 	
-	open CM , '<'.$cm or die $cm."\n".$!;
+	open CM , '<'.$cm or die $!;
 	my $score = 999999;
 	while(<CM>){
 		last if $_=~/^\/\//;

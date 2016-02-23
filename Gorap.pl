@@ -179,7 +179,7 @@ if ($parameter->has_outgroups){
 				print FA '>'.$k."\n";
 				$coreFeatures->{$k}=~s/(\W|_)/-/g;				
 				print FA $_."\n" for unpack("(a80)*",$coreFeatures->{$k});				
-			}			
+			}
 			close FA;
 			open FA , '>'.catfile($outdir,'coreRNome.stkfa') or die $!;
 			for my $k (keys %$stkCoreFeatures ){
@@ -241,7 +241,7 @@ sub run {
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);	
 		$c++;
-		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\r" if $parameter->verbose;
+		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n" if $parameter->verbose;
 
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
@@ -256,6 +256,8 @@ sub run {
 		#reverse sort to process infernal before blast
 		my $thcalc;
 		for my $tool (reverse sort @{$parameter->cfg->tools}){
+			next if $tool eq 'blast' && $parameter->noblast;
+			
 			$thcalc = 1 if $tool eq 'infernal' || $tool eq 'blast';
 			$tool = ucfirst $tool;
 			#print '- by '.$tool."\n";
@@ -297,38 +299,38 @@ sub run {
 
 			#run software, use parser, store new gff3 entries 
 			$obj->calc_features;		
-		}
-		
+		}		
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
 		#print "align\n";
+		if ($parameter->cfg->cm){
+			my ($scorefile,$stk);
+			try{
+				($scorefile,$stk) = $stkdb->align(
+					$parameter->cfg->rf_rna,
+					$sequences,
+					($parameter->threads - $thrListener->get_workload)
+				);		
+			} catch {
+				&SIGABORT($_);
+			};
+			$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
-		my ($scorefile,$stk);
-		try{
-			($scorefile,$stk) = $stkdb->align(
-				$parameter->cfg->rf_rna,
-				$sequences,
-				($parameter->threads - $thrListener->get_workload)
-			);		
-		} catch {
-			&SIGABORT($_);
-		};
-		$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
+			#start of time consuming single threaded background job with a subroutine reference,
+			#which returns an array of String, parsable by pipe_parser
+			#print "getfeatures\n";
+			my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
 
-		#start of time consuming single threaded background job with a subroutine reference,
-		#which returns an array of String, parsable by pipe_parser
-		#print "getfeatures\n";
-		my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
-
-		next if $#{$features} == -1;
-		#print "bgjob\n";
-		if ($thcalc){
-			my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
-			$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold)});
-		} else {
-			#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
-			$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+			next if $#{$features} == -1;
+			#print "bgjob\n";
+			if ($thcalc){
+				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
+				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});
+			} else {
+				#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
+				$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+			}
 		}
 		
 		#store annotations already in the database in case of errors		

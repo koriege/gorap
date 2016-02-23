@@ -56,13 +56,12 @@ sub get_overlaps {
 	my $id = join '.' , @tmp;
 
 	my @features;
-	for ($gffdb->db->{$abbr}->features()){		
-		next unless $_->display_name eq '!';
+	for ($gffdb->db->{$abbr}->features(-range_type => 'overlaps', -start => $f->start, -stop => $f->stop, -strand => $f->strand, $_->display_name => '!')){				
 		@tmp = split /\./, $_->seq_id;
 		pop @tmp;		
 		next unless join('.' , @tmp) eq $id;
 		my ($start, $stop, $strand) = $f->intersection($_);
-		push @features , $_ if $start && ($stop - $start) > 10;
+		push @features , $_ if $stop - $start >= ($f->stop - $f->start) * 0.7 && $stop - $start >= ($_->stop - $_->start) * 0.7;
 	}
 	
 	return @features;
@@ -76,29 +75,29 @@ for my $cfg (@{$parameter->queries}){
 		my $seq;
 		$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
 		if ($seq){
-          if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
-				if($f->score <15){
-					$gffdb->update_filter($f->seq_id,$type,'B');
-					$stkdb->db->{$type}->remove_seq($seq);
-					next;
-				}
-				my $higherscore;
-				for (&get_overlaps($f)){
-					if($_->type=~/_Afu/ || $_->type=~/_SNOR.?D/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
-						$higherscore = 1 if $_->score > $f->score;
-					}
-				}
-				if ($higherscore){
-					$gffdb->update_filter($f->seq_id,$type,'O');
-					$stkdb->db->{$type}->remove_seq($seq);
-				} else {
-					$hold=1;
-					$gffdb->update_filter($f->seq_id,$type,'!');	
-				}
-			} else {
+   #          if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+			# 	if($f->score <15){
+			# 		$gffdb->update_filter($f->seq_id,$type,'B');
+			# 		$stkdb->db->{$type}->remove_seq($seq);
+			# 		next;
+			# 	}
+			# 	my $higherscore;
+			# 	for (&get_overlaps($f)){
+			# 		if($_->type=~/_Afu/ || $_->type=~/_SNOR.?D/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+			# 			$higherscore = 1 if $_->score > $f->score;
+			# 		}
+			# 	}
+			# 	if ($higherscore){
+			# 		$gffdb->update_filter($f->seq_id,$type,'O');
+			# 		$stkdb->db->{$type}->remove_seq($seq);
+			# 	} else {
+			# 		$hold=1;
+			# 		$gffdb->update_filter($f->seq_id,$type,'!');	
+			# 	}
+			# } else {
 				$hold=1;
 				$gffdb->update_filter($f->seq_id,$type,'!');
-			}
+			# }
 		} else {
 			$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
 		}		

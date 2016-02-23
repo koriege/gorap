@@ -174,6 +174,12 @@ has 'notpm' => (
 	default => 0
 );
 
+has 'noblast' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 has 'querystring' => (
 	is => 'rw',
 	isa => 'Str',
@@ -222,6 +228,7 @@ sub BUILD {
 		't|tmp:s' => \my $tmp,
 		'notax|notaxonomy' => \my $notax,
 		'notpm|notpm' => \my $notpm,
+		'nobl|noblast' => \my $noblast,
 		'sort|sort' => \my $sort,
 		'example|example' => \my $example,
 		'no|nooverlap' => \my $nooverlaps,
@@ -351,6 +358,7 @@ sub BUILD {
 	$self->check_overlaps(0) if $nooverlaps;
 	$self->denovoheigth($denovoheigth) if $denovoheigth;
 	$self->denovolength($denovolength) if $denovolength;
+	$self->noblast(1) if $noblast;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));

@@ -12,20 +12,21 @@ use Symbol qw(gensym);
 use List::MoreUtils qw(any);
 
 sub calc_features {
-	my ($self) = @_;
+	my ($self) = @_;	
 	
 	#calculations and software calls
 	#results are fetched and stored in DB structure
-	if (any {/\$cpus/} @{$self->parameter->cfg->cmd}){
+	if (any {/\$cpus/} @{$self->parameter->cfg->cmd}){		
 		for (0..$#{$self->parameter->genomes}){		
 			my $genome = ${$self->parameter->genomes}[$_];
 			my $abbr = ${$self->parameter->abbreviations}[$_];
 			my $uid = 0;				
 			my $tmpfile;
 			my @cmd = @{$self->parameter->cfg->cmd};
+			my $threads = $self->threads;
 			for (@cmd){
 				$_ =~ s/\$genome/$genome/;
-				$_ =~ s/\$cpus/$self->threads/;	
+				$_ =~ s/\$cpus/$threads/;	
 				if ($_ =~ /\$output/){
 					$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.tmp');
 					$_ =~ s/\$output/$tmpfile/;
@@ -42,7 +43,7 @@ sub calc_features {
 					next if $_=~/^\s*$/;
 					my @l = split /\s+/ , $_;
 					#tool_parser is set to gff3_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser	
-					my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);						
+					my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,$self->tool,\@l);						
 					my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 					$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 				}
@@ -53,10 +54,10 @@ sub calc_features {
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
 					next if $_=~/^#/;
-					next if $_=~/^\s*$/;
-					my @l = split /\s+/ , $_;			
+					next if $_=~/^\s*$/;					
+					my @l = split /\s+/ , $_;
 					#tool_parser is set to gff3_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser			
-					my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);						
+					my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,$self->tool,\@l);
 					my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 					$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 				}
@@ -105,7 +106,7 @@ sub calc_features {
 						next if $_=~/^#/;
 						next if $_=~/^\s*$/;
 						#tool_parser is set to gff3_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser	
-						print $pipe $_;
+						print $pipe $_."\n";
 					}
 					close F;
 					unlink $tmpfile;
@@ -117,7 +118,7 @@ sub calc_features {
 						next if $_=~/^#/;
 						next if $_=~/^\s*$/;
 						#tool_parser is set to gff3_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser	
-						print $pipe $_;
+						print $pipe $_."\n";
 					}
 					waitpid($pid, 0);
 				}
@@ -129,32 +130,32 @@ sub calc_features {
 			delete $thrs->{$pid};
 			while( my @responses = $select->can_read(0) ){
 				for my $pipe (@responses){					
-					push @out , $_ while <$pipe>;						
+					push @out , $_ while <$pipe>;
 					$select->remove( $pipe->fileno() );
 				}
 			}
 		}
 
-		my $uid;
+		my $uid;		
 		for(@out){
-			my @gff3entry = split /\s+/, $_;
-
-			($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
-
-			my ($abbr,@orig) = split /\./ , $gff3entry[0];
-			$uid->{$abbr.'.'.$gff3entry[2]}++;
-			$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
+			my @gff3entry = split /\s+/, $_;			
 			
-			# due to overlapping chunks check for already annotated genes
+			($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
+			my ($abbr,@orig) = split /\./ , $gff3entry[0];
+			$gff3entry[0] = join '.' , @orig;
+			@gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,$self->tool,\@gff3entry);
+			
+			#due to overlapping chunks check for already annotated genes
 			my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
 			if ($#{$existingFeatures} > -1){
-				$uid->{$abbr.'.'.$gff3entry[2]}--;	
+				$uid--;
 				next;
 			}
 			
 			my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 			$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
-
 		}
 	}
 }
+
+1;

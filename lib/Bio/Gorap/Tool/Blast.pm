@@ -20,8 +20,8 @@ sub calc_features {
 		my $uid = 0;				
 
 		unless (-e $genome.'.nhr'){
-			unlink $genome.$_ for qw( .nhr .nin .nnd .nni .nog .nsd .nsi .nsq);			
-			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "makeblastdb -in $genome -dbtype nucl -parse_seqids -gi_mask" , verbose => 0 );
+			unlink $genome.$_ for qw( .nhr .nin .nnd .nni .nog .nsd .nsi .nsq);
+			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "makeblastdb -in $genome -dbtype nucl -parse_seqids" , verbose => 0 );
 		}
 		my @cmd = ('blastn' , '-num_threads' , $self->threads , '-query' , $self->parameter->cfg->fasta , '-db' , $genome , '-task' , 'dc-megablast' , 
 			'-word_size' , 11 , '-template_type' , 'optimal' , '-template_length' , 16 , '-evalue' , $self->parameter->cfg->evalue , '-window_size' , 50 , 
@@ -31,11 +31,11 @@ sub calc_features {
 		# 	'-evalue' , $self->parameter->cfg->evalue , '-window_size' , 50 , 
 		# 	'-outfmt' , '"6' , 'qseqid' , 'sseqid' , 'pident' , 'length' , 'mismatch' , 'gapopen' , 'qstart' , 'qend' , 'sstart' , 'send' , 'evalue' , 'bitscore"'
 		# );
-				
-		my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @cmd));				
+		
+		my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @cmd));		
 		my @tab;
-		while( <READER> ) {		
-			chomp $_;
+		while( <READER> ) {			
+			chomp $_;			
 			$_ =~ s/^\s+|\s+$//g;
 			next if $_=~/^#/;
 			next if $_=~/^\s*$/;
@@ -54,16 +54,29 @@ sub calc_features {
 			chomp $_;
 			my @l = split /\s+/ , $_;
 			
-			my $add = 1;			
-			for ($self->gffdb->db->{$abbr}->features(-primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => 'GORAPinfernal'})){				
-				next unless $l[6] eq ($_->strand == 1 ? '+' : '-');
+			my $add = 1;
+			for ($self->gffdb->db->{$abbr}->features(-range_type => 'overlaps', -start => $l[3], -stop => $l[4], -strand => $l[6], -primary_tag => $self->parameter->cfg->rf_rna , -attributes => {source => 'GORAPinfernal'})){
 				next unless $_->seq_id=~/$l[0]/;
 				#dont add into gff database if overlap with already done annotation by infernal				
-				$add = 0 if $l[3] < $_->stop && $l[4] > $_->start;								
+				$add = 0;
 			}		
 			if ($add){
+
 				my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);
-				next if $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/3;
+				next if $self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2;
+
+				if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR.?D/ || $self->parameter->cfg->rf_rna=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+					my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
+					my $snover=0;
+					for my $f (@{$existingFeatures}){
+						$snover = 1 if $f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/;
+					}
+					if ($snover){
+						$uid--;
+						next;
+					}
+				}
+
 				my $seq = $self->fastadb->get_gff3seq(\@gff3entry);	
 				$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr) if $add;
 			}
