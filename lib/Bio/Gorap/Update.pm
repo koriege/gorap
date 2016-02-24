@@ -305,7 +305,7 @@ sub create_cfgs {
 		my $rf_rna = Bio::Gorap::Functions::CM->get_rf_rna($cmfile);
 
 		my @userdescription =();
-		my ($cfg) = glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
+		my ($cfg) = glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
 		if ($cfg){
 			open F , '<'.$cfg or die $!;
 			my @tmp = <F>;
@@ -317,10 +317,10 @@ sub create_cfgs {
 
 		}
 
-		unlink $_ for glob catfile($ENV{GORAP},'parameter','config',(split(/_/,$rf_rna))[0].'*');
+		unlink $_ for glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
 
-		make_path(catdir($ENV{GORAP},'parameter','config'));
-		open CFG, '>'.catfile($ENV{GORAP},'parameter','config',$rf_rna.'.cfg') or die $!;
+		make_path(catdir($ENV{GORAP},'config'));
+		open CFG, '>'.catfile($ENV{GORAP},'config',$rf_rna.'.cfg') or die $!;
 		print CFG "#$rf_rna\n";
 		print CFG "#system call of tool with linewise parameters\n";		
 		if ($rf_rna =~/_rRNA/ && $rf_rna!~/RF00002/){
