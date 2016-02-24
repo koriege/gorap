@@ -339,19 +339,20 @@ sub filter_stk {
 	my @update;
 	my $up;
 	my $write;
-		
+	
 	if ($self->parameter->cfg->userfilter){	
+		
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, 0);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
-		return @update if scalar keys %{$features} == 0;
+		return @update if scalar keys %{$features} == 0;		
 
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
 
-		return @update if scalar keys %{$features} == 0;
+		return @update if scalar keys %{$features} == 0;		
 
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->constrains, $self->parameter->cfg->cs, $self->parameter->cfg->stk);
 		push @update , @{$up} if $up;

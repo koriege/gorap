@@ -6,7 +6,7 @@ use POSIX;
 use Switch;
 
 sub score_filter {
-	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;
+	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;	
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
@@ -19,7 +19,7 @@ sub score_filter {
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 
-			if ($f->score < 15){
+			if ($f->score < 10){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
@@ -210,7 +210,7 @@ sub structure_filter(){
 	return ($stk , $features, \@update , $write);
 }
 
-sub sequence_filter { #$_!~/_snora/i && $_=~/_sn?o?(r|z|u|y)d?\d/i 
+sub sequence_filter {
 	my ($self, $stk, $features) = @_;
 
 	my $c=0;
@@ -228,9 +228,6 @@ sub sequence_filter { #$_!~/_snora/i && $_=~/_sn?o?(r|z|u|y)d?\d/i
 	for (keys %{$features}){
 		my $f = $features->{$_};		
 		my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->seq;	
-		# print $f->seq_id."\n";
-		# print join '' , @consensus; print "\n";
-		# print join '' , @seq; 
 		my $consC=0;
 		my $allCons=scalar(@seq); 
 		for my $i (0..$#seq){
@@ -244,7 +241,6 @@ sub sequence_filter { #$_!~/_snora/i && $_=~/_sn?o?(r|z|u|y)d?\d/i
 				}				
 			}
 		}
-		#print "\n",$consC," ",scalar(@seq)," ",$allCons," ",($consC/$allCons)," ",($allCons/scalar(@seq))," ------------\n";
 		if($allCons>0 && $consC > 9){			
 			if ($consC/$allCons < 0.7 ){
 				delete $features->{$_};
@@ -263,16 +259,17 @@ sub user_filter {
 	$cs=~s/\W/-/g;
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+
 	my @update;
 	my $write;
 
 	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);	
     my $seq = lc($seedseqo->seq);
-    $seq=~s/\W/-/g;
+	$seq=~s/\W/-/g;
 
 	my @seedseq = split // , lc($seq);
-    $seq = ($stk->get_seq_by_id($seedseqo->id))->seq;
-    $seq=~s/\W/-/g;
+	$seq = ($stk->get_seq_by_id($seedseqo->id))->seq;
+	$seq=~s/\W/-/g;
 
 	my @stkseedseq = split // , lc($seq);
 	my @seedcs;
@@ -314,167 +311,154 @@ sub user_filter {
 	#mapping of seed stk seq to new stk seq
 	my @seedseq_pos_in_stk;	
 	$c=0;	
-	my $j=0;
-	# print ''.join('',@seedseq)."\n";
-	# print ''.join('',@stkseedseq)."\n";
+	my $j=0;	
 	for (my $i=0; $i+$j<=$#seedseq; $i++){
-		if ($seedseq[$i+$j]=~/\W/ && $stkseedseq[$i+$c]=~/\W/){
-			# print $seedseq[$i+$j]." 1 ".$stkseedseq[$i+$c]."\n";
+		if ($seedseq[$i+$j]=~/\W/ && $stkseedseq[$i+$c]=~/\W/){			
 			push @seedseq_pos_in_stk , $i+$c;
-		} elsif($seedseq[$i+$j]=~/\w/) {
-			# print $seedseq[$i+$j]." 2 ".$stkseedseq[$i+$c]." before\n";
-			$c++ while $i+$c <= $#stkseedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c];
-			# print $seedseq[$i+$j]." 2 ".$stkseedseq[$i+$c]."\n";
+		} elsif($seedseq[$i+$j]=~/\w/) {			
+			$c++ while $i+$c <= $#stkseedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c];			
 			push @seedseq_pos_in_stk , $i+$c;
 		} else {			
-			while ($i+$j <= $#seedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c]){				
-				# print $seedseq[$i+$j]." 3 ".$stkseedseq[$i+$c]."\n";
+			while ($i+$j <= $#seedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c]){								
 				push @seedseq_pos_in_stk , $i+$c;
 				$j++;
-			}
-			# print $seedseq[$i+$j]." 3 ".$stkseedseq[$j+$c]."\n";
+			}			
 			push @seedseq_pos_in_stk , $j+$c;			
 		}		
 	}
-	
+
+	# print ''.join('',@cs)."\n";
+	# for (0..$#{$constrains}){
+	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
+	# 	print $sta." ".$sto."\n";
+	# 	print $cs_pos_in_seed[$sta-1]." ".$cs_pos_in_seed[$sto-1].' '.join('',@cs[$cs_pos_in_seed[$sta-1]..$cs_pos_in_seed[$sto-1]])."\n";
+	# }
+
+	# print ''.join('',@seedseq)."\n";
+	# for (0..$#{$constrains}){
+	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
+	# 	print $sta." ".$sto."\n";
+	# 	print $cs_pos_in_seed[$sta-1]." ".$cs_pos_in_seed[$sto-1].' '.join('',@seedseq[$cs_pos_in_seed[$sta-1]..$cs_pos_in_seed[$sto-1]])."\n";
+	# }
+
+	# print ''.join('',@stkseedseq)."\n";
+	# for (0..$#{$constrains}){
+	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
+	# 	print $sta." ".$sto."\n";
+	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]])."\n";
+	# }
 	for my $k (keys %{$features}){				
-    	my $f = $features->{$k};
+		my $f = $features->{$k};
+		# print ''.($stk->get_seq_by_id($f->seq_id))[0]->seq."\n";
+		# for (0..$#{$constrains}){
+		# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
+		# 	print $sta." ".$sto."\n";
+		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]+1))."\n";
+		# }
 
-		# my $foo = ($stk->get_seq_by_id($f->seq_id))->seq;
-
-		my $presentu;
+		my $hold=1;
 		my @uga_ug;
-		for my $ci (0..$#{$constrains}){			
-
-			my ($sta,$sto,$mm,$query) = @{$$constrains[$ci]};
+		my @cu_ga;
+		for my $c (0..$#{$constrains}){
+			my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
 			my @query = split // , lc($query);
-			$sta = $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]+1;
-			$sto = $seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]+1;
+			my @stkseq = split // , lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]+1));
+			my $j=0;
 			
-			my @subseq = split // , lc(($stk->get_seq_by_id($f->seq_id))->subseq($sta,$sto));
-			my $cssubseq = substr($newcs,$sta-1,$sto-$sta+1);			
-			$subseq =~ s/\W//g;	
-			if($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
-				next if $f->score ne '.' && $f->score > 35;
+			for (my $i=0; $i<=$#query; $i++){
+				$j++ while $i+$j <= $#stkseq && $stkseq[$i+$j]!~/\w/;				
 
-				if ($f->score ne '.' && $f->score < 15){
-					delete $features->{$k};
-					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-					push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					last;
-				}
-				$presentu++ if $ci == 0 && join('',$subseq[1..$#subseq])=~/[uU]/;
-				if ($ci == 1){
-					$presentu++ if join('',$subseq)=~/[uU]/;
-					unless ($presentu){
-						delete $features->{$k};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-						push @update , $f->seq_id.' '.$f->primary_tag.' P';
-						last;
-					}				
-				}
-			}
-			my $i=-1;
-            my $j=-1;            
-            my $last;
-			for(split // , $cssubseq){
-                $i++;
-                if($_=~/\w/){
-                  $j++;
-				} else {
-					$mm-- if $subseq[$i]=~/\w/;
-					next;
-				}
-				#check covalent bp of uga(ug)a and (cu)ga
-				if ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
-					if ($ci==0){						
-						push @uga_ug , $subseq[$i] if $j==3 || $j==4;							
-					} elsif ($ci==1){
-						# print "uga(ug)a ".join('',@uga_ug)." <> " if $j==0;
-						# print $subseq[$i] if $j==0;
-						# print $subseq[$i]." (cu)ga\n" if $j==1;
-						if ($j==0 && $subseq[$i]=~/\w/ && $uga_ug[1]=~/\w/){
-							unless (($subseq[$i] eq 'a' && $uga_ug[1] eq 'u') || 
-									($subseq[$i] eq 'c' && $uga_ug[1] eq 'g') || 
-									($subseq[$i] eq 'g' && $uga_ug[1] eq 'u') || 
-									($subseq[$i] eq 'g' && $uga_ug[1] eq 'c') ||
-									($subseq[$i] eq 'u' && $uga_ug[1] eq 'a') ){
-								delete $features->{$k};
-								$write = 1;
-								$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-								push @update , $f->seq_id.' '.$f->primary_tag.' P';
-								$last = 1;
-							}
-						}elsif($j==1 && $subseq[$i]=~/\w/ && $uga_ug[0]=~/\w/){
-							unless (($subseq[$i] eq 'a' && $uga_ug[0] eq 'u') || 
-									($subseq[$i] eq 'c' && $uga_ug[0] eq 'g') || 
-									($subseq[$i] eq 'g' && $uga_ug[0] eq 'u') || 
-									($subseq[$i] eq 'g' && $uga_ug[0] eq 'c') ||
-									($subseq[$i] eq 'u' && $uga_ug[0] eq 'a') ||
-									($subseq[$i] eq 'u' && $uga_ug[0] eq 'u') ){
-								delete $features->{$k};
-								$write = 1;
-								$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-								push @update , $f->seq_id.' '.$f->primary_tag.' P';
-								$last = 1;
-							}
-						}
-					}					
-				}
-				last if $last;
-
-				switch($query[$j]){
+				push @uga_ug , $stkseq[$i+$j] if $c==0 && ($i==3 || $i==4);
+				push @cu_ga , $stkseq[$i+$j] if $c==1 && ($i==0 || $i==1);					
+				
+				switch($query[$i]){
 					case /[acgtu]/ {
-						$mm-- unless $subseq[$i] eq $query[$j];
+						$mm-- unless $stkseq[$i+$j] eq $query[$i];
 					}
 					case "r" {
-						$mm-- unless $subseq[$i]=~/[ag]/;
+						$mm-- unless $stkseq[$i+$j]=~/[ag]/;
 					}
 					case "y" {
-						$mm-- unless $subseq[$i]=~/[ctu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[ctu]/;	
 					}
 					case "s" {
-						$mm-- unless $subseq[$i]=~/[gc]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[gc]/;	
 					}
 					case "w" {
-						$mm-- unless $subseq[$i]=~/[atu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[atu]/;	
 					}
 					case "k" {
-						$mm-- unless $subseq[$i]=~/[gtu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[gtu]/;	
 					}
 					case "m" {
-						$mm-- unless $subseq[$i]=~/[ac]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[ac]/;	
 					}
 					case "b" {
-						$mm-- unless $subseq[$i]=~/[cgtu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[cgtu]/;	
 					}
 					case "d" {
-						$mm-- unless $subseq[$i]=~/[agtu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[agtu]/;	
 					}
 					case "h" {
-						$mm-- unless $subseq[$i]=~/[actu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[actu]/;	
 					}
 					case "v" {
-						$mm-- unless $subseq[$i]=~/[acg]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[acg]/;	
 					}
 					case "n" {
-						$mm-- unless $subseq[$i]=~/[acgtu]/;	
+						$mm-- unless $stkseq[$i+$j]=~/[acgtu]/;	
 					}
 					else {}
-				}						
+				}					
 			}
-			last if $last;
-			# print $mm." ".$cssubseq." ".$query." ".join("",@subseq)."\n";			
+			# print $mm." ".join('',@query)." ".join('',@stkseq)."\n";
 			if ($mm < 0){
-				delete $features->{$k};
-				$write = 1;
-				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' P';
+				$hold=0;
 				last;
-			}
+			}			
 		}
+		if ($hold && $f->score ne '.' && $f->score < 35 && ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
+			my $bpmm=0;
+			switch ($uga_ug[0]){
+				case "a" {
+					$bpmm++ unless $cu_ga[1]=~/[tu]/;
+				}
+				case "c" {
+					$bpmm++ unless $cu_ga[1] eq 'g';
+				}
+				case "g" {
+					$bpmm++ unless $cu_ga[1]=~/[gu]/;
+				}
+				case /[tu]/ {
+					$bpmm++ unless $cu_ga[0]=~/[au]/;
+				}
+			}
+			switch ($uga_ug[1]){
+				case "a" {
+					$bpmm++ unless $cu_ga[0]=~/[tu]/;
+				}
+				case "c" {
+					$bpmm++ unless $cu_ga[0] eq 'g';
+				}
+				case "g" {
+					$bpmm++ unless $cu_ga[0]=~/[gu]/;
+				}
+				case /[tu]/ {
+					$bpmm++ unless $cu_ga[0] eq 'a';
+				}
+			}
+			$hold=0 if $bpmm > 1;
+			$hold=0 if $uga_ug[0]!~/[ut]/ && $cu_ga[1]!~/[ut]/;
+		}		
+
+		unless ($hold){
+			# print $features->{$k}->seq_id."\n";
+			delete $features->{$k};
+			$write = 1;
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+			push @update , $f->seq_id.' '.$f->primary_tag.' P';			
+		}		
 	}
 
 	return ($stk , $features, \@update , $write);

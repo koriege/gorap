@@ -3,6 +3,7 @@ package Bio::Gorap::Parameter;
 use Moose; 
 use Getopt::Long;
 use Pod::Usage;
+use Bio::Gorap 2.2;
 use Bio::Gorap::CFG;
 use Bio::Gorap::Update;
 use File::Spec::Functions;

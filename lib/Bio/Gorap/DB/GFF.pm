@@ -1,6 +1,7 @@
 package Bio::Gorap::DB::GFF;
 
 use Moose;
+use Bio::Gorap 2.2;
 use Bio::DB::SeqFeature::Store;
 use Bio::SeqFeature::Generic;
 use File::Spec::Functions;
@@ -448,7 +449,7 @@ sub store {
 	
 	if ($type){
 		for my $abbr (keys %{$self->db}){			
-			my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type);
+			my @features = sort {$a->seq_id cmp $b->seq_id || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type);
 			open GFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 			open FA , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 			open GFFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
@@ -490,7 +491,7 @@ sub store {
 	} else {
 
 		for my $abbr (keys %{$self->db}){
-			my @features = sort {$a->seq_id cmp $b->seq_id || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
+			my @features = sort {$a->seq_id cmp $b->seq_id || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
 			
 			open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 			open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
@@ -559,8 +560,7 @@ sub store_overlaps {
 	for my $abbr (keys %{$self->db}){		
 		my @features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop
-							} $self->db->{$abbr}->features();
+								$orig cmp $orig2 || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
 		my $overlaps;
 		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
 		if (exists $self->userdb->{$abbr}){
@@ -585,94 +585,12 @@ sub store_overlaps {
 
 			if ($f1->display_name eq '!'){
 				for ($i+1..$#features){					
-					my $f2 = $features[$_];
-					last if $f1->strand != $f2->strand;
-					last if $f2->start > $f1->stop;
-					next unless $f2->display_name eq '!';					
-					my @id2 = split /\./ , $f2->seq_id;
-					my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-					next unless $orig eq $orig2;
-					$overlaps->{$f1->seq_id}->{$f2->primary_tag}=1;
-					$overlaps->{$f2->seq_id}->{$f1->primary_tag}=1;
-				}
-			}
-
-			#with given gff
-			if(exists $self->userdb->{$abbr}){
-				for($self->userdb->{$abbr}->features(-seq_id => $orig, -start => $f1->start , -strand => $f1->strand, -stop => $f1->stop , -range_type => 'overlaps')){
-					my ($userid) = $_->get_tag_values('ID');
-					next unless $userid;
-					$overlaps->{$f1->seq_id}->{$userid}=1;
-				}
-			}
-			
-			my $o = join(',',keys %{$overlaps->{$f1->seq_id}});
-			$o='.' unless $o;
-
-			my $reads = ($f1->get_tag_values('reads'))[0];
-			$reads = 0 unless $reads;
-			my $rpkm = ($f1->get_tag_values('rpkm'))[0];
-			$rpkm = 0 unless $rpkm;
-			my $tpm = ($f1->get_tag_values('tpm'))[0];
-			$tpm = 0 unless $tpm;
-
-			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
-
-			if ( $f1->display_name eq '!' ){
-				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-				my $seq = $f1->get_tag_values('seq');
-				print FAF '>'.$faid."\n".$seq."\n" if $seq;
-			} else {
-				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-				my $seq = $f1->get_tag_values('seq');
-				print FA '>'.$faid."\n".$seq."\n" if $seq;
-			}
-		}
-		close GFF;
-		close FA;
-		close GFFF;
-		close FAF;
-	}
-}
-
-sub store_overlaps {
-	my ($self) = @_;
-	
-	for my $abbr (keys %{$self->db}){		
-		my @features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop
-							} $self->db->{$abbr}->features();
-		my $overlaps;
-		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
-		if (exists $self->userdb->{$abbr}){
-			open GFFP , '>'.catfile($self->parameter->output,'annotations',$abbr.'.external.gff') or die $! ;			
-			print GFFP $_."\n" for &get_user_entries($self,$abbr);			
-			close GFFP if exists $self->userdb->{$abbr};
-		}		
-
-		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
-		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
-		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
-		for my $i (0..$#features){
-			my $f1 = $features[$i];
-
-			my $source = $f1->source;	
-			$source =~ s/GORAP//;
-			
-			my @id = split /\./ , $f1->seq_id;
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
-			my $f1id = $abbr.'.'.$orig;
-
-			if ($f1->display_name eq '!'){
-				for ($i+1..$#features){					
-					my $f2 = $features[$_];
+					my $f2 = $features[$_];					
 					if ($f1->strand && $f2->strand){
-						last if $f1->strand != $f2->strand;
+						next if $f1->strand != $f2->strand;
 					}
 					last if $f2->start > $f1->stop;
-					next unless $f2->display_name eq '!';					
+					next unless $f2->display_name eq '!';
 					my @id2 = split /\./ , $f2->seq_id;
 					my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
 					next unless $orig eq $orig2;
