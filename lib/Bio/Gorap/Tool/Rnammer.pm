@@ -77,7 +77,7 @@ sub calc_features {
 					next if $_=~/^\s*$/;	
 					my @l = split /\s+/ , $_;
 					next if $#l < 8;	
-					print $pipe $_."\n";			
+					print $pipe $_."\t".$kingdom."\n";			
 				}
 				close F;
 				unlink $tmpfile;			
@@ -100,8 +100,9 @@ sub calc_features {
 	my $uid;
 	for (@out){
 		my @l = split /\s+/, $_;
+		my $kingdom = pop @l;
 
-		my @gff3entry = &{$self->tool_parser}(exists $self->parameter->kingdoms->{'fungi'} ? 'fungi' : $kingdom,\@l);
+		my @gff3entry = &{$self->tool_parser}($kingdom,\@l);
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
 
 		my ($abbr,@orig) = split /\./ , $gff3entry[0];

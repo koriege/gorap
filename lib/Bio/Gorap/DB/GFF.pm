@@ -1,7 +1,6 @@
 package Bio::Gorap::DB::GFF;
 
 use Moose;
-use Bio::Gorap 2.2;
 use Bio::DB::SeqFeature::Store;
 use Bio::SeqFeature::Generic;
 use File::Spec::Functions;
