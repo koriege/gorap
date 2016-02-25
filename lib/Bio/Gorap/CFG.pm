@@ -5,6 +5,7 @@ use Switch;
 use File::Spec::Functions;
 use Bio::Gorap::Functions::CM;
 use List::Util qw(min max);
+use Config::IniFiles;
 
 has 'cfg' => (
 	is => 'ro',
@@ -27,23 +28,31 @@ has 'cmd' => (
 has 'tools' => (
 	is => 'rw',
 	isa => 'ArrayRef',
-	default => sub { [] }
+	default => sub { ['infernal','blast'] }
 );
 
-has ['evalue' , 'bitscore', 'bitscore_cm'] => (
+has ['bitscore', 'bitscore_cm'] => (
 	is => 'rw',
-	isa => 'Num'
+	isa => 'Num',
+	default => 0
+);
+
+has 'evalue' => (
+	is => 'rw',
+	isa => 'Num',
+	default => 1e-3
 );
 
 has 'pseudogenes' => (
 	is => 'rw',
-	isa => 'Int'
+	isa => 'Int',
+	default => 999999
 );
 
 has 'kingdoms' => (
 	is => 'rw',
 	isa => 'HashRef',
-	default => sub { {} }
+	default => sub { {bac => 1 , arc => 1 , euk => 1 , fungi => 1 , virus => 1} }
 );
 
 has 'constrains' => (
@@ -57,6 +66,11 @@ has 'cs' => (
 	isa => 'Str'
 );
 
+has 'ss' => (
+	is => 'rw',
+	isa => 'Str'
+);
+
 has 'userfilter' => (
 	is => 'rw',
     isa => 'Bool',
@@ -65,89 +79,78 @@ has 'userfilter' => (
 
 sub _set {
 	my ($self) = @_;
-	#parse rfam query related gorap configuration file of interest into data structure
-	open PARAM , '<'.$self->cfg or die $!;
-	my $c=-1;	
-	my $command;
-	my @csparts;
-	while(<PARAM>){
-		chomp($_);
-		$_ =~ s/^\s+|\s+$//g if $c < 9;
-		next if $_=~/^\s*$/;
-		if ($_=~/^#/){
-			$c++;
-			if ($c==0){
-				substr($_,1)=~/(RF\d+)_(.+)/;
-				$self->rf($1);
-				$self->rna($2);
-				$self->rf_rna($1.'_'.$2);
-				$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
-			} elsif($c==10){	
-				$self->cs(substr($_,1));
-			}			
-			next;
-		}		
-		switch($c){
-			case 1 {				
-				push @{$self->cmd} , $_ ;									
-			}
-			case 2 {				
-				if(catfile($self->query_dir,$self->rf_rna.'.fa')=~/$_$/){
-					$self->fasta(catfile($self->query_dir,$self->rf_rna.'.fa'));					
-				} else {
-					$self->fasta($_);					
-				}
-			}
-			case 3 {				
-				if(catfile($self->query_dir,$self->rf_rna.'.stk')=~/$_$/){
-					$self->stk(catfile($self->query_dir,$self->rf_rna.'.stk'));					
-				} else {
-					$self->stk($_);					
-				}
-			}
-			case 4 {				
-				if(catfile($self->query_dir,$self->rf_rna.'.cm')=~/$_$/){
-					$self->cm(catfile($self->query_dir,$self->rf_rna.'.cm'));					
-				} else {
-					$self->cm($_);
-				}
-			}
-			case 5 {
-				$self->evalue($_)
-			}
-			case 6 {
-				$self->bitscore($_)
-			}
-			case 7 {
-				$self->pseudogenes(lc $_ eq 'all' ? 999999 : $_)
-			}
-			case 8 {								
-				$self->kingdoms->{$_}=1 for split(/,/,$_);								
-              }
-            case 9 {}
-			case 10 {					
-				$self->userfilter(1);
-				while ($_=~/\|(\s*\d+\s*)\|/g){					
-					my ($sta,$sto) = ($-[0],$+[0]-2);					
-					$1=~/(\d+)/;
-					push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta)];
-				}
-			}
-			
-			else {
-				die 'Check your parameter file '.$self->cfg;
-			}
+	
+	my $cfg = Config::IniFiles->new( -file => $self->cfg , -nomultiline => 1, -handle_trailing_comment => 1);
+	
+	$self->rf($cfg->val('family','id')) or die 'Check your parameter file '.$self->cfg;
+	$self->rna($cfg->val('family','name')) or die 'Check your parameter file '.$self->cfg;
+	$self->rf_rna($self->rf.'_'.$self->rna);
+	$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
+
+	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
+	if ($v){
+		$self->tools([split /\n/ , $cfg->val('cmd','tool')]);
+		$v = $cfg->val('cmd','parameter');
+		if ($v){
+			my @parameter = (${$self->tools}[-1] , split(/\n/ , $v));	
+			$self->cmd(\@parameter);
 		}
 	}
-	close PARAM;
 
-	my $tool = lc ${$self->cmd}[0];
-	$tool =~ s/\W//g;
-	push @{$self->tools} , $tool;
-	push @{$self->tools} , lc ${$self->cmd}[1] if $#{$self->cmd} > 0 && ${$self->cmd}[1]=~/(B|b)last|(I|i)nfernal/ ;
+	$v = $cfg->val('thresholds','evalue');
+	$self->evalue($v) if $v;
+	$v = $cfg->val('thresholds','bitscore');	
+	$self->bitscore($v) if $v;
 
-	my $score = $self->cm ? Bio::Gorap::Functions::CM->get_min_score($self->cm) : -1;		
-	$self->bitscore_cm($score == -1 ? $self->bitscore : $score);
+	$v = $cfg->val('query','fasta');
+	if ($v){
+		if(catfile($self->query_dir,$self->rf_rna.'.fa')=~/$v/){
+			$self->fasta(catfile($self->query_dir,$self->rf_rna.'.fa'));
+		} else {
+			$self->fasta($v);
+		}
+	}
+	$v = $cfg->val('query','stk');
+	if ($v){
+		if(catfile($self->query_dir,$self->rf_rna.'.stk')=~/$v/){
+			$self->stk(catfile($self->query_dir,$self->rf_rna.'.stk'));
+		} else {
+			$self->stk($v);
+		}
+	}
+	$v = $cfg->val('query','cm');
+	if ($v){
+		if(catfile($self->query_dir,$self->rf_rna.'.cm')=~/$v/){
+			$self->cm(catfile($self->query_dir,$self->rf_rna.'.cm'));
+		} else {
+			$self->cm($v);
+		}
+		my $score = Bio::Gorap::Functions::CM->get_min_score($self->cm);		
+		$self->bitscore_cm($score) if $score;
+	}
+	$v = $cfg->val('query','pseudogenes');
+	$self->pseudogenes($v) if $v && $v=~/^\d+$/;
+	$v = $cfg->val('query','kingdom');
+	if ($v){
+		my %h = map { $_ => 1} split(/\n/ , $v);
+		$self->kingdoms(\%h);
+	}
+
+	$v = $cfg->val('constrains','structure');
+	$self->ss($v) if $v;
+	$v = $cfg->val('constrains','conserved');
+	$self->cs($v) if $v;
+	$v = $cfg->val('constrains','constrain');
+	if ($v){
+		$self->userfilter(1);
+		for (split/\n/ , $v){
+			while ($_=~/\|(\s*\d+\s*)\|/g){					
+				my ($sta,$sto) = ($-[0]+1,$+[0]-1);
+				$1=~/(\d+)/;
+				push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta),$_];
+			}
+		}
+	}	
 }
 
 1;

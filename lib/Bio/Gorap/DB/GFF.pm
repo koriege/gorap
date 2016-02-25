@@ -401,7 +401,8 @@ sub _read {
 		print "!!!do not kill GORAP here!!!\n";
 	}	
 
-	for my $file (@fastas){		
+	for my $file (@fastas){
+		next if $file=~/orig/ || $file=~/external/;
 		my $headerMapSeq={};		
 		open FA , '<'.$file or die $!;
 		my $seqid;
@@ -453,6 +454,10 @@ sub store {
 			open FA , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 			open GFFF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 			open FAF , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+			open GFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.gff') or die $!;
+			open FAO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.fa') or die $!;
+			open GFFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.gff') or die $!;
+			open FAFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.fa') or die $!;
 			for my $i (0..$#features){
 				my $f1 = $features[$i];
 
@@ -474,18 +479,30 @@ sub store {
 
 				if ( $f1->display_name eq '!' ){
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
 					my ($seq) = $f1->get_tag_values('seq');
 					print FAF '>'.$faid."\n".$seq."\n" if $seq;
+					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
+					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 				} else {
 					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-					my ($seq) = $f1->get_tag_values('seq');
+					print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
+					my ($seq) = $f1->get_tag_values('seq');					
 					print FA '>'.$faid."\n".$seq."\n" if $seq;
+					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
+					print FAO '>'.$faid."\n".$seq."\n" if $seq;
 				}
 			}
 			close GFF;
 			close FA;
 			close GFFF;
 			close FAF;
+			close GFFO;
+			close FAO;
+			close GFFFO;
+			close FAFO;
 		}
 	} else {
 
@@ -496,6 +513,10 @@ sub store {
 			open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 			open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 			open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+			open GFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.gff') or die $!;
+			open FAO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.fa') or die $!;
+			open GFFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.gff') or die $!;
+			open FAFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.fa') or die $!;
 			for my $i (0..$#features){
 				my $f1 = $features[$i];
 
@@ -516,12 +537,18 @@ sub store {
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
-					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";						
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
 					my $seq = $f1->get_tag_values('seq');
-					print FAF '>'.$faid."\n".$seq."\n" if $seq;
+					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
+					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
 				} else {
 					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
 					my $seq = $f1->get_tag_values('seq');
+					print FA '>'.$faid."\n".$seq."\n" if $seq;
+					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
 					print FA '>'.$faid."\n".$seq."\n" if $seq;
 				}
 			}
@@ -529,6 +556,10 @@ sub store {
 			close FA;
 			close GFFF;
 			close FAF;
+			close GFFO;
+			close FAO;
+			close GFFFO;
+			close FAFO;
 		}
 	}
 }
@@ -562,6 +593,7 @@ sub store_overlaps {
 								$orig cmp $orig2 || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
 		my $overlaps;
 		open GFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.gff') or die $!;
+		open GFFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.gff') or die $!;
 		if (exists $self->userdb->{$abbr}){
 			open GFFP , '>'.catfile($self->parameter->output,'annotations',$abbr.'.external.gff') or die $! ;			
 			print GFFP $_."\n" for &get_user_entries($self,$abbr);			
@@ -569,8 +601,11 @@ sub store_overlaps {
 		}		
 
 		open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
+		open FAO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.fa') or die $!;
 		open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
+		open GFFFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.gff') or die $!;
 		open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
+		open FAFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.fa') or die $!;
 		for my $i (0..$#features){
 			my $f1 = $features[$i];
 
@@ -579,8 +614,7 @@ sub store_overlaps {
 			
 			my @id = split /\./ , $f1->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);			
-			my $f1id = $abbr.'.'.$orig;
+			my $faid = join '.' , ($abbr,$orig,$f1->primary_tag,$source,$copy);						
 
 			if ($f1->display_name eq '!'){
 				for ($i+1..$#features){					
@@ -621,18 +655,30 @@ sub store_overlaps {
 
 			if ( $f1->display_name eq '!' ){
 				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
 				my $seq = $f1->get_tag_values('seq');
 				print FAF '>'.$faid."\n".$seq."\n" if $seq;
+				$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
+				print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 			} else {
 				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+
 				my $seq = $f1->get_tag_values('seq');
 				print FA '>'.$faid."\n".$seq."\n" if $seq;
+				$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
+				print FAO '>'.$faid."\n".$seq."\n" if $seq;
 			}
 		}
 		close GFF;
 		close FA;
 		close GFFF;
 		close FAF;
+		close GFFO;
+		close FAO;
+		close GFFFO;
+		close FAFO;
 	}
 }
 

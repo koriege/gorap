@@ -11,6 +11,7 @@ use List::Util qw(min max);
 use Try::Tiny;
 use Symbol qw(gensym);
 use IPC::Open3;
+use Config::IniFiles;
 
 sub dl_rfam {
 	my ($self,$parameter,$taxdb) = @_;
@@ -289,6 +290,7 @@ sub create_cfgs {
 			parameter => $parameter
 		);
 	}
+	make_path(catdir($ENV{GORAP},'config'));
 
 	my @cmfiles = glob(catfile($ENV{GORAP},'data','rfam','*','*.cm'));
 	my $percent = 1;
@@ -303,92 +305,88 @@ sub create_cfgs {
 
 		my $bitscore = Bio::Gorap::Functions::CM->get_min_score($cmfile);
 		my $rf_rna = Bio::Gorap::Functions::CM->get_rf_rna($cmfile);
-
-		my @userdescription =();
-		my ($cfg) = glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
-		if ($cfg){
-			open F , '<'.$cfg or die $!;
-			my @tmp = <F>;
-			while($tmp[-1]!~/^#/){
-				my $s = pop @tmp;
-				unshift @userdescription , $s unless $s=~/^\s*$/;
-			}
-			close F;
-
-		}
-
-		unlink $_ for glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
-
-		make_path(catdir($ENV{GORAP},'config'));
-		open CFG, '>'.catfile($ENV{GORAP},'config',$rf_rna.'.cfg') or die $!;
-		print CFG "#$rf_rna\n";
-		print CFG "#system call of tool with linewise parameters\n";		
-		if ($rf_rna =~/_rRNA/ && $rf_rna!~/RF00002/){
-			print CFG "rnammer\n";
-			print CFG "-m ssu,lsu,tsu\n";
-			print CFG '-S $kingdom'."\n";
-			print CFG '-gff $output'."\n";
-			print CFG '$genome'."\n";
-		} elsif($rf_rna=~/RNaseP/){
-			print CFG "Bcheck\n";
-			print CFG '-$kingdom'."\n";			
-			print CFG '--ss'."\n";
-			print CFG '-o $output'."\n";
-			print CFG '$genome'."\n";		
-		} elsif($rf_rna=~/\d_tRNA/){
-			print CFG "tRNAscan-SE\n";
-			print CFG "-q\n";
-			print CFG "-b\n";
-			print CFG "-Q\n";	
-			print CFG '-$kingdom'."\n";
-			print CFG '$genome'."\n";
-		} elsif($rf_rna=~/CRISPR/){
-			print CFG "crt\n";
-			print CFG "-screen 1\n";
-			print CFG "-minNR 4\n";
-			print CFG "-minRL 10\n";
-			print CFG "-maxRL 100\n";
-			print CFG "-minSL 10\n";
-			print CFG "-maxSL 100\n";
-			print CFG "-searchWL 8\n";
-			print CFG '$genome'."\n";
-		} else {
-			print CFG "infernal\n";
-			print CFG "blast\n";
-		}
-		print CFG "#query fasta file\n";	
-		print CFG catfile('data','rfam',$rf_rna,$rf_rna.'.fa')."\n";
-		print CFG "#query stockholm file\n";
-		print CFG catfile('data','rfam',$rf_rna,$rf_rna.'.stk')."\n";
-		print CFG "#query covariance model\n";
-		print CFG catfile('data','rfam',$rf_rna,$rf_rna.'.cm')."\n";
-		print CFG "#e-value\n";
-		print CFG "1e-3\n";
-		print CFG "#bitscore\n";
-		print CFG "$bitscore\n";
-		print CFG "#maxcopies (pseudogenes): all/<INT>\n";
-		print CFG "all\n";
-		print CFG "#kingdoms: <bac/arc/euk/fungi/virus> comma seperated\n";
 		
+		my ($cfg) = glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
+		my @userdescription;
+		if ($cfg){
+			my $data = Config::IniFiles->new( -file => $cfg , -nomultiline => 1, -handle_trailing_comment => 1);
+			my $v = $data->val('constrains','constrain');
+			if ($v){
+				@userdescription = split /\n/ , $v;
+			}
+		}
 
+		my ($rf,@rna) = split(/_/,$rf_rna);
+		unlink $_ for glob catfile($ENV{GORAP},'config',$rf.'*');
+		
+		open CFG, '>'.catfile($ENV{GORAP},'config',$rf_rna.'.cfg') or die $!;
+		print CFG '[family]'."\n";
+		print CFG 'id='.$rf."\n";
+		print CFG 'name='.join('_',$rna)."\n";
+		print CFG "\n";
+		print CFG '[cmd]'."\n";
+		if ($rf_rna =~/_rRNA/ && $rf_rna!~/RF00002/){
+			print CFG "tool=rnammer\n";
+			print CFG "parameter=-m ssu,lsu,tsu\n";
+			print CFG 'parameter=-S $kingdom'."\n";
+			print CFG 'parameter=-gff $output'."\n";
+			print CFG 'parameter=$genome'."\n";
+		} elsif($rf_rna=~/RNaseP/){
+			print CFG "tool=Bcheck\n";
+			print CFG 'parameter=-$kingdom'."\n";			
+			print CFG 'parameter=--ss'."\n";
+			print CFG 'parameter=-o $output'."\n";
+			print CFG 'parameter=$genome'."\n";		
+		} elsif($rf_rna=~/\d_tRNA/){
+			print CFG "tool=tRNAscan-SE\n";
+			print CFG "parameter=-q\n";
+			print CFG "parameter=-b\n";
+			print CFG "parameter=-Q\n";	
+			print CFG 'parameter=-$kingdom'."\n";
+			print CFG 'parameter=$genome'."\n";
+		} elsif($rf_rna=~/CRISPR/){
+			print CFG "tool=crt\n";
+			print CFG "parameter=-screen 1\n";
+			print CFG "parameter=-minNR 4\n";
+			print CFG "parameter=-minRL 10\n";
+			print CFG "parameter=-maxRL 100\n";
+			print CFG "parameter=-minSL 10\n";
+			print CFG "parameter=-maxSL 100\n";
+			print CFG "parameter=-searchWL 8\n";
+			print CFG 'parameter=$genome'."\n";
+		} else {
+			print CFG "tool=infernal\n";
+			print CFG "tool=blast\n";
+		}
+		print CFG "\n";
+		print CFG '[thresholds]'."\n";		
+		print CFG "evalue=1e-3\n";		
+		print CFG "bitscore=$bitscore\n";
+		print CFG "\n";
+
+		print CFG "[query]\n";	
+		print CFG 'fasta='.catfile('data','rfam',$rf_rna,$rf_rna.'.fa')."\n";		
+		print CFG 'stk='.catfile('data','rfam',$rf_rna,$rf_rna.'.stk')."\n";		
+		print CFG 'cm='.catfile('data','rfam',$rf_rna,$rf_rna.'.cm')."\n";				
+		print CFG "pseudogenes=all\n";
 		if ($rf_rna=~/(B|b)act/){
-			print CFG "bac\n";
+			print CFG "kingdom=bac\n";
 		} elsif ($rf_rna=~/(E|e)uka/ || $rf_rna=~/(P|p)lant/ || $rf_rna=~/(M|m)etazo/ || $rf_rna=~/(P|p)rotoz/){
-			print CFG $rf_rna=~/LSU/ ? "euk,fungi\n" : "euk\n";
+			print CFG $rf_rna=~/LSU/ ? "kingdom=euk\nkingdom=fungi\n" : "kingdom=euk\n";
 		} elsif ($rf_rna=~/(A|a)rch/){
-			print CFG "arc\n";
+			print CFG "kingdom=arc\n";
 		} elsif ($rf_rna=~/(F|f)ungi/){
-			print CFG "fungi\n";
+			print CFG "kingdom=fungi\n";
 		} elsif ($rf_rna=~/_U3$/){
-			print CFG "euk\n";
+			print CFG "kingdom=euk\n";
 		} elsif ($rf_rna=~/CRISPR/){
-			print CFG "arc,bac\n";	
+			print CFG "kingdom=arc\nkingdom=bac\n";	
 		} elsif ($rf_rna=~/_mir/ || $rf_rna=~/_MIR/){
-			print CFG "euk\n";	
+			print CFG "kingdom=euk\n";	
 		} elsif ($rf_rna=~/_SNOR/ || $rf_rna =~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
-			print CFG "euk,fungi,arc\n";	
+			print CFG "kingdom=euk\nkingdom=fungi\nkingdom=arc\n";	
 		} elsif ($rf_rna=~/_6S/){
-			print CFG "arc,bac\n";	
+			print CFG "kingdom=arc\nkingdom=bac\n";	
 		} else {				
 			my $kingdoms;
 			my $seqio = Bio::SeqIO->new( -format => 'Fasta' , -file => catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.fa'), -verbose => -1);
@@ -404,11 +402,13 @@ sub create_cfgs {
 			}
 			$kingdoms->{'fungi'} = 1 if exists $kingdoms->{'euk'};
 			if (scalar keys %$kingdoms > 0){
-				print CFG join(',',sort keys %$kingdoms)."\n";	
+				print CFG 'kingdom='.$_."\n" for sort keys %$kingdoms;
 			} else {
-				print CFG "arc,bac,euk,fungi,virus\n";	
+				print CFG "kingdom=arc\nkingdom=bac\nkingdom=euk\nkingdom=fungi\nkingdom=virus\n";	
 			}
 		}
+		print CFG "\n";
+		print CFG '[constrains]'."\n";
 		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file(catfile($ENV{GORAP},'data','rfam',$rf_rna,$rf_rna.'.stk'));
         my @ss = split // , $ss;
         my @cs = split // , $cs;
@@ -419,10 +419,12 @@ sub create_cfgs {
             $cs.=$cs[$i];
             $ss.=$ss[$i];
           }
-        } 
-        print CFG "#$ss\n";
-		print CFG "#$cs\n";		
-		print CFG $_."\n" for @userdescription;
+        }
+        $ss=~s/>/)/g;
+        $ss=~s/</(/g;
+        print CFG "structure=$ss\n";
+		print CFG "conserved=$cs\n";		
+		print CFG 'constrain='.$_."\n" for @userdescription;
 		close CFG;
 	}
 }

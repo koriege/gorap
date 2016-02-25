@@ -239,7 +239,7 @@ sub run {
 	my $c=0;
 	for my $cfg (@{$parameter->queries}){
 		#parse the query related cfg file and store it into parameter object
-		$parameter->set_cfg($cfg);	
+		$parameter->set_cfg($cfg);		
 		$c++;
 		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n" if $parameter->verbose;
 

@@ -477,7 +477,7 @@ sub read_parameter {
 			push @{$assignment->{'genome'.$c}} , $#genomes;
 			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
 			unless ($abbr){
-				$abbr = basename($_);
+				$abbr = basename($g[0]);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;
@@ -503,7 +503,7 @@ sub read_parameter {
 			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
 			push @ogenomes , $g[0];
 			unless ($abbr){
-				$abbr = basename($_);
+				$abbr = basename($g[0]);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;
@@ -513,12 +513,18 @@ sub read_parameter {
 		}		
 		$c++;
 	}
-	my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
-	$self->kingdoms(\%h) if scalar keys %h > 0;
-	&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
-	$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
+	my $v = $cfg->val('query','kingdom');
+	if ($v){
+		my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
+		$self->kingdoms(\%h) if scalar keys %h > 0;
+	}
+	$v = $cfg->val('query','kingdom');
+	if ($v){
+		&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
+		$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
+	}
 
-	my $v = $cfg->val('system','threads');
+	$v = $cfg->val('system','threads');
 	$self->threads($v) if $v;
 	$v = $cfg->val('output','out');
 	$self->output($v) if $v;
