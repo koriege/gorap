@@ -361,7 +361,7 @@ sub user_filter {
 		my @cu_ga;
 		for my $c (0..$#{$constrains}){
 			my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
-			my @query = split // , lc($query);
+			my @query = split // , lc($query);			
 			my @stkseq = split // , lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]+1));
 			my $j=0;
 			

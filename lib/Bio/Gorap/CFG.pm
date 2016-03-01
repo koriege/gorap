@@ -87,9 +87,9 @@ sub _set {
 	$self->rf_rna($self->rf.'_'.$self->rna);
 	$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
 
-	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
-	if ($v){
-		$self->tools([split /\n/ , $cfg->val('cmd','tool')]);
+	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;	
+	if ($v){		
+		$self->tools([split /\n/ , $v]);
 		$v = $cfg->val('cmd','parameter');
 		if ($v){
 			my @parameter = (${$self->tools}[-1] , split(/\n/ , $v));	
@@ -142,15 +142,15 @@ sub _set {
 	$self->cs($v) if $v;
 	$v = $cfg->val('constrains','constrain');
 	if ($v){
-		$self->userfilter(1);
+		$self->userfilter(1);		
 		for (split/\n/ , $v){
-			while ($_=~/\|(\s*\d+\s*)\|/g){					
+			while ($_=~/\|(\.*\d+\.*)\|/g){					
 				my ($sta,$sto) = ($-[0]+1,$+[0]-1);
 				$1=~/(\d+)/;
 				push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta),$_];
 			}
 		}
-	}	
+	}
 }
 
 1;

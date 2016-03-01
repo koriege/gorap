@@ -6,6 +6,7 @@ use POSIX qw(:sys_wait_h);
 use IPC::Open3;
 use File::Spec::Functions;
 use Symbol qw(gensym);
+use List::Util qw(max);
 
 sub calc_features {
 	my ($self) = @_;
@@ -37,10 +38,17 @@ sub calc_features {
 			if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR.?D/ || $self->parameter->cfg->rf_rna=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 				my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
 				my $snover=0;
+				my $exscore = -999999;
+				my @rmfeatures;
 				for my $f (@{$existingFeatures}){
-					$snover = 1 if $f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/;
+					if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+						$exscore = max($exscore,($f->get_tag_values('origscore'))[0]);
+						push @rmfeatures , $f;
+					}
 				}
-				if ($snover){
+				if ($exscore < $gff3entry[5]){
+					$self->gffdb->update_filter($_->seq_id,$_->primary_tag,"O") for @rmfeatures;
+				} else {				
 					$uid--;
 					next;
 				}

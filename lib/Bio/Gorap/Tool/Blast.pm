@@ -67,9 +67,11 @@ sub calc_features {
 
 				if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR.?D/ || $self->parameter->cfg->rf_rna=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 					my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
-					my $snover=0;
-					for my $f (@{$existingFeatures}){
-						$snover = 1 if $f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/;
+					my $snover=0;					
+					for my $f (@{$existingFeatures}){						
+						if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+							$snover = 1;							
+						}
 					}
 					if ($snover){
 						$uid--;

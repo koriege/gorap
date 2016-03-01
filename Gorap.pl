@@ -256,6 +256,8 @@ sub run {
 		#reverse sort to process infernal before blast
 		my $thcalc;
 		for my $tool (reverse sort @{$parameter->cfg->tools}){
+			$tool=~s/[\W\d_]//g;
+			$tool = lc $tool;
 			next if $tool eq 'blast' && $parameter->noblast;
 			
 			$thcalc = 1 if $tool eq 'infernal' || $tool eq 'blast';

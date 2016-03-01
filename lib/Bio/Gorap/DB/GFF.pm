@@ -248,7 +248,7 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 
 	my @features;
 	
-	for ($self->db->{$abbr}->features(-attributes => {source => $source})){		
+	for ($self->db->{$abbr}->features()){		
 		my @tmp = split /\./, $_->seq_id;
 		pop @tmp;
 		next unless join('.' , @tmp) eq $id;
