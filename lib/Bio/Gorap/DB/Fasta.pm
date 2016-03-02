@@ -166,13 +166,13 @@ sub chunk {
 				}
 
 				print O '>'.$pos.'.'.$h."\n";				
-				print O $_."\n" for @overlap;				
+				print O $_."\n" for @overlap;
+				$pos+=$owritten;				
 				$written=0;
 			}
 		}
 	}
 	close O;	
-	
 	return	\@chunks;
 }
 

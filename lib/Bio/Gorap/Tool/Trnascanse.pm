@@ -39,7 +39,7 @@ sub calc_features {
 	my $thrs={};
 	my @out;
 	for my $kingdom (@kingdoms){
-		for my $genome (@{$self->fastadb->chunks}){				
+		for my $genome (@{$self->fastadb->chunks}){
 			if (scalar(keys %{$thrs}) >= $self->threads){
 				my $pid = wait();
 				delete $thrs->{$pid};		
@@ -102,6 +102,8 @@ sub calc_features {
 		next if $#l<8;		
 				
 		my @gff3entry = &{$self->tool_parser}(\@l);
+		print join "\t" , @gff3entry;
+		print "\n";
 
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
 
