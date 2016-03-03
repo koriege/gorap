@@ -124,24 +124,27 @@ sub get_subseq {
 	}	
 }
 
-sub chunk {
+sub chunk { #CRT doesnt like multi fasta files!!
 	my ($self) = @_;
 
-	my $residues=0;
-	for (@{$self->nheaders}){		
-		$residues += ($self->db->fetch($_))->length;
-	}
-	$residues /= $self->parameter->threads;	
+	# my $residues=0;
+	# for (@{$self->nheaders}){		
+	# 	$residues += ($self->db->fetch($_))->length;
+	# }
+	# $residues /= $self->parameter->threads;
+
+	my $c=-1;
+	my @chunks;	
+	for my $h (@{$self->nheaders}){		
+		my $residues = ($self->db->fetch($h))->length;		
 	
-	my @chunks;
-	my $c=0;
-	my $outfile = catfile($self->parameter->tmp,$self->parameter->pid.'.'.$c);
-	push @chunks, $outfile;
-	open O , '>'.$outfile or die $!;
-	my $written=0;
-	my $pos=0;
-	for my $h (@{$self->nheaders}){
-		$pos=0;
+		$residues /= $residues < 2000 * $self->parameter->threads ? 1 : $self->parameter->threads;	
+				
+		my $outfile = catfile($self->parameter->tmp,$self->parameter->pid.'.'.(++$c));
+		push @chunks, $outfile;
+		open O , '>'.$outfile or die $!;
+		my $written=0;
+		my $pos=0;		
 		print O '>'.$pos.'.'.$h."\n";
 		my $seqo = $self->db->fetch($h);		
 		my @seqparts = unpack("(A80)*", $seqo->seq);
@@ -165,14 +168,16 @@ sub chunk {
 					last if $owritten > 1000;
 				}
 
-				print O '>'.$pos.'.'.$h."\n";				
+				print O '>'.$pos.'.'.$h."\n";
+				# print '>'.$pos.'.'.$h."\n";				
 				print O $_."\n" for @overlap;
 				$pos+=$owritten;				
 				$written=0;
 			}
 		}
+		
+		close O;
 	}
-	close O;	
 	return	\@chunks;
 }
 

@@ -31,27 +31,6 @@ sub score_filter {
 	}
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
-		my $tmpfeatures;
-		for (keys %{$features}){		
-			my $f = $features->{$_};
-			next if $f->score eq '.';
-
-			my @id = split /\./ , $f->seq_id;
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			$tmpfeatures->{$abbr}++;
-
-			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
-				if (($f->get_tag_values('origscore'))[0] < $threshold){ #check for hits witch cmsearch score - usually higher than cmalign scores
-					$tmpfeatures->{$abbr}--;
-				}
-			} else {
-				if ($f->score < $threshold){
-					$tmpfeatures->{$abbr}--;
-				}
-			}
-		}
-
-		$threshold = $threshold-$threshold*0.1;
 
 		for (keys %{$features}){
 			my $f = $features->{$_};
@@ -59,41 +38,23 @@ sub score_filter {
 
 			my @id = split /\./ , $f->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			if ($tmpfeatures->{$abbr}==0){ #if hits, but not in this species, lower threshold again 
-				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
-					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (($f->get_tag_values('origscore'))[0] < $nonTaxThreshold && ($f->get_tag_values('origscore'))[0] < $threshold){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				} else {
-					if ($f->score < $nonTaxThreshold && $f->score < $threshold){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
+			
+			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
+				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
+				if (($f->get_tag_values('origscore'))[0] < $threshold || $f->score < 10){
+					delete $features->{$_};
+					$write = 1;
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
 			} else {
-				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
-					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (($f->get_tag_values('origscore'))[0] < $threshold){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				} else {
-					if ($f->score < $threshold){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
+				if ($f->score < 10 || $f->score < $nonTaxThreshold && $f->score < $threshold){
+					delete $features->{$_};
+					$write = 1;
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
-			}
+			}			
 		}
 
 	} else { 
@@ -309,50 +270,39 @@ sub user_filter {
 	}
 
 	#mapping of seed stk seq to new stk seq
-	my @seedseq_pos_in_stk;	
-	$c=0;	
-	my $j=0;	
-	for (my $i=0; $i+$j<=$#seedseq; $i++){
-		if ($seedseq[$i+$j]=~/\W/ && $stkseedseq[$i+$c]=~/\W/){			
-			push @seedseq_pos_in_stk , $i+$c;
-		} elsif($seedseq[$i+$j]=~/\w/) {			
-			$c++ while $i+$c <= $#stkseedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c];			
-			push @seedseq_pos_in_stk , $i+$c;
-		} else {			
-			while ($i+$j <= $#seedseq && $seedseq[$i+$j] ne $stkseedseq[$i+$c]){								
-				push @seedseq_pos_in_stk , $i+$c;
-				$j++;
-			}			
-			push @seedseq_pos_in_stk , $j+$c;			
-		}		
+	my @seedseq_pos_in_stk;		
+	my $j=0;
+	for (my $i=0; $i<=$#seedseq; $i++){
+		$c = $i;
+		$i++ while $seedseq[$i]=~/\W/;
+		$j++ while $seedseq[$i] ne $stkseedseq[$j];
+
+		push @seedseq_pos_in_stk , ($j)x($i-$c+1);		
 	}
+	# print $#seedseq." ".$#seedseq_pos_in_stk."\n";
 
 	# print ''.join('',@cs)."\n";
-	# for (0..$#{$constrains}){
-	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-	# 	print $sta." ".$sto."\n";
-	# 	print $cs_pos_in_seed[$sta-1]." ".$cs_pos_in_seed[$sto-1].' '.join('',@cs[$cs_pos_in_seed[$sta-1]..$cs_pos_in_seed[$sto-1]])."\n";
-	# }
-
 	# print ''.join('',@seedseq)."\n";
 	# for (0..$#{$constrains}){
 	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-	# 	print $sta." ".$sto."\n";
+	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 	# 	print $cs_pos_in_seed[$sta-1]." ".$cs_pos_in_seed[$sto-1].' '.join('',@seedseq[$cs_pos_in_seed[$sta-1]..$cs_pos_in_seed[$sto-1]])."\n";
 	# }
 
 	# print ''.join('',@stkseedseq)."\n";
 	# for (0..$#{$constrains}){
 	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-	# 	print $sta." ".$sto."\n";
+	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]])."\n";
 	# }
+	
 	for my $k (keys %{$features}){				
 		my $f = $features->{$k};
+		# print ''.join('',@stkseedseq)."\n";
 		# print ''.($stk->get_seq_by_id($f->seq_id))[0]->seq."\n";
 		# for (0..$#{$constrains}){
 		# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-		# 	print $sta." ".$sto."\n";
+		# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]]+1))."\n";
 		# }
 

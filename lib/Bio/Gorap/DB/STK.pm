@@ -303,18 +303,18 @@ sub calculate_threshold {
 					}
 					close S;
 
-					$threshold = $threshold * 0.8 > $self->parameter->cfg->bitscore ? floor($threshold * 0.7) : floor($threshold * 0.8);
+					$threshold = $threshold * $self->parameter->thfactor > $self->parameter->cfg->bitscore ? floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore)/2) * $self->parameter->thfactor): floor($threshold * $self->parameter->thfactor);
 					#returns threshold and nonTaxThreshold
-					return ($threshold,floor($self->parameter->cfg->bitscore * 0.8));			
+					return ($threshold,floor($self->parameter->cfg->bitscore * $self->parameter->thfactor));			
 				} else {
-					$threshold = floor($self->parameter->cfg->bitscore * 0.8) ;
+					$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor) ;
 					return ($threshold,0);
 				}
 			} else {
-				$threshold = floor($self->parameter->cfg->bitscore * 0.8);	
+				$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);	
 			}
 		} else {
-			$threshold = floor($self->parameter->cfg->bitscore * 0.8);
+			$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);
 		}
 	} else {
 		#use user bitscore
@@ -346,7 +346,7 @@ sub filter_stk {
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
-		return @update if scalar keys %{$features} == 0;		
+		return @update if $self->parameter->nofilter || scalar keys %{$features} == 0;		
 
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
 		push @update , @{$up} if $up;
@@ -363,7 +363,7 @@ sub filter_stk {
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
-		return @update if scalar keys %{$features} == 0;
+		return @update if $self->parameter->nofilter || scalar keys %{$features} == 0;
 
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
 		push @update , @{$up} if $up;

@@ -180,6 +180,12 @@ has 'noblast' => (
 	default => 0
 );
 
+has 'nofilter' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 has 'querystring' => (
 	is => 'rw',
 	isa => 'Str',
@@ -202,6 +208,12 @@ has 'denovoheigth' => (
 	is => 'rw',
 	isa => 'Int',
 	default => 1000
+);
+
+has 'thfactor' => (
+	is => 'rw',
+	isa => 'Num',
+	default => 0.8
 );
 
 sub BUILD {
@@ -233,7 +245,9 @@ sub BUILD {
 		'example|example' => \my $example,
 		'no|nooverlap' => \my $nooverlaps,
 		'minl|minlength=i' => \my $denovolength,
-		'minh|minheigth=i' => \my $denovoheigth
+		'minh|minheigth=i' => \my $denovoheigth,
+		'nofi|nofilter' => \my $nofilter, 
+		'thfactor|thresholdfactor=f' => \my $thfactor
 	) or pod2usage(-exitval => 1, -verbose => 3) if $self->commandline;
 
 	
@@ -359,6 +373,8 @@ sub BUILD {
 	$self->denovoheigth($denovoheigth) if $denovoheigth;
 	$self->denovolength($denovolength) if $denovolength;
 	$self->noblast(1) if $noblast;
+	$self->nofilter(1) if $nofilter;
+	$self->thfactor($thfactor) if $thfactor;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));

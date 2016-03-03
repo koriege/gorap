@@ -132,16 +132,16 @@ sub calc_features {
 			my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @{$self->parameter->cfg->cmd}));
 
 			my $id;	
-			while( <READER> ) {						
-				chomp $_;			
+			while( <READER> ) {	
+				chomp $_;
 				$_ =~ s/^\s+|\s+$//g;
 				next if $_=~/^#/;
-				next if $_=~/^\s*$/;			
+				next if $_=~/^\s*$/;
 				if ($_=~/^ORGANISM:\s+(\S+)/){
-					$id = $1;					
+					$id = $1;
 				}
 				next unless $id;
-				if ($_=~/^(\d+)/){					
+				if ($_=~/^(\d+)/){
 					my @l = split /\s+/ , $_;
 					my $start = $l[0];
 					my $stop = $start + length($l[1]) - 1;
@@ -167,7 +167,9 @@ sub calc_features {
 	my $uid;
 	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
 	for (@out){
+		print $_;
 		my @gff3entry = split /\s+/, $_;
+
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);		
 		$gff3entry[0].='.0';
 
