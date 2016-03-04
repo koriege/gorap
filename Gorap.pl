@@ -254,13 +254,13 @@ sub run {
 		}
 		
 		#reverse sort to process infernal before blast
-		my $thcalc;
+		my $thcalc=0;
+		my ($threshold,$nonTaxThreshold);
 		for my $tool (reverse sort @{$parameter->cfg->tools}){
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
-			next if $tool eq 'blast' && $parameter->noblast;
-			
-			$thcalc = 1 if $tool eq 'infernal' || $tool eq 'blast';
+			next if $tool eq 'blast' && $parameter->noblast;			
+			$thcalc++ if $tool eq 'infernal' || $tool eq 'blast';
 			$tool = ucfirst $tool;
 			#print '- by '.$tool."\n";
 
@@ -286,7 +286,7 @@ sub run {
 			#create an instance with related parser for change tool output into gff3 
 			#with gorap attributes to store in gff database		
 			my $obj = $class->new(
-				threads => $parameter->threads - $thrListener->get_workload,
+				threads => $parameter->threads - $thrListener->get_workload +1,
 				parameter => $parameter,
 				tool_parser => Bio::Gorap::Functions::ToolParser->can($toolparser) ? \&{'Bio::Gorap::Functions::ToolParser::'.$toolparser} : \&Bio::Gorap::Functions::ToolParser::gff3_parser,
 				gffdb => $gffdb,
@@ -300,8 +300,11 @@ sub run {
 			$thrListener->push_obj($obj);
 
 			#run software, use parser, store new gff3 entries 
-			$obj->calc_features;		
-		}		
+			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
+			next if $threshold && $threshold == 999999;
+			$obj->calc_features;			
+		}
+		next if $threshold && $threshold == 999999;		
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
@@ -326,8 +329,7 @@ sub run {
 
 			next if $#{$features} == -1;
 			#print "bgjob\n";
-			if ($thcalc){
-				my ($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload));					
+			if ($thcalc){				
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});
 			} else {
 				#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
@@ -592,7 +594,7 @@ B<-notax>, B<--notaxonomy>
 	(optional)
 	disables taxonomic sorting and filter using rank and species information
 
-B<-no>, B<--nooverlap>
+B<-noo>, B<--nooverlap>
 	
 	(optional)
 	disables deletion of de novo predictions if they overlap with a given GFF3 file
@@ -601,6 +603,11 @@ B<-notpm>, B<--notpm>
 	
 	(optional)
 	disables FPKM and TPM calculation
+
+B<-nofi>, B<--nofilter>
+	
+	(optional)
+	disables GORAP specific sequence and structure filter
 
 =head1 AUTHOR
 

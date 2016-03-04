@@ -216,6 +216,12 @@ has 'thfactor' => (
 	default => 0.8
 );
 
+has 'cmtaxbiascutoff' => (
+	is => 'rw',
+	isa => 'Num',
+	default => 0.333
+);
+
 sub BUILD {
 	my ($self) = @_;
 	my $file='x';
@@ -243,11 +249,12 @@ sub BUILD {
 		'nobl|noblast' => \my $noblast,
 		'sort|sort' => \my $sort,
 		'example|example' => \my $example,
-		'no|nooverlap' => \my $nooverlaps,
+		'noo|nooverlap' => \my $nooverlaps,
 		'minl|minlength=i' => \my $denovolength,
 		'minh|minheigth=i' => \my $denovoheigth,
 		'nofi|nofilter' => \my $nofilter, 
-		'thfactor|thresholdfactor=f' => \my $thfactor
+		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
+		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
 	) or pod2usage(-exitval => 1, -verbose => 3) if $self->commandline;
 
 	
@@ -375,6 +382,7 @@ sub BUILD {
 	$self->noblast(1) if $noblast;
 	$self->nofilter(1) if $nofilter;
 	$self->thfactor($thfactor) if $thfactor;
+	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));

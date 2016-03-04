@@ -41,7 +41,7 @@ sub calc_features {
 				my $exscore = -999999;
 				my @rmfeatures;
 				for my $f (@{$existingFeatures}){
-					if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+					if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 						$exscore = max($exscore,($f->get_tag_values('origscore'))[0]);
 						push @rmfeatures , $f;
 					}

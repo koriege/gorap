@@ -8,6 +8,7 @@ use Bio::Gorap::Functions::STK;
 use IPC::Cmd qw(run);
 use List::Util qw(any);
 use POSIX;
+use List::Util qw(min);
 
 #uses the gorap parameter object to initialize the 
 #database of Bio::Align::Stockholm  objects
@@ -226,35 +227,36 @@ sub calculate_threshold {
 	my $threshold=999999;	
 	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
 		if ($self->has_taxonomy && ($self->taxonomy->rankID || $self->taxonomy->speciesID) ){ #taxonomy filter is enabled
-
-			my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
-			my $ancestors;
-			my $seqc=0;
-			while ( my $s = $fasta->next_seq() ) {				
-				$seqc++;
-				if ($s->id=~/^(\d+)/){
-					my @nodes =  @{$self->taxonomy->getLineageNodes($1)};
-					$ancestors->{$nodes[-1]->id}++ if $#nodes > -1;
+			if ($self->parameter->cmtaxbiascutoff > 0){
+				my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+				my $ancestors={};
+				my $seqc=0;
+				while ( my $s = $fasta->next_seq() ) {				
+					$seqc++;
+					if ($s->id=~/^(\d+)/){
+						my @nodes;
+						push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
+						if ($#nodes > -1) {
+							#push @$nodes , $1;
+							push @{$ancestors->{$nodes[-1]}} , \@nodes;
+						}					
+					}
 				}
-			}
-			$seqc = 6 if $seqc < 6 && $seqc > 1; #at least 2 sequences of same species;
-			#if a third of seed sequneces is one species from an other kingdom, don't trust in any hit
-			if (defined $ancestors && any { $ancestors->{$_} >= $seqc/3 } keys %$ancestors){				
-				my $kingdom;
-				for (keys %$ancestors){
-					next if $ancestors->{$_} < $seqc/3;
-					my @nodes =  @{$self->taxonomy->getLineageNodes($_)};
-					$kingdom->{$#nodes > 1 ? $nodes[2]->id : 'unclassified'} = 1 
-				}
-				my @rankids;
-				push @rankids , $_->id for @{$self->taxonomy->getLineageNodes($self->taxonomy->rankID)};
-				push @rankids , $self->taxonomy->rankID;
-				my @speciesids;
-				push @speciesids , $_->id for @{$self->taxonomy->getLineageNodes($self->taxonomy->speciesID)};
-				push @speciesids , $self->taxonomy->speciesID;				
-				if( ($#rankids > 1 && exists $kingdom->{$rankids[2]}) || ($#speciesids > 1 && exists $kingdom->{$speciesids[2]})){
-					return ($threshold,0);
-				}
+				$seqc = 6 if $seqc < 6; 
+				#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
+				my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;			
+				my $notinrank=0;
+				for (@overrepresented){
+					my @lineage = @{${$ancestors->{$_}}[0]};				
+					my @rankids = @{$self->taxonomy->rankIDlineage};				
+					for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
+						if($lineage[$i] != $rankids[$i]){
+							$notinrank++;
+							last;
+						}
+					}
+				}			
+				return ($threshold,0) if $notinrank == $#overrepresented+1; 
 			}
 		
 			#check taxonomy to create own bitscore, else use Rfam bitscore threshold	

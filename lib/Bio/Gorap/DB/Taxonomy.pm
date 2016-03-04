@@ -65,6 +65,12 @@ has 'rankID' => (
 	isa => 'Int'	
 );
 
+has 'rankIDlineage' => (
+	is => 'rw',
+	isa => 'ArrayRef',
+	default => sub {[]}
+);
+
 has 'relatedRankIDsToLineage' => (
 	is => 'rw',
 	isa => 'HashRef',
@@ -254,7 +260,11 @@ sub findRelatedSpecies {
 	$self->speciesID(&getIDfromName($self , $self->parameter->species));
 	$self->rankID(&getIDfromName($self , $self->parameter->rank));
 
-	$self->relatedRankIDsToLineage(&findRelatedIDs($self,$self->rankID)) if $self->rankID;
+	if ($self->rankID){
+		push @{$self->rankIDlineage} , $_->id for @{&getLineageNodes($self,$self->rankID)};
+		push @{$self->rankIDlineage} , $self->rankID;
+		$self->relatedRankIDsToLineage(&findRelatedIDs($self,$self->rankID)) if $self->rankID;
+	}
 	$self->relatedSpeciesIDsToLineage(&findRelatedIDs($self,$self->speciesID)) if $self->speciesID;
 }
 
