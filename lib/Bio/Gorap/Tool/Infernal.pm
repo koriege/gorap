@@ -22,7 +22,8 @@ sub calc_features {
 		my @cmd = ('cmsearch' , '--noali' ,  '--cpu' , $self->threads , $self->parameter->cfg->cm , $genome);		
 		my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @cmd));
 		
-		while( <READER> ) {					
+		while( <READER> ) {
+			print $_;
 			chomp $_;
 			$_ =~ s/^\s+|\s+$//g;
 			next if $_=~/^#/;

@@ -213,7 +213,7 @@ has 'denovoheigth' => (
 has 'thfactor' => (
 	is => 'rw',
 	isa => 'Num',
-	default => 0.8
+	default => 0.9
 );
 
 has 'cmtaxbiascutoff' => (

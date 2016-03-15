@@ -167,7 +167,6 @@ sub calc_features {
 	my $uid;
 	my $scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score');
 	for (@out){
-		print $_;
 		my @gff3entry = split /\s+/, $_;
 
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);		

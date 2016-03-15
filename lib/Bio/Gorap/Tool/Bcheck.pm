@@ -38,9 +38,6 @@ sub calc_features {
 	my $thrs={};
 	my @out;
 	for my $kingdom (@kingdoms){
-		$kingdom = uc substr $kingdom,0,1;
-		$kingdom = 'f' if $kingdom eq 'F';
-
 		for my $genome (@{$self->fastadb->chunks}){
 			if (scalar(keys %{$thrs}) >= $self->threads){
 				my $pid = wait();

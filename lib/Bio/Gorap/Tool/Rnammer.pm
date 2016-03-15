@@ -52,7 +52,7 @@ sub calc_features {
 				}
 			}
 			
-			my $pipe = IO::Pipe->new();			
+			my $pipe = IO::Pipe->new();
 			if (my $pid = fork()) {
 				$pipe->reader();
 				$select->add( $pipe );
@@ -66,8 +66,7 @@ sub calc_features {
 					$_ =~ s/\$genome/$genome/;
 					$_ =~ s/\$kingdom/$kingdom/;
 					$_ =~ s/\$output/$tmpfile/;
-				}		
-							
+				}
 				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
 				open F ,'<'.$tmpfile or exit;
 				while( <F> ) {		
@@ -93,8 +92,7 @@ sub calc_features {
 				push @out , $_ while <$pipe>;				
 				$select->remove( $pipe->fileno() );
 			}
-		}
-	
+		}	
 	}
 
 	my $uid;

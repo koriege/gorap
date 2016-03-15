@@ -223,42 +223,9 @@ sub calculate_threshold {
 	# my ($self,$cpus,$relatedRankIDsToLineage,$relatedSpeciesIDsToLineage) = @_;
 	my ($self,$cpus) = @_;
 		
-
 	my $threshold=999999;	
 	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
 		if ($self->has_taxonomy && ($self->taxonomy->rankID || $self->taxonomy->speciesID) ){ #taxonomy filter is enabled
-			if ($self->parameter->cmtaxbiascutoff > 0){
-				my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
-				my $ancestors={};
-				my $seqc=0;
-				while ( my $s = $fasta->next_seq() ) {				
-					$seqc++;
-					if ($s->id=~/^(\d+)/){
-						my @nodes;
-						push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
-						if ($#nodes > -1) {
-							#push @$nodes , $1;
-							push @{$ancestors->{$nodes[-1]}} , \@nodes;
-						}					
-					}
-				}
-				$seqc = 6 if $seqc < 6; 
-				#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
-				my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;			
-				my $notinrank=0;
-				for (@overrepresented){
-					my @lineage = @{${$ancestors->{$_}}[0]};				
-					my @rankids = @{$self->taxonomy->rankIDlineage};				
-					for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
-						if($lineage[$i] != $rankids[$i]){
-							$notinrank++;
-							last;
-						}
-					}
-				}			
-				return ($threshold,0) if $notinrank == $#overrepresented+1; 
-			}
-		
 			#check taxonomy to create own bitscore, else use Rfam bitscore threshold	
 
 			if (scalar keys %{$self->taxonomy->relatedSpeciesIDsToLineage} > 0 || scalar keys %{$self->taxonomy->relatedRankIDsToLineage} > 0){
@@ -305,25 +272,90 @@ sub calculate_threshold {
 					}
 					close S;
 
-					$threshold = $threshold * $self->parameter->thfactor > $self->parameter->cfg->bitscore ? floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore)/2) * $self->parameter->thfactor): floor($threshold * $self->parameter->thfactor);
+					$threshold = $threshold < $self->parameter->cfg->bitscore * $self->parameter->thfactor ? floor($threshold) : floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
 					#returns threshold and nonTaxThreshold
 					return ($threshold,floor($self->parameter->cfg->bitscore * $self->parameter->thfactor));			
 				} else {
+
+					if ($self->parameter->cmtaxbiascutoff > 0){
+						my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+						my $ancestors={};
+						my $seqc=0;
+						while ( my $s = $fasta->next_seq() ) {				
+							$seqc++;
+							if ($s->id=~/^(\d+)/){
+								my @nodes;
+								push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
+								if ($#nodes > -1) {
+									#push @$nodes , $1;
+									push @{$ancestors->{$nodes[-1]}} , \@nodes if $nodes[0] != 28384 && $nodes[0] != 12908;
+								}					
+							}
+						}						
+						$seqc = 6 if $seqc < 6; 
+						#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
+						my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;			
+						my $notinrank=0;
+						for (@overrepresented){						
+							my @lineage = @{${$ancestors->{$_}}[0]};									
+							my @rankids = @{$self->taxonomy->rankIDlineage};				
+							for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
+								if($lineage[$i] != $rankids[$i]){
+									$notinrank++;
+									last;
+								}
+							}
+						}			
+						return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
+					}
 					$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor) ;
-					return ($threshold,0);
+					return ($threshold,0);					
 				}
 			} else {
+				if ($self->parameter->cmtaxbiascutoff > 0){
+					my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+					my $ancestors={};
+					my $seqc=0;
+					while ( my $s = $fasta->next_seq() ) {				
+						$seqc++;
+						if ($s->id=~/^(\d+)/){
+							my @nodes;
+							push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
+							if ($#nodes > -1) {
+								#push @$nodes , $1;
+								push @{$ancestors->{$nodes[-1]}} , \@nodes;
+								push @{$ancestors->{$nodes[-1]}} , \@nodes if $nodes[0] != 28384 && $nodes[0] != 12908;
+							}					
+						}
+					}
+					$seqc = 6 if $seqc < 6; 
+					#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
+					my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;			
+					my $notinrank=0;
+					for (@overrepresented){
+						my @lineage = @{${$ancestors->{$_}}[0]};				
+						my @rankids = @{$self->taxonomy->rankIDlineage};				
+						for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
+							if($lineage[$i] != $rankids[$i]){
+								$notinrank++;
+								last;
+							}
+						}
+					}			
+					return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
+				} 
 				$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);	
+				return ($threshold,0);			
 			}
 		} else {
 			$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);
+			return ($threshold,0);
 		}
 	} else {
-		#use user bitscore
+		#use user bitscore		
 		$threshold = $self->parameter->cfg->bitscore;
+		return ($threshold,0);
 	}
-
-	return ($threshold,0);
 }
 
 #gorap post stk filters
