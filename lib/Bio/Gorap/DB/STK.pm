@@ -376,7 +376,7 @@ sub filter_stk {
 	
 	if ($self->parameter->cfg->userfilter){	
 		
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, 0);
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, 0);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
@@ -393,7 +393,7 @@ sub filter_stk {
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
 				
 	} else {
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, $threshold, $nonTaxThreshold);
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, $threshold, $nonTaxThreshold);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 

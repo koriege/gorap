@@ -542,7 +542,7 @@ sub read_parameter {
 		my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
-	$v = $cfg->val('query','kingdom');
+	$v = $cfg->val('query','rfam');
 	if ($v){
 		&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
 		$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));

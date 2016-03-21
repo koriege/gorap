@@ -34,7 +34,7 @@ sub calc_features {
 			#tool_parser is set to infernal_parser via Gorap.pl, static defined in Bio::Gorap::Functions::ToolParser			
 			my @gff3entry = &{$self->tool_parser}(++$uid,$abbr,$self->parameter->cfg->rf_rna,\@l);
 
-			next if $self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2.5;
+			next if ! $self->parameter->nofilter && $self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2.5;
 
 			if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR.?D/ || $self->parameter->cfg->rf_rna=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
 				my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);

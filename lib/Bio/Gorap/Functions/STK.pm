@@ -6,7 +6,7 @@ use POSIX;
 use Switch;
 
 sub score_filter {
-	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;	
+	my ($self, $nofilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
@@ -14,7 +14,7 @@ sub score_filter {
 	my @update;	
 	my $type = $features->{(keys %{$features})[0]}->type;
 	
-	if ($type=~/_Afu/ || $type=~/_SNOR/ || $type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+	if ( ! $nofilter && ($type=~/_Afu/ || $type=~/_SNOR/ || $type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
 		for (keys %{$features}){		
 			my $f = $features->{$_};
 			next if $f->score eq '.';
