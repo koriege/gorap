@@ -51,7 +51,7 @@ my $doubleEntry;
 sub _set_db {
 	my ($self) = @_;	
 
-	$self->db(Bio::Index::Fasta->new(-filename => catfile($self->parameter->tmp,$self->parameter->pid.'.faidx'), -write_flag => 1 , -verbose => -1));				
+	$self->db(Bio::Index::Fasta->new(-filename => catfile($self->parameter->tmp,$self->parameter->pid.'.faidx'), -write_flag => 1 , -verbose => -1));
 	
 	print "Reading FASTA files\n" if $self->parameter->verbose;
 	

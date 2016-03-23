@@ -70,7 +70,7 @@ sub store {
 		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$self->idToPath->{$id}, -verbose => -1))->write_aln($self->db->{$id});		
 	} else {
 		for (keys %{$self->db}){
-			&remove_gap_columns_and_write($self,$self->db->{$_},$self->idToPath->{$_});			
+			&remove_gap_columns_and_write($self,$self->db->{$_},$self->idToPath->{$_});
 		}	
 	}
 }
@@ -274,7 +274,7 @@ sub calculate_threshold {
 
 					$threshold = $threshold < $self->parameter->cfg->bitscore * $self->parameter->thfactor ? floor($threshold) : floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
 					#returns threshold and nonTaxThreshold
-					return ($threshold,floor($self->parameter->cfg->bitscore * $self->parameter->thfactor));			
+					return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);			
 				} else {
 
 					if ($self->parameter->cmtaxbiascutoff > 0){
@@ -308,7 +308,7 @@ sub calculate_threshold {
 						}			
 						return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
 					}
-					$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor) ;
+					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
 					return ($threshold,0);					
 				}
 			} else {
@@ -344,11 +344,11 @@ sub calculate_threshold {
 					}			
 					return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
 				} 
-				$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);	
+				$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;	
 				return ($threshold,0);			
 			}
 		} else {
-			$threshold = floor($self->parameter->cfg->bitscore * $self->parameter->thfactor);
+			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
 			return ($threshold,0);
 		}
 	} else {
@@ -376,7 +376,7 @@ sub filter_stk {
 	
 	if ($self->parameter->cfg->userfilter){	
 		
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, 0);
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, $threshold, $nonTaxThreshold);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 

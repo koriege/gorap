@@ -22,8 +22,7 @@ sub calc_features {
 		my @cmd = ('cmsearch' , '--noali' ,  '--cpu' , $self->threads , $self->parameter->cfg->cm , $genome);		
 		my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @cmd));
 		
-		while( <READER> ) {
-			print $_;
+		while( <READER> ) {			
 			chomp $_;
 			$_ =~ s/^\s+|\s+$//g;
 			next if $_=~/^#/;
@@ -36,13 +35,13 @@ sub calc_features {
 
 			next if ! $self->parameter->nofilter && $self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2.5;
 
-			if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR.?D/ || $self->parameter->cfg->rf_rna=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+			if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
 				my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
 				my $snover=0;
 				my $exscore = -999999;
 				my @rmfeatures;
 				for my $f (@{$existingFeatures}){
-					if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+					if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
 						$exscore = max($exscore,($f->get_tag_values('origscore'))[0]);
 						push @rmfeatures , $f;
 					}

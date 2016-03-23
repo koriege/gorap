@@ -14,7 +14,7 @@ sub score_filter {
 	my @update;	
 	my $type = $features->{(keys %{$features})[0]}->type;
 	
-	if ( ! $nofilter && ($type=~/_Afu/ || $type=~/_SNOR/ || $type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+	if ( ! $nofilter && ($type=~/_Afu/ || $type=~/_SNOR/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 		for (keys %{$features}){		
 			my $f = $features->{$_};
 			next if $f->score eq '.';
@@ -28,7 +28,7 @@ sub score_filter {
 		}
 
 		return ($stk , $features, \@update , $write);
-	}
+	}	
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
 
@@ -367,7 +367,7 @@ sub user_filter {
 				last;
 			}			
 		}
-		if ($hold && $f->score ne '.' && $f->score < 35 && ($f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
+		if ($hold && $f->score ne '.' && $f->score < 35 && ($f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;
 			switch ($uga_ug[0]){

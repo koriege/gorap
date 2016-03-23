@@ -303,7 +303,7 @@ sub run {
 			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
 			next if $threshold && $threshold == 999999;
 			$obj->calc_features;			
-		}
+		}		
 		next if $threshold && $threshold == 999999;		
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);

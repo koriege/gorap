@@ -475,19 +475,22 @@ sub store {
 				my $tpm = ($f1->get_tag_values('tpm'))[0];
 				$tpm = 0 unless $tpm;
 
+				my $score = ($f1->get_tag_values('origscore'))[0];
+				$score = $f1->score unless $score;
+
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
-					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 					my ($seq) = $f1->get_tag_values('seq');
 					print FAF '>'.$faid."\n".$seq."\n" if $seq;
 					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
 					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 				} else {
-					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-					print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 					my ($seq) = $f1->get_tag_values('seq');					
 					print FA '>'.$faid."\n".$seq."\n" if $seq;
@@ -533,18 +536,20 @@ sub store {
 				$rpkm = 0 unless $rpkm;
 				my $tpm = ($f1->get_tag_values('tpm'))[0];
 				$tpm = 0 unless $tpm;
+				my $score = ($f1->get_tag_values('origscore'))[0];
+				$score = $f1->score unless $score;
 
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
 				if ( $f1->display_name eq '!' ){
-					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 					my $seq = $f1->get_tag_values('seq');
 					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
 				} else {
-					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 					my $seq = $f1->get_tag_values('seq');
 					print FA '>'.$faid."\n".$seq."\n" if $seq;
@@ -650,20 +655,22 @@ sub store_overlaps {
 			$rpkm = 0 unless $rpkm;
 			my $tpm = ($f1->get_tag_values('tpm'))[0];
 			$tpm = 0 unless $tpm;
+			my $score = ($f1->get_tag_values('origscore'))[0];
+			$score = $f1->score unless $score;
 
 			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 
 			if ( $f1->display_name eq '!' ){
-				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-				print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 				my $seq = $f1->get_tag_values('seq');
 				print FAF '>'.$faid."\n".$seq."\n" if $seq;
 				$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
 				print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 			} else {
-				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
-				print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$f1->score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+				print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
 				my $seq = $f1->get_tag_values('seq');
 				print FA '>'.$faid."\n".$seq."\n" if $seq;
