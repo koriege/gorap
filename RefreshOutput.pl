@@ -75,29 +75,8 @@ for my $cfg (@{$parameter->queries}){
 		my $seq;
 		$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
 		if ($seq){
-   #          if($parameter->force && ($f->type=~/_Afu/ || $f->type=~/_SNOR.?D/ || $f->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/)){
-			# 	if($f->score <15){
-			# 		$gffdb->update_filter($f->seq_id,$type,'B');
-			# 		$stkdb->db->{$type}->remove_seq($seq);
-			# 		next;
-			# 	}
-			# 	my $higherscore;
-			# 	for (&get_overlaps($f)){
-			# 		if($_->type=~/_Afu/ || $_->type=~/_SNOR.?D/ || $_->type=~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
-			# 			$higherscore = 1 if $_->score > $f->score;
-			# 		}
-			# 	}
-			# 	if ($higherscore){
-			# 		$gffdb->update_filter($f->seq_id,$type,'O');
-			# 		$stkdb->db->{$type}->remove_seq($seq);
-			# 	} else {
-			# 		$hold=1;
-			# 		$gffdb->update_filter($f->seq_id,$type,'!');	
-			# 	}
-			# } else {
-				$hold=1;
-				$gffdb->update_filter($f->seq_id,$type,'!');
-			# }
+			$hold=1;
+			$gffdb->update_filter($f->seq_id,$type,'!');
 		} else {
 			$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
 		}		
@@ -111,7 +90,7 @@ print "Storing changes\n";
 $stkdb->store;
 $gffdb->store_overlaps;
 
-Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$fastadb->oheaderToDBsize,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec-amended");
+Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec-amended");
 
 unlink $_ for glob catfile($parameter->tmp,$parameter->pid.'.*');
 

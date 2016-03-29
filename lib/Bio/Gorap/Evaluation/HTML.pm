@@ -55,7 +55,7 @@ sub create {
 					$bams = substr($bams,0,-6);
 					print HTML '-b '.$bams.'\\<br>'."\n";
 				}
-				print HTML '-notax\\<br>'."\n" if $parameter->taxonomy;
+				print HTML '-notax\\<br>'."\n" unless $parameter->taxonomy;
 				print HTML '-sort\\<br>'."\n" if $parameter->sort;				
 				print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
 			} elsif ($_=~/Used data/){

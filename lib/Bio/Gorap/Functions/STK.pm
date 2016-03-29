@@ -39,7 +39,7 @@ sub score_filter {
 			my @id = split /\./ , $f->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			
-			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){						
+			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
 				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
 				if (($f->get_tag_values('origscore'))[0] < $threshold || $f->score < 10){
 					delete $features->{$_};
@@ -176,6 +176,7 @@ sub sequence_filter {
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+	my $type = $features->{(keys %{$features})[0]}->type;
 	my @update;
 	my $write;
 
@@ -203,7 +204,7 @@ sub sequence_filter {
 			}
 		}
 		if($allCons>0 && $consC > 9){			
-			if ($consC/$allCons < 0.7 ){
+			if ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
