@@ -97,6 +97,10 @@ unlink $_ for glob catfile($parameter->tmp,$parameter->pid.'.*');
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
 $mon += 1;
+print "\n";
+print "To relink original STKs run:\n"
+print 'sed -i \'s/alignments\/\([a-zA-Z0-9_-]*\)/meta\/\1\.P/g\' <full.html>'."\n";
+print "\n";
 print "$mday.$mon.$year-$hour:$min:$sec\n";
 
 __END__

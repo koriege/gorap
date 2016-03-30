@@ -381,7 +381,7 @@ sub create_cfgs {
 			print CFG "kingdom=euk\n";
 		} elsif ($rf_rna=~/CRISPR/){
 			print CFG "kingdom=arc\nkingdom=bac\n";	
-		} elsif ($rf_rna=~/_mir/ || $rf_rna=~/_MIR/){
+		} elsif ($rf_rna=~/_mir/i){
 			print CFG "kingdom=euk\n";	
 		} elsif ($rf_rna=~/_SNOR/ || $rf_rna =~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){ #not -.+- -> e.g. v-snoRNA-1 is viral: 
 			print CFG "kingdom=euk\nkingdom=fungi\nkingdom=arc\n";	

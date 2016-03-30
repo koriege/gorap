@@ -87,7 +87,7 @@ sub create {
 				for (0..$#{$parameter->genomes}){
 					print HTML '<tr>'."\n";					
 					print HTML '<td>'.${$parameter->abbreviations}[$_].'</td>'."\t";
-					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.final.gff">final</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.gff">filtered</a></td>'."\n";
+					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.final.orig.gff">final</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.gff">unfiltered</a></td>'."\n";
 					print HTML '</tr>'."\n";	
 				}
 				print HTML '</tbody>'."\n";				
