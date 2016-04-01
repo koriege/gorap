@@ -3,8 +3,6 @@
 use strict;
 use warnings;
 use sigtrap qw(handler SIGABORT normal-signals);
-#TODO remove 
-use lib 'lib';
 
 use Bio::Gorap::ThrListener;
 use Bio::Gorap::Parameter;
@@ -237,7 +235,7 @@ sub run {
 	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
 
 	my $c=0;
-	for my $cfg (@{$parameter->queries}){
+	for my $cfg (@{$parameter->queries}){		
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);		
 		$c++;
@@ -248,15 +246,15 @@ sub run {
 		for (keys %{$parameter->kingdoms}){
 			$next=0 if exists $parameter->cfg->kingdoms->{$_};	
 		}
-		if($next){
+		if($next && ! $parameter->nofilter){			
 			#print "- skipped due to kingdom restriction\n";
 			next;
-		}
+		}		
 		
 		#reverse sort to process infernal before blast
 		my $thcalc=0;
 		my ($threshold,$nonTaxThreshold);
-		for my $tool (reverse sort @{$parameter->cfg->tools}){
+		for my $tool (reverse sort @{$parameter->cfg->tools}){		
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
 			next if $tool eq 'blast' && $parameter->noblast;			

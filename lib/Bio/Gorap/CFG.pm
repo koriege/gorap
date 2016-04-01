@@ -78,7 +78,7 @@ has 'userfilter' => (
 );
 
 sub _set {
-	my ($self) = @_;
+	my ($self) = @_;	
 	
 	my $cfg = Config::IniFiles->new( -file => $self->cfg , -nomultiline => 1, -handle_trailing_comment => 1);
 	

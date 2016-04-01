@@ -186,6 +186,12 @@ has 'nofilter' => (
 	default => 0
 );
 
+has 'nobutkingsnofilter' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 has 'querystring' => (
 	is => 'rw',
 	isa => 'Str',
@@ -252,6 +258,7 @@ sub BUILD {
 		'noo|nooverlap' => \my $nooverlaps,
 		'minl|minlength=i' => \my $denovolength,
 		'minh|minheigth=i' => \my $denovoheigth,
+		'nobutkingsnofi|nobutkingsnofi' => \my $nobutkingsnofilter, #hidden dev option
 		'nofi|nofilter' => \my $nofilter, 
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
@@ -381,11 +388,13 @@ sub BUILD {
 	$self->denovolength($denovolength) if $denovolength;
 	$self->noblast(1) if $noblast;
 	$self->nofilter(1) if $nofilter;
+	$self->nobutkingsnofilter(1) if $nobutkingsnofilter;
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
+
 }
 
 sub _make_paths {
