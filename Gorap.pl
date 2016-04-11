@@ -254,7 +254,8 @@ sub run {
 		#reverse sort to process infernal before blast
 		my $thcalc=0;
 		my ($threshold,$nonTaxThreshold);
-		for my $tool (reverse sort @{$parameter->cfg->tools}){		
+		for my $tool (reverse sort @{$parameter->cfg->tools}){
+			$tool = 'infernal' if $parameter->nofilter;
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
 			next if $tool eq 'blast' && $parameter->noblast;			
@@ -299,10 +300,11 @@ sub run {
 
 			#run software, use parser, store new gff3 entries 
 			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
-			next if $threshold && $threshold == 999999;
-			$obj->calc_features;			
+			last if $threshold && $threshold == 999999;
+			$obj->calc_features;
+			last if $parameter->nofilter;
 		}		
-		next if $threshold && $threshold == 999999;		
+		next if $threshold && $threshold == 999999;
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;

@@ -44,9 +44,9 @@ say $cfgfile;
 my $cfg = Bio::Gorap::CFG->new( cfg => $cfgfile);
 
 say $stkfile if $verbose;
-die 'No C/D-Box snoRNA STK' if $#{$cfg->constrains} == -1;
+die 'No C/D-Box snoRNA STK '.$! if $#{$cfg->constrains} == -1;
 
-my $stk = (Bio::AlignIO->new(-format => 'stockholm', -file => $stkfile, -verbose => -1))->next_aln or die $!;
+my $stk = (Bio::AlignIO->new(-format => 'stockholm', -file => $stkfile, -verbose => -1))->next_aln or die "Corrupt STK file $stkfile ".$!;
 $stk->set_displayname_flat;
 
 my $scores;
@@ -63,16 +63,16 @@ close S;
 
 my @features;
 for my $seq ($stk->each_seq){		
-	next unless $seq->display_id=~/$regex/;
-	say $seq->display_id.' '.$scores->{$seq->display_id} if $verbose;	
+	next unless $seq->display_id=~/$regex/;	
+	say $seq->display_id.' '.$scores->{$seq->display_id} if $verbose;		
 	push @features , Bio::SeqFeature::Generic->new(-seq_id => $seq->display_id, -primary_tag => $cfg->rf_rna, -score => $scores->{$seq->display_id});
 }
 ($stk) = Bio::Gorap::Functions::STK->user_filter($stk, \@features, $cfg->constrains, $cfg->cs, $cfg->stk);
 if ($verbose){
 	say 'filtered:';
-	for my $seq ($stk->each_seq){		
-		next unless $seq->display_id=~/$regex/;
-		say $seq->display_id;
+	for my $seq ($stk->each_seq){			
+		next unless $seq->display_id=~/$regex/;		
+		say $seq->display_id;		
 	}
 	say '';
 }

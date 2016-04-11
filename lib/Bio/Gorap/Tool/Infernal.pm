@@ -22,8 +22,9 @@ sub calc_features {
 		my @cmd = ('cmsearch' , '--noali' ,  '--cpu' , $self->threads , $self->parameter->cfg->cm , $genome);		
 		my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @cmd));
 		
-		while( <READER> ) {
-			chomp $_;
+		while( <READER> ) {			
+		print $_;	
+			chomp $_;			
 			$_ =~ s/^\s+|\s+$//g;
 			next if $_=~/^#/;
 			next if $_=~/^\s*$/;
@@ -36,25 +37,24 @@ sub calc_features {
 			if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
 				next if $self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2.5;
 
-				if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/_sn\d/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
-					my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
-					my $snover=0;
+				if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_sno[A-Z]/ || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/_sn\d/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
+					my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);					
 					my $exscore = -999999;
 					my @rmfeatures;
 					for my $f (@{$existingFeatures}){
-						if ($f->type=~/_mir/i || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn\d/ || $f->type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
-							$exscore = max($exscore,($f->get_tag_values('origscore'))[0]);
+						if ($f->type=~/_mir/i || $$f->type=~/_sno[A-Z]/ || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn\d/ || $f->type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
+							$exscore = max($exscore,  max($f->score,($f->get_tag_values('origscore'))[0])   );							
 							push @rmfeatures , $f;
 						}
-					}
-					if ($exscore < $gff3entry[5]){
+					}					
+					if ($exscore < $gff3entry[5]){						
 						$self->gffdb->update_filter($_->seq_id,$_->primary_tag,"O") for @rmfeatures;
 					} else {
 						$uid--;
 						next;
 					}
 				}
-			}
+			}			
 			my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 			$self->gffdb->add_gff3_entry(\@gff3entry,$seq,$abbr);
 		}

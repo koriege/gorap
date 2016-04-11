@@ -8,7 +8,7 @@ use Bio::Gorap::Functions::STK;
 use IPC::Cmd qw(run);
 use List::Util qw(any);
 use POSIX;
-use List::Util qw(min);
+use List::Util qw(min max);
 
 #uses the gorap parameter object to initialize the 
 #database of Bio::Align::Stockholm  objects
@@ -277,7 +277,7 @@ sub calculate_threshold {
 					return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);			
 				} else {
 
-					if ($self->parameter->cmtaxbiascutoff > 0){
+					if ($self->parameter->cmtaxbiascutoff > 0 && ! ($self->parameter->cfg->rf_rna=~/_sno[A-Z]/ || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/_sn\d/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 						my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 						my $ancestors={};
 						my $seqc=0;
@@ -306,13 +306,13 @@ sub calculate_threshold {
 								}
 							}
 						}			
-						return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
+						return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
 					}
 					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
 					return ($threshold,0);					
 				}
 			} else {
-				if ($self->parameter->cmtaxbiascutoff > 0){
+				if ($self->parameter->cmtaxbiascutoff > 0 && ! ($self->parameter->cfg->rf_rna=~/_sno[A-Z]/ || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/_sn\d/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 					my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 					my $ancestors={};
 					my $seqc=0;
@@ -342,14 +342,14 @@ sub calculate_threshold {
 							}
 						}
 					}			
-					return (999999,0) if $notinrank > 0 && $notinrank == $#overrepresented+1;
+					return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
 				} 
 				$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;	
-				return ($threshold,0);			
+				return (max(8 * $self->parameter->thfactor,$threshold),0);			
 			}
 		} else {
 			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
-			return ($threshold,0);
+			return (max(8 * $self->parameter->thfactor,$threshold),0);
 		}
 	} else {
 		#use user bitscore		
@@ -376,7 +376,7 @@ sub filter_stk {
 	
 	if ($self->parameter->cfg->userfilter){	
 		
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, $threshold, $nonTaxThreshold);
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 
@@ -398,7 +398,7 @@ sub filter_stk {
 		}
 				
 	} else {
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $stk, $features, $threshold, $nonTaxThreshold);
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
 		push @update , @{$up} if $up;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
 

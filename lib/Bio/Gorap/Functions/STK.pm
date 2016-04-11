@@ -4,9 +4,10 @@ use Bio::AlignIO;
 use Bio::SimpleAlign;
 use POSIX;
 use Switch;
+use List::Util qw(min max);
 
 sub score_filter {
-	my ($self, $nofilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
+	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
@@ -14,12 +15,13 @@ sub score_filter {
 	my @update;	
 	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	
-	if ( ! $nofilter && ($type=~/_Afu/ || $type=~/_SNOR/ || $type=~/_sn\d/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
+	#HACAS: _SNORA _snopsi
+	if ( ! $nofilter && $userfilter && ($type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/_sn\d/ || $type=~/_sno[A-Z]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 		for (keys %{$features}){		
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 
-			if ($f->score < 10){
+			if (max($f->score,($f->get_tag_values('origscore'))[0]) < 8){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
@@ -31,47 +33,73 @@ sub score_filter {
 	}	
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
+		if ($type=~/_sn/i){
+			for (keys %{$features}){
+				my $f = $features->{$_};
+				next if $f->score eq '.';
 
-		for (keys %{$features}){
-			my $f = $features->{$_};
-			next if $f->score eq '.';
+				my @id = split /\./ , $f->seq_id;
+				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+				
+				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
+					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
+					if (max($f->score,($f->get_tag_values('origscore'))[0]) < min($nonTaxThreshold,$threshold)){
+						delete $features->{$_};
+						$write = 1;
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						push @update , $f->seq_id.' '.$f->primary_tag.' B';
+					}
+				} else {
+					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
+						delete $features->{$_};
+						$write = 1;
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						push @update , $f->seq_id.' '.$f->primary_tag.' B';
+					}
+				}			
+			}
+		} else {	
+			for (keys %{$features}){
+				my $f = $features->{$_};
+				next if $f->score eq '.';
 
-			my @id = split /\./ , $f->seq_id;
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			
-			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
-				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-				if (($f->get_tag_values('origscore'))[0] < $threshold || $f->score < 10){
-					delete $features->{$_};
-					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-					push @update , $f->seq_id.' '.$f->primary_tag.' B';
-				}
-			} else {
-				if ($f->score < 10 || $f->score < $nonTaxThreshold && $f->score < $threshold){
-					delete $features->{$_};
-					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-					push @update , $f->seq_id.' '.$f->primary_tag.' B';
-				}
-			}			
+				my @id = split /\./ , $f->seq_id;
+				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+				
+				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
+					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
+					if (max($f->score,($f->get_tag_values('origscore'))[0]) < $threshold){
+						delete $features->{$_};
+						$write = 1;
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						push @update , $f->seq_id.' '.$f->primary_tag.' B';
+					}
+				} else {
+					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
+						delete $features->{$_};
+						$write = 1;
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						push @update , $f->seq_id.' '.$f->primary_tag.' B';
+					}
+				}			
+			}
 		}
 
 	} else { 
 		for (keys %{$features}){		
 			my $f = $features->{$_};
-			next if $f->score eq '.';
+			next if $f->score eq '.';			
 			
 			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
 				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-				if (($f->get_tag_values('origscore'))[0] < $threshold){
+				if ( max($f->score,($f->get_tag_values('origscore'))[0]) < $threshold){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
 			} else {
-				if ($f->score < $threshold){
+				if ($f->score < 8 || $f->score < $threshold){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -144,7 +172,13 @@ sub structure_filter(){
 
 		for (keys %{$features}){		
 			my $f = $features->{$_};
-			$ssPresentCount->{$f->seq_id}++ if $tmpStk->get_seq_by_id($f->seq_id);						
+			my $seqo = $tmpStk->get_seq_by_id($f->seq_id);
+			if ($seqo){
+				my $ncc = $seqo->seq;				
+				$ncc=~s/\W//g;
+				my $minl = $sto - $sta + 1 > 4 ? 1 : 0;				
+				$ssPresentCount->{$f->seq_id}++ if length $ncc > $minl;
+			}			
 		}
 	}
 	
@@ -202,8 +236,17 @@ sub sequence_filter {
 					$consC++ if $seq[$i] eq $consensus[$i];	
 				}				
 			}
-		}
+		}		
+
 		if($allCons>0 && $consC > 9){			
+			# if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
+			# 	if (max($f->score,($f->get_tag_values('origscore'))[0]) < 30 && ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9))){
+			# 		delete $features->{$_};
+			# 		$write = 1;
+			# 		$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+			# 		push @update , $f->seq_id.' '.$f->primary_tag.' P';	
+			# 	}
+			# } elsif ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
 			if ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
 				delete $features->{$_};
 				$write = 1;
@@ -318,7 +361,7 @@ sub user_filter {
 		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1))."\n";
 		# }		
 
-		next if $f->score ne '.' && $f->score > 30 && ($f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/);
+		next if $f->score ne '.' && $f->score > 30 && ($f->primary_tag=~/_sno[A-Z]/ || $f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR[ND\d]/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/);
 
 		my $hold=1;
 		my @uga_ug;
@@ -386,7 +429,7 @@ sub user_filter {
 			}
 		}
 
-		if ($hold && $f->score ne '.' && $f->score < 25 && ($f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
+		if ($hold && $f->score ne '.' && $f->score < 25 && ($f->primary_tag=~/_sno[A-Z]/ || $f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR[ND\d]/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;
 			switch ($uga_ug[0]){

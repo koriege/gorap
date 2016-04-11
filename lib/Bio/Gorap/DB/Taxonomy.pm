@@ -92,24 +92,28 @@ sub _set_db {
 	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'data','taxonomy','names.dmp'), -directory => $self->parameter->tmp , -force => 1 , -verbose => -1 ));
 	
 	#read in silva phylogeny accession numbers, already mapped to ncbi taxonomy
-	open MAP, '<'.catfile($ENV{GORAP},'data','silvaNcbi.txt') or die $!;
-	while(<MAP>){
-		chomp $_;
-		my @tmp=split(/\s+/,$_);		
-		$self->silvaToTaxid->{$tmp[0]}=$tmp[1];
+	if (-e catfile($ENV{GORAP},'data','silvaNcbi.txt')){
+		open MAP, '<'.catfile($ENV{GORAP},'data','silvaNcbi.txt') or die $!;
+		while(<MAP>){
+			chomp $_;
+			my @tmp=split(/\s+/,$_);		
+			$self->silvaToTaxid->{$tmp[0]}=$tmp[1];
+		}
+		close MAP;	
 	}
-	close MAP;	
 
 	#read in rfam accession numbers, already mapped to ncbi taxonomy	
-	open MAP, '<'.catfile($ENV{GORAP},'data','accSciTax.txt') or die $!;
-	while(<MAP>){
-		chomp $_;
-		my @tmp=split(/\s+/,$_);
-		$self->rfamToName->{$tmp[0]}=$tmp[1];
-		$self->rfamToTaxid->{$tmp[0]}=$tmp[2];
-		$self->nameToTaxid->{$tmp[1]}=$tmp[2];
+	if (-e catfile($ENV{GORAP},'data','accSciTax.txt')){
+		open MAP, '<'.catfile($ENV{GORAP},'data','accSciTax.txt') or die $!;
+		while(<MAP>){
+			chomp $_;
+			my @tmp=split(/\s+/,$_);
+			$self->rfamToName->{$tmp[0]}=$tmp[1];
+			$self->rfamToTaxid->{$tmp[0]}=$tmp[2];
+			$self->nameToTaxid->{$tmp[1]}=$tmp[2];
+		}
+		close MAP;
 	}
-	close MAP;
 }
 
 #from taxid or Bio::Taxon

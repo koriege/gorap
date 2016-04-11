@@ -12,6 +12,7 @@ use File::Path qw(make_path);
 use Try::Tiny;
 use Sys::MemInfo qw(totalmem);
 use List::Util qw(min max);
+use List::MoreUtils qw(uniq);
 use Config::IniFiles;
 
 has 'mem' => (
@@ -470,6 +471,7 @@ sub set_queries {
 		} 
 	}
 
+	@queries = uniq @queries;
 	$self->queries(\@queries);
 }
 
