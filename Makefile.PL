@@ -49,7 +49,8 @@ WriteMakefile(
 		'PostScript::TextBlock' => '0',
 		'Sys::MemInfo' => '0',
 		'File::Path' => '0',
-		'Config::IniFiles' => '0'
+		'Config::IniFiles' => '0',
+		'Hash::Merge' => 0
 	},
 	'MIN_PERL_VERSION'	=>	'5.010',
 	'EXE_FILES'	=>	[ map { "$_" } @scripts ],

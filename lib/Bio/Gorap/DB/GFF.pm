@@ -6,6 +6,7 @@ use Bio::SeqFeature::Generic;
 use File::Spec::Functions;
 use File::Basename;
 use List::MoreUtils qw(any first_index);
+use List::Util qw(min max);
 
 #uses the gorap parameter object to initialize the 
 #database/hashmap of Bio::DB::SeqFeature objects
@@ -36,7 +37,7 @@ has 'bamdb' => (
 
 #add a gff3 entry into this Bio::DB::SeqFeature database
 sub add_gff3_entry {	
-	my ($self,$s,$seq) = @_;	
+	my ($self,$s,$seq,$flag) = @_;	
 
 	#id consists of abbreviation.original.copy	
 	if ($#{$s} > 6){
@@ -58,6 +59,8 @@ sub add_gff3_entry {
 		if (! $self->parameter->notpm && $self->parameter->has_bams){
 			($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,join('.',@orig),$start,$stop,$strand);
 		}
+
+		$filter = $flag if $flag;
 
 		$self->db->{$abbr}->new_feature(
 		 	-start => $start, 
@@ -94,13 +97,15 @@ sub update_filter {
 
 	my $abbr = (split /\./ , $id)[0];
 	return unless exists $self->db->{$abbr};	
-	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type );	 
+	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type );
+
 	return unless $feature;
+	return unless $feature->display_name eq '!';
+
 	$feature->display_name($filter);
 	$feature->update;
 
 	return $type;
-	# $self->db->{$abbr}->store($feature);
 }
 
 #gorap specific update filter tag into this Bio::DB::SeqFeature database
@@ -163,12 +168,22 @@ sub get_features {
 	if ($filter) {		
 		for (@{$abbreviations}){
 			next unless exists $self->db->{$_};
-			for ($self->db->{$_}->features(-primary_tag => $type)){
-				push @features , $_ if $_->display_name eq $filter;
-			}			
+			if ($type){
+				for ($self->db->{$_}->features(-primary_tag => $type)){
+					push @features , $_ if $_->display_name eq $filter;
+				}
+			} else {
+				for ($self->db->{$_}->features){
+					push @features , $_ if $_->display_name eq $filter;
+				}
+			}
 		}		
 	} else {
-		push @features , $self->db->{$_}->features(-primary_tag => $type) for @{$abbreviations};
+		if ($type){
+			push @features , $self->db->{$_}->features(-primary_tag => $type) for @{$abbreviations};
+		} else {
+			push @features , $self->db->{$_}->features for @{$abbreviations};
+		}
 	}	
 	return \@features;
 }
@@ -209,7 +224,7 @@ sub get_overlapping_features { #bad name but returns all overlapping features of
 		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
 	} else {
-		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);		
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand);		
 		$f = $s;
 	}
 	my ($abbr,@orig) = split /\./ , $id;
@@ -239,7 +254,7 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
 	} else {
-		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->type, $s->source, $s->start, $s->stop, $s->strand);		
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand);		
 		$f = $s;
 	}
 	my ($abbr,@orig) = split /\./ , $id;
@@ -250,10 +265,13 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 	
 	for ($self->db->{$abbr}->features()){		
 		my @tmp = split /\./, $_->seq_id;
-		pop @tmp;
+		pop @tmp;		
 		next unless join('.' , @tmp) eq $id;
+		next unless $_->strand eq $strand;
+		next unless $_->display_name eq '!';
+		next if $_->primary_tag eq $type;
 		my ($istart, $istop, $istrand) = $f->intersection($_);
-		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.7 && $istop - $istart >= ($_->stop - $_->start) * 0.7;
+		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.6 && $istop - $istart >= ($_->stop - $_->start) * 0.6;
 	}
 	
 	return \@features;
@@ -474,9 +492,12 @@ sub store {
 				$rpkm = 0 unless $rpkm;
 				my $tpm = ($f1->get_tag_values('tpm'))[0];
 				$tpm = 0 unless $tpm;
-
 				my $score = ($f1->get_tag_values('origscore'))[0];
-				$score = $f1->score unless $score;
+				if ($f1->source!~/blast/ && $score){
+					$score = max($f1->score,$score);
+				} else {
+					$score = $f1->score;
+				}				
 
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
@@ -537,7 +558,11 @@ sub store {
 				my $tpm = ($f1->get_tag_values('tpm'))[0];
 				$tpm = 0 unless $tpm;
 				my $score = ($f1->get_tag_values('origscore'))[0];
-				$score = $f1->score unless $score;
+				if ($f1->source!~/blast/ && $score){
+					$score = max($f1->score,$score);
+				} else {
+					$score = $f1->score;
+				}
 
 				my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0];
 
@@ -656,7 +681,11 @@ sub store_overlaps {
 			my $tpm = ($f1->get_tag_values('tpm'))[0];
 			$tpm = 0 unless $tpm;
 			my $score = ($f1->get_tag_values('origscore'))[0];
-			$score = $f1->score unless $score;
+			if ($f1->source!~/blast/ && $score){
+				$score = max($f1->score,$score);
+			} else {
+				$score = $f1->score;
+			}
 
 			my $attributes = 'TPM='.$tpm.';FPKM='.$rpkm.';Reads='.$reads.';Filter='.$f1->display_name.';Note='.($f1->get_tag_values('notes'))[0].';Overlaps='.$o;
 

@@ -5,6 +5,7 @@ use Bio::SimpleAlign;
 use POSIX;
 use Switch;
 use List::Util qw(min max);
+use File::Spec::Functions;
 
 sub score_filter {
 	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
@@ -41,9 +42,9 @@ sub score_filter {
 				my @id = split /\./ , $f->seq_id;
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				
-				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
-					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (max($f->score,($f->get_tag_values('origscore'))[0]) < min($nonTaxThreshold,$threshold)){
+				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
+					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
+					if ($score < min($nonTaxThreshold,$threshold)){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -66,9 +67,9 @@ sub score_filter {
 				my @id = split /\./ , $f->seq_id;
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				
-				if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
-					#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-					if (max($f->score,($f->get_tag_values('origscore'))[0]) < $threshold){
+				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
+					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
+					if ($score < $threshold){
 						delete $features->{$_};
 						$write = 1;
 						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
@@ -86,13 +87,13 @@ sub score_filter {
 		}
 
 	} else { 
-		for (keys %{$features}){		
+		for (keys %{$features}){
 			my $f = $features->{$_};
 			next if $f->score eq '.';			
 			
-			if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
-				#print $f->seq_id." ".$f->score." ".ceil(($f->get_tag_values('origscore'))[0]).' '.$threshold."\n";
-				if ( max($f->score,($f->get_tag_values('origscore'))[0]) < $threshold){
+			if ($f->source =~ /infernal/ || $f->source =~ /blast/){
+				my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
+				if ($score < $threshold){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 

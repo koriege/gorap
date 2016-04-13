@@ -22,6 +22,7 @@ use Cwd 'abs_path';
 use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
+use Hash::Merge qw(merge);
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
@@ -234,6 +235,7 @@ print "$mday.$mon.$year-$hour:$min:$sec\n";
 sub run {
 	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
 
+	my $overlapupdate={};
 	my $c=0;
 	for my $cfg (@{$parameter->queries}){		
 		#parse the query related cfg file and store it into parameter object
@@ -301,7 +303,12 @@ sub run {
 			#run software, use parser, store new gff3 entries 
 			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
 			last if $threshold && $threshold == 999999;
-			$obj->calc_features;
+			
+			if ($tool eq 'Infernal' || $tool eq 'Blast'){
+				$overlapupdate = merge($overlapupdate,$obj->calc_features);
+			} else {
+				$obj->calc_features;
+			}
 			last if $parameter->nofilter;
 		}		
 		next if $threshold && $threshold == 999999;
@@ -342,6 +349,13 @@ sub run {
 			$gffdb->store(shift @{$thrListener->finished});
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
 		}				
+	}
+
+	for my $rf_rna (keys %$overlapupdate){		
+		$stkdb->rm_seq_from_stk([keys %{$overlapupdate->{$rf_rna}}],$rf_rna,'O');
+		for my $seqid (keys %{$overlapupdate->{$rf_rna}}){
+			$gffdb->update_filter($seqid,$rf_rna,'O');			
+		}
 	}
 	
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));

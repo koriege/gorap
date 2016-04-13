@@ -139,7 +139,7 @@ sub remove_gap_columns_and_write {
 sub align {
 	my ($self,$id,$sequences,$threads,$cm,$scorefile) = @_;
 
-	$scorefile = catfile($self->parameter->tmp,$self->parameter->pid.'.score') unless $scorefile;
+	$scorefile = catfile($self->parameter->output,'meta',$id.'.scores') unless $scorefile;
 	my $tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.stk');
 	my $stkfile = catfile($self->parameter->output,'meta',$id.'.stk');
 	my $fastafile = catfile($self->parameter->output,'meta',$id.'.fa');	
@@ -373,6 +373,17 @@ sub filter_stk {
 	my @update;
 	my $up;
 	my $write;
+
+	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){		
+		for (keys %{$features}){
+			my $f = $features->{$_};
+			next unless $f->display_name eq 'L';			
+			delete $features->{$_};
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));			
+			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;			
+		}
+		return () if scalar keys %{$features} == 0;
+	}
 	
 	if ($self->parameter->cfg->userfilter){	
 		
@@ -419,7 +430,8 @@ sub filter_stk {
 	return @update if scalar keys %{$features} == 0;
 
 	if (scalar keys %{$features} > $self->parameter->cfg->pseudogenes){
-		my @featureKeys = reverse sort { $features->{$a}->score <=> $features->{$b}->score } keys %{$features};
+
+		my @featureKeys = reverse sort { max($features->{$a}->score,($features->{$a}->get_tag_values('origscore'))[0]) <=> max($features->{$b}->score,($features->{$b}->get_tag_values('origscore'))[0]) } keys %{$features};
 		for ($self->parameter->cfg->pseudogenes + 1 .. scalar keys %{$features}){
 			my $f = $features->{$featureKeys[$_]};
 			delete $features->{$featureKeys[$_]};
@@ -434,36 +446,19 @@ sub filter_stk {
 	return @update;	
 }
 
-sub scorefilter_stk {
-	my ($self, $id, $stk, $features, $threshold, $nonTaxThreshold, $taxdb) = @_;	
-	
-	my $c=0; 
-	#necessary for deleten to map $c->feature , because 2 features can have same identifier if called print $object 
-	#due to seqfeature doesnt return memory references
-	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	
-	my @update;
-	my $up;
-	my $write;
-		
-	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, $threshold, $nonTaxThreshold);
-	push @update , @{$up} if $up;
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk')); #if $write;	
+sub rm_seq_from_stk {
+	my ($self, $ids, $type, $flag, $stk) = @_;	
+	print $ids;
+	$ids = [$ids] unless ref($ids) eq 'ARRAY';
+	$stk = (Bio::AlignIO->new(-format  => 'stockholm', -file => catfile($self->parameter->output,'alignments',$type.'.stk'), -verbose => -1 ))->next_aln unless $stk;
 
-	if (scalar keys %{$features} > $self->parameter->cfg->pseudogenes){
-		my @featureKeys = reverse sort { $features->{$a}->score <=> $features->{$b}->score } keys %{$features};
-		for ($self->parameter->cfg->pseudogenes + 1 .. scalar keys %{$features}){
-			my $f = $features->{$featureKeys[$_]};
-			delete $features->{$featureKeys[$_]};
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-			push @update , $f->seq_id.' '.$f->primary_tag.' H';
-		}
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.H.stk'));# if $write;	
-	}	
-
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb) if scalar keys %{$features} > 0;
-
-	return @update;	
+	for (@$ids){
+		print $_."\n";
+		my $seq = $stk->get_seq_by_id($_);
+		$stk->remove_seq($seq) if $seq;
+	}
+	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
+	&store_stk($self,$stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
 }
 
 1;

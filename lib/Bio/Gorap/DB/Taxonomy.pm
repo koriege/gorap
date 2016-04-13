@@ -378,19 +378,25 @@ sub sort_stk {
 	return $stk unless $self->rankID || $self->speciesID;
 
 	my @tosort;
-	my $taxID = $self->rankID ? $self->rankID : $self->speciesID;
+	my @remaining;
+	my $taxID = $self->speciesID ? $self->speciesID : $self->rankID;
 	for ( $stk->each_seq() ) {
-		push @tosort , $_;		
+		if (exists $self->nameToTaxid->{(split(/\./,$_->id))[0]}){
+			push @tosort , $_;	
+		} else {
+			push @remaining , $_;
+		}		
 		$stk->remove_seq($_);
 	}
 	try{									
-		my @sort = sort { &lineageNodesToString($self, &getLineageNodes($self, exists $self->nameToTaxid->{(split(/\./,$a->id))[0]} ? $self->nameToTaxid->{(split(/\./,$a->id))[0]} : $taxID ))
-			cmp &lineageNodesToString($self, &getLineageNodes($self, exists $self->nameToTaxid->{(split(/\./,$b->id))[0]} ? $self->nameToTaxid->{(split(/\./,$b->id))[0]} : $taxID ))
+		my @sort = sort { &lineageNodesToString($self, &getLineageNodes($self, $self->nameToTaxid->{(split(/\./,$a->id))[0]}))
+			cmp &lineageNodesToString($self, &getLineageNodes($self, $self->nameToTaxid->{(split(/\./,$b->id))[0]}))
 		} @tosort;
 		$stk->add_seq($_) for @sort;
 	} catch {
 		$stk->add_seq($_) for @tosort;
 	};
+	$stk->add_seq($_) for @remaining;
 
 	$stk->set_displayname_flat;
 	return $stk;
