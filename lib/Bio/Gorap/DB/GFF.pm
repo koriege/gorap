@@ -100,7 +100,7 @@ sub update_filter {
 	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type );
 
 	return unless $feature;
-	return unless $feature->display_name eq '!';
+	return unless $feature->display_name eq '!' || $feature->display_name eq 'O';
 
 	$feature->display_name($filter);
 	$feature->update;
@@ -194,16 +194,17 @@ sub get_all_features {
 	return &get_features($self,$type,[keys %{$self->db}],$filter);
 }
 
-sub get_old_features {
-	my ($self,$type,$abbreviations) = @_;
+sub get_filtered_features {
+	my ($self,$filter) = @_;
 
-	my @features;	
-	for ([keys %{$self->db}]){		
-		next if any { /$_/ } @{$abbreviations};
-		push @features , $self->db->{$_}->features(-primary_tag => $type);
-	}
+	my $types;
+	for (keys %{$self->db}){
+		for ($self->db->{$_}->features()){						
+			push @{$types->{$_->primary_tag}} , $_ if $_->display_name eq $filter;			
+		}
+	}	
 
-	return \@features;
+	return $types;
 }
 
 sub get_feature {
@@ -224,7 +225,7 @@ sub get_overlapping_features { #bad name but returns all overlapping features of
 		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
 	} else {
-		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand);		
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand ? $s->strand > 0 ? '+' : '-' : '.');		
 		$f = $s;
 	}
 	my ($abbr,@orig) = split /\./ , $id;
@@ -254,7 +255,7 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 		($id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes) = @{$s};		
 		$f = Bio::SeqFeature::Generic->new( -start => $start, -end => $stop, -strand => $strand);
 	} else {
-		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand);		
+		($id,$type,$source,$start,$stop,$strand) = ($s->seq_id, $s->primary_tag, $s->source, $s->start, $s->stop, $s->strand ? $s->strand > 0 ? '+' : '-' : '.');		
 		$f = $s;
 	}
 	my ($abbr,@orig) = split /\./ , $id;
@@ -267,9 +268,10 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 		my @tmp = split /\./, $_->seq_id;
 		pop @tmp;		
 		next unless join('.' , @tmp) eq $id;
-		next unless $_->strand eq $strand;
-		next unless $_->display_name eq '!';
-		next if $_->primary_tag eq $type;
+		next unless ($_->strand ? $_->strand > 0 ? '+' : '-' : '.') eq $strand;
+		next unless $_->display_name eq '!';		
+		next if $_->primary_tag eq $type;	
+
 		my ($istart, $istop, $istrand) = $f->intersection($_);
 		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.6 && $istop - $istart >= ($_->stop - $_->start) * 0.6;
 	}
@@ -284,7 +286,7 @@ sub get_user_overlaps {
 	my ($abbr,@orig) = split /\./ , $id;
 	my $orig = join '.' , @orig;
 
-	return $self->userdb->{$abbr}->features(-seq_id => $orig, -start => $start , -strand => $strand eq '+' ? 1 : -1, -stop => $stop , -range_type => 'overlaps');
+	return $self->userdb->{$abbr}->features(-seq_id => $orig, -start => $start , -strand => $strand, -stop => $stop , -range_type => 'overlaps');
 }
 
 #gorap specific set up databases for all genome files from parameter object and 
@@ -653,7 +655,8 @@ sub store_overlaps {
 						next if $f1->strand != $f2->strand;
 					}
 					last if $f2->start > $f1->stop;
-					next unless $f2->display_name eq '!';
+					next if $f1->primary_tag eq $f2->primary_tag;
+					next unless $f2->display_name eq '!' || $f2->display_name eq 'O';
 					my @id2 = split /\./ , $f2->seq_id;
 					my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
 					next unless $orig eq $orig2;

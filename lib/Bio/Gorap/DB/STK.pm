@@ -361,7 +361,7 @@ sub calculate_threshold {
 #gorap post stk filters
 #gets stk as Bio::SimpleAlign, HashRef of Bio::SeqFeatures and threshold as float
 sub filter_stk {
-	my ($self, $id, $stk, $features, $threshold, $nonTaxThreshold, $taxdb) = @_;	
+	my ($self, $id, $stk, $features, $threshold, $nonTaxThreshold, $taxdb, $gffdb) = @_;	
 	
 	$stk = $taxdb->sort_stk($stk) if $taxdb && $self->parameter->sort;
 	
@@ -375,90 +375,70 @@ sub filter_stk {
 	my $write;
 
 	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){		
-		for (keys %{$features}){
-			my $f = $features->{$_};
-			next unless $f->display_name eq 'L';			
-			delete $features->{$_};
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));			
-			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;			
-		}
-		return () if scalar keys %{$features} == 0;
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->length_filter($stk, $features, $self->parameter->cfg->cs);
+		push @update , @{$up} if $up;
+		return @update if scalar keys %{$features} == 0;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;		
+	}
+
+	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
+	push @update , @{$up} if $up;
+	return @update if scalar keys %{$features} == 0;
+	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;		
+
+	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
+		push @update , @{$up} if $up;
+		return @update if scalar keys %{$features} == 0;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
 	}
 	
-	if ($self->parameter->cfg->userfilter){	
-		
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
-		push @update , @{$up} if $up;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
-
-		return @update if scalar keys %{$features} == 0;
-
+	if ($self->parameter->cfg->userfilter){			
 		unless ($self->parameter->nofilter){
-
-			unless ($self->parameter->nobutkingsnofilter){
-				($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
-				push @update , @{$up} if $up;
-				$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
-
-				return @update if scalar keys %{$features} == 0;
-			}
-
 			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->constrains, $self->parameter->cfg->cs, $self->parameter->cfg->stk);
 			push @update , @{$up} if $up;
-			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
-		}
-				
-	} else {
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
-		push @update , @{$up} if $up;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;
-
-		return @update if scalar keys %{$features} == 0;		
-
-		if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
-			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
-			push @update , @{$up} if $up;
-			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
-
 			return @update if scalar keys %{$features} == 0;
-
+			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
+		}				
+	} else {			
+		if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
 			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->sequence_filter($stk, $features);	
 			push @update , @{$up} if $up;
+			return @update if scalar keys %{$features} == 0;
 			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
 		}
-	}
-	return @update if scalar keys %{$features} == 0;
+	}	
 
-	if (scalar keys %{$features} > $self->parameter->cfg->pseudogenes){
+	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->copy_filter($stk, $features, $self->parameter->cfg->pseudogenes);	
+		push @update , @{$up} if $up;
+		return @update if scalar keys %{$features} == 0;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.C.stk'));# if $write;
 
-		my @featureKeys = reverse sort { max($features->{$a}->score,($features->{$a}->get_tag_values('origscore'))[0]) <=> max($features->{$b}->score,($features->{$b}->get_tag_values('origscore'))[0]) } keys %{$features};
-		for ($self->parameter->cfg->pseudogenes + 1 .. scalar keys %{$features}){
-			my $f = $features->{$featureKeys[$_]};
-			delete $features->{$featureKeys[$_]};
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-			push @update , $f->seq_id.' '.$f->primary_tag.' H';
-		}
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.H.stk'));# if $write;	
-	}		
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->overlap_filter($stk, $features, $gffdb);	
+		push @update , @{$up} if $up;
+		return @update if scalar keys %{$features} == 0;
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
+	}	
 
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb) if scalar keys %{$features} > 0;			
+	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);			
 
 	return @update;	
 }
 
 sub rm_seq_from_stk {
-	my ($self, $ids, $type, $flag, $stk) = @_;	
-	print $ids;
-	$ids = [$ids] unless ref($ids) eq 'ARRAY';
+	my ($self, $features, $type, $flag, $stk) = @_;		
+	
+	$features = [$features] unless ref($features) eq 'ARRAY';
 	$stk = (Bio::AlignIO->new(-format  => 'stockholm', -file => catfile($self->parameter->output,'alignments',$type.'.stk'), -verbose => -1 ))->next_aln unless $stk;
 
-	for (@$ids){
-		print $_."\n";
-		my $seq = $stk->get_seq_by_id($_);
+	for (@$features){		
+		my $seq = $stk->get_seq_by_id($_->seq_id);
 		$stk->remove_seq($seq) if $seq;
 	}
 	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
 	&store_stk($self,$stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
+	
 }
 
 1;

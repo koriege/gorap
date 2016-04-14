@@ -93,6 +93,11 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 &run();
 #stops the thread listener and waits for remaining background jobs to be finished
 $thrListener->stop;
+#remove overlap marked sequences
+my ($type_map_features) = $gffdb->get_filtered_features('O');
+for (keys %$type_map_features){
+	$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
+}
 #store final annotation results
 $gffdb->store_overlaps;
 Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp);
@@ -145,6 +150,10 @@ if ($parameter->has_outgroups){
 			&run();	
 			#stops the thread listener and waits for remaining background jobs to be finished
 			$thrListener->stop;
+			my ($type_map_features) = $gffdb->get_filtered_features('O');
+			for (keys %$type_map_features){
+				$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
+			}
 			#store final annotation results
 			$gffdb->store_overlaps;
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');
@@ -235,7 +244,6 @@ print "$mday.$mon.$year-$hour:$min:$sec\n";
 sub run {
 	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
 
-	my $overlapupdate={};
 	my $c=0;
 	for my $cfg (@{$parameter->queries}){		
 		#parse the query related cfg file and store it into parameter object
@@ -303,12 +311,8 @@ sub run {
 			#run software, use parser, store new gff3 entries 
 			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
 			last if $threshold && $threshold == 999999;
-			
-			if ($tool eq 'Infernal' || $tool eq 'Blast'){
-				$overlapupdate = merge($overlapupdate,$obj->calc_features);
-			} else {
-				$obj->calc_features;
-			}
+
+			$obj->calc_features;
 			last if $parameter->nofilter;
 		}		
 		next if $threshold && $threshold == 999999;
@@ -337,9 +341,8 @@ sub run {
 			next if $#{$features} == -1;
 			#print "bgjob\n";
 			if ($thcalc){				
-				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb)});
-			} else {
-				#$thrListener->calc_background(sub {$stkdb->scorefilter_stk($parameter->cfg->rf_rna,$stk,$features,0)});
+				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
+			} else {				
 				$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
 			}
 		}
@@ -349,14 +352,7 @@ sub run {
 			$gffdb->store(shift @{$thrListener->finished});
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
 		}				
-	}
-
-	for my $rf_rna (keys %$overlapupdate){		
-		$stkdb->rm_seq_from_stk([keys %{$overlapupdate->{$rf_rna}}],$rf_rna,'O');
-		for my $seqid (keys %{$overlapupdate->{$rf_rna}}){
-			$gffdb->update_filter($seqid,$rf_rna,'O');			
-		}
-	}
+	}	
 	
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
 	

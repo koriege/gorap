@@ -13,7 +13,6 @@ sub calc_features {
 	
 	#calculations and software calls
 	#results are fetched and stored in DB structure
-	my $update={};
 	for (0..$#{$self->parameter->genomes}){		
 		my $genome = ${$self->parameter->genomes}[$_];
 		my $abbr = ${$self->parameter->abbreviations}[$_];		
@@ -57,42 +56,11 @@ sub calc_features {
 			
 			my @tmp = @gff3entry;
 			$tmp[1]='GORAPinfernal';
-			if ($#{$self->gffdb->get_overlapping_features(\@tmp)} == -1){
-				my $seq;
-				if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
-					if ($self->parameter->cfg->cs && $gff3entry[4]-$gff3entry[3] < length($self->parameter->cfg->cs)/2.5){
-						$seq = $self->fastadb->get_gff3seq(\@gff3entry);
-						$self->gffdb->add_gff3_entry(\@gff3entry,$seq,'L');
-						next;
-					}
-
-					if ($self->parameter->cfg->rf_rna=~/_mir/i || $self->parameter->cfg->rf_rna=~/_sno[A-Z]/ || $self->parameter->cfg->rf_rna=~/_Afu/ || $self->parameter->cfg->rf_rna=~/_SNOR/ || $self->parameter->cfg->rf_rna=~/_sn\d/ || $self->parameter->cfg->rf_rna=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
-						my $existingFeatures = $self->gffdb->get_all_overlapping_features(\@gff3entry);
-						my $exscore = -999999;
-						my @rmfeatures;
-						for my $f (@{$existingFeatures}){
-							if ($f->type=~/_mir/i || $f->type=~/_sno[A-Z]/ || $f->type=~/_Afu/ || $f->type=~/_SNOR/ || $f->type=~/_sn\d/ || $f->type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
-								$exscore = max($exscore,  $f->source=~/blast/ ?  $f->score : max($f->score,($f->get_tag_values('origscore'))[0]) );	
-								push @rmfeatures , $f;
-							}
-						}					
-						if ($exscore < $gff3entry[5]){
-							$update->{$_->primary_tag}->{$_->seq_id}=1 for @rmfeatures;
-						} else {
-							$seq = $self->fastadb->get_gff3seq(\@gff3entry);
-							$self->gffdb->add_gff3_entry(\@gff3entry,$seq,'O');
-							next;
-						}
-					}
-				}
-
-				$seq = $self->fastadb->get_gff3seq(\@gff3entry);	
-				$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
+			if ($#{$self->gffdb->get_overlapping_features(\@tmp)} == -1){				
+				$self->gffdb->add_gff3_entry(\@gff3entry,$self->fastadb->get_gff3seq(\@gff3entry));
 			}
 		}
 	}
-
-	return $update;		
 }
 
 sub merge_gff {
@@ -127,3 +95,5 @@ sub merge_gff {
 
 	return \@merge;
 }
+
+1;

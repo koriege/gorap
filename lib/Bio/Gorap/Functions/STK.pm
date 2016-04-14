@@ -7,6 +7,26 @@ use Switch;
 use List::Util qw(min max);
 use File::Spec::Functions;
 
+sub length_filter {
+	my ($self, $stk, $features, $seedcs) = @_;
+
+	my $c=0;
+	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+	my $write;
+	my @update;	
+	for (keys %{$features}){
+		my $f = $features->{$_};
+		if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 40 && ($f->stop - $f->start < length($seedcs)/2.5)){
+			delete $features->{$_};
+			$write = 1;
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));			
+			push @update , $f->seq_id.' '.$f->primary_tag.' L';
+		}
+	}
+
+	return ($stk , $features, \@update , $write);
+}
+
 sub score_filter {
 	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
 
@@ -22,7 +42,7 @@ sub score_filter {
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 
-			if (max($f->score,($f->get_tag_values('origscore'))[0]) < 8){
+			if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 8){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
@@ -120,22 +140,10 @@ sub structure_filter(){
 	my @update;
 	my $write;
 
-	my @ss;
-
-	my $out;
-	open my $READER, '>', \$out;
-	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
-	close $READER;
-	my @lines = split /\n/ , $out;
-	for(@lines){		
-		if ($_=~/^#=GC\s+SS_cons\s+(.+)/){			
-			my $line=$1;
-			chomp $line;
-			$line=~s/[{\[<]/(/g;
-			$line=~s/[}\]>]/)/g;
-			push @ss , split(// , $line);
-		}
-	}
+	my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
+	$ss=~s/[{\[<]/(/g;
+	$ss=~s/[}\]>]/)/g;
+	my @ss = split // , $ss;
 
 	my @so;
 	my @ssAreas;
@@ -278,32 +286,9 @@ sub user_filter {
 	$seq=~s/\W/-/g;
 
 	my @stkseedseq = split // , lc($seq);
-	my @seedcs;
-	open STK , '<'.$seedstk or die $!;
-	while(<STK>){
-		chomp $_;
-		if ($_=~/^#=GC\s+RF\s+(.+)/){
-			my $s = lc($1);
-			$s=~s/\W/-/g;
-			push @seedcs , split( // , $s);
-		}
-	}
-	close STK;
-
-	my $out;
-	open my $READER, '>', \$out;
-	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
-	close $READER;
-	my @lines = split /\n/ , $out;
-	my $newcs;
-	for(@lines){
-		chomp $_;
-		if ($_=~/^#=GC\s+RF\s+(.+)/){			
-			my $s = lc($1);
-			$s=~s/\W/-/g;
-			$newcs.=$s;
-		}
-	}
+	my ($seedss , $seedcs) = &get_ss_cs_from_file($self,$seedstk);
+	my @seedcs = split // , $seedcs;
+	my ($newss , $newcs) = &get_ss_cs_from_object($self,$stk);
 
 	#mapping of cfg cs to seed stk pos
 	my @cs_pos_in_seed;
@@ -472,6 +457,58 @@ sub user_filter {
 			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
 			push @update , $f->seq_id.' '.$f->primary_tag.' P';			
 		}		
+	}
+
+	return ($stk , $features, \@update , $write);
+}
+
+sub copy_filter {
+	my ($self, $stk, $features, $copynumber) = @_;
+
+	my $c=0;
+	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	my @update;
+	my $write;
+
+	if (scalar keys %{$features} > $copynumber){
+		my @featureKeys = reverse sort { max($features->{$a}->score,($features->{$a}->get_tag_values('origscore'))[0]) <=> max($features->{$b}->score,($features->{$b}->get_tag_values('origscore'))[0]) } keys %{$features};
+		for ($copynumber + 1 .. scalar keys %{$features}){
+			my $f = $features->{$featureKeys[$_]};
+			delete $features->{$featureKeys[$_]};
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+			push @update , $f->seq_id.' '.$f->primary_tag.' C';
+		}			
+	}
+
+	return ($stk , $features, \@update , $write);
+}
+
+sub overlap_filter {
+	my ($self, $stk, $features, $gffdb) = @_;
+
+	my $c=0;
+	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	my @update;
+	my $write;
+
+	for my $i (keys %{$features}){
+		my $f = $features->{$i};
+		my $existingFeatures = $gffdb->get_all_overlapping_features($f);
+		my $exscore = -999999;
+		my @rmfeatures;
+		for my $f2 (@{$existingFeatures}){									
+			$exscore = max($exscore,  $f2->source=~/blast/ ?  $f2->score : max($f2->score,($f2->get_tag_values('origscore'))[0]) );							
+			push @rmfeatures , $f2;
+		}	
+		if ($exscore < ($f->source=~/blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) ){
+			push @update , $_->seq_id.' '.$_->primary_tag.' O' for @rmfeatures; #todo if -e meta.O.stk : remove from meta.O.stk and final.stk at the end of gorap run
+		} else {			
+			delete $features->{$i};
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+			push @update , $f->seq_id.' '.$f->primary_tag.' O';
+		}
 	}
 
 	return ($stk , $features, \@update , $write);
