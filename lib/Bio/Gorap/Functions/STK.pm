@@ -466,8 +466,7 @@ sub copy_filter {
 	my ($self, $stk, $features, $copynumber) = @_;
 
 	my $c=0;
-	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';	
 	my @update;
 	my $write;
 
@@ -489,18 +488,18 @@ sub overlap_filter {
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;	
 	my @update;
 	my $write;
+	return ($stk , $features, \@update , $write) if $type=~/rRNA/;
 
 	for my $i (keys %{$features}){
-		my $f = $features->{$i};
+		my $f = $features->{$i};		
 		my $existingFeatures = $gffdb->get_all_overlapping_features($f);
 		my $exscore = -999999;
 		my @rmfeatures;
 		for my $f2 (@{$existingFeatures}){									
-			$exscore = max($exscore,  $f2->source=~/blast/ ?  $f2->score : max($f2->score,($f2->get_tag_values('origscore'))[0]) );							
-			push @rmfeatures , $f2;
+			$exscore = max($exscore,  $f2->source=~/blast/ ?  $f2->score : max($f2->score,($f2->get_tag_values('origscore'))[0]) );			
 		}	
 		if ($exscore < ($f->source=~/blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) ){
 			push @update , $_->seq_id.' '.$_->primary_tag.' O' for @rmfeatures; #todo if -e meta.O.stk : remove from meta.O.stk and final.stk at the end of gorap run
