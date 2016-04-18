@@ -36,12 +36,12 @@ sub _set_db {
 			my $c = 0;
 			my $map = {};
 			my $next;
-			for (`samtools idxstats $f`){
+			for (`samtools idxstats $f`){ #todo counts all fragments
 				next if $_=~/^\*/;
 				$next = 1 if $_=~/fail/;
 				last if $next;
-				my ($header , $mapped, $unmapped) = split /\s+/ , $_;
-				$c += $mapped + $unmapped;
+				my ($header , $size, $mapped, $unmapped) = split /\s+/ , $_;
+				$c += $mapped;
 				$map->{$header} = $mapped + $unmapped;
 			}
 			next if $next;
@@ -55,8 +55,7 @@ sub _set_db {
 	$self->sizes($sizes);	
 }
 
-sub rpkm {
-	#TODO strand specific
+sub rpkm {	
 	my ($self,$abbr,$id,$start,$stop,$strand) = @_;
 
 	my $count = 0;
@@ -64,7 +63,16 @@ sub rpkm {
 	for (0..$#{$self->db->{$abbr}}){		
 		my $bam = ${$self->db->{$abbr}}[$_];		
 		$ex=1;
-		$count += scalar $bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop);
+
+		my $readstrand = '+';
+		for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
+			my $strandspec;
+			for ($_->segments){
+				$strandspec = $_->get_tag_values('FLAGS');
+				$readstrand = '-' if $strandspec && $strandspec=~/REVERSED/;				
+			}
+			$count++ if ! $strandspec || $strand eq '.' || $strand eq $readstrand;
+		}		
 	}
 	
 	return ('.','.') unless $ex;

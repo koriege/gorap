@@ -457,7 +457,7 @@ sub _read {
 			my $id = join '.' , ($abbr,$orig,$l[2],$l[1],$copy);				
 			$l[1] =~ s/\W//g;
 			$l[1] = lc $l[1];
-			&add_gff3_entry($self,\@l, exists $headerMapSeq->{$id} ? $headerMapSeq->{$id} : '',$abbr);			
+			&add_gff3_entry($self,\@l, exists $headerMapSeq->{$id} ? $headerMapSeq->{$id} : '');			
 		}
 		close GFF;			
 		unlink $file;

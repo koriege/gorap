@@ -429,15 +429,18 @@ sub filter_stk {
 sub rm_seq_from_stk {
 	my ($self, $features, $type, $flag, $stk) = @_;		
 	
-	$features = [$features] unless ref($features) eq 'ARRAY';
-	$stk = (Bio::AlignIO->new(-format  => 'stockholm', -file => catfile($self->parameter->output,'alignments',$type.'.stk'), -verbose => -1 ))->next_aln unless $stk;
+	if (-e catfile($self->parameter->output,'alignments',$type.'.stk') || $stk){
+		$features = [$features] unless ref($features) eq 'ARRAY';
+		
+		$stk = (Bio::AlignIO->new(-format  => 'stockholm', -file => catfile($self->parameter->output,'alignments',$type.'.stk'), -verbose => -1 ))->next_aln unless $stk;		
 
-	for (@$features){		
-		my $seq = $stk->get_seq_by_id($_->seq_id);
-		$stk->remove_seq($seq) if $seq;
+		for (@$features){		
+			my $seq = $stk->get_seq_by_id($_->seq_id);
+			$stk->remove_seq($seq) if $seq;
+		}
+		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
+		&store_stk($self,$stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
 	}
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
-	&store_stk($self,$stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
 	
 }
 
