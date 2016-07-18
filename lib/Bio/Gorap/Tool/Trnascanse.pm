@@ -11,7 +11,7 @@ use Symbol qw(gensym);
 
 sub calc_features {
 	my ($self) = @_;
-	
+
 	#calculations and software calls
 	#results are fetched and stored in DB structure
 	for (0..$#{$self->parameter->genomes}){				

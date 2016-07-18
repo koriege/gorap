@@ -66,9 +66,17 @@ if ($parameter->taxonomy){
 	);
 }
 
-my $fastadb = Bio::Gorap::DB::Fasta->new(
-	parameter => $parameter
-);
+my $fastadb;
+unless ($parameter->skip_comp){
+ 	$fastadb = Bio::Gorap::DB::Fasta->new(
+		parameter => $parameter
+	);
+} else {
+	$fastadb = Bio::Gorap::DB::Fasta->new(
+		parameter => $parameter,
+		do_chunks => 0
+	);
+}
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
@@ -90,17 +98,23 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 	storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 );
 
-&run();
-#stops the thread listener and waits for remaining background jobs to be finished
-$thrListener->stop;
-#remove overlap marked sequences
-my ($type_map_features) = $gffdb->get_filtered_features('O');
-for (keys %$type_map_features){
-	$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
+unless ($parameter->skip_comp){
+	&run();
+
+	#stops the thread listener and waits for remaining background jobs to be finished
+	$thrListener->stop;
+
+	#remove overlap marked sequences
+	my ($type_map_features) = $gffdb->get_filtered_features('O');
+
+	for (keys %$type_map_features){
+		$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
+	}
+	#store final annotation results
+	$gffdb->store_overlaps;
+
+	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp);
 }
-#store final annotation results
-$gffdb->store_overlaps;
-Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp);
 
 if ($parameter->has_outgroups){	
 	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
@@ -118,7 +132,7 @@ if ($parameter->has_outgroups){
 	for my $cfg (@{$parameter->queries}){		
 		$parameter->set_cfg($cfg);
 		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
-	}
+	}	
 
 	if ($#newQ > -1){	
 		my $outdir = catdir($parameter->output,'phylogeny');
@@ -161,14 +175,14 @@ if ($parameter->has_outgroups){
 				
 		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@abbres);		
 
-		if ( (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations}) && scalar keys %$speciesSSU > 3){
+		if ( (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations}) && scalar keys %$speciesSSU > 3){			
 			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;	
 			for my $k (keys %$speciesSSU ){
 				print FA '>'.$k."\n";
-				$speciesSSU->{$k}=~s/(\W|_)/-/g;				
-				print FA $_."\n" for unpack("(a80)*",$speciesSSU->{$k});				
-			}			
-			close FA;			
+				$speciesSSU->{$k}=~s/(\W|_)/-/g;
+				print FA $_."\n" for unpack("(a80)*",$speciesSSU->{$k});
+			}
+			close FA;
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
 			&ABORT("mafft not found") unless $ex == 0;
@@ -178,8 +192,8 @@ if ($parameter->has_outgroups){
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
-		} 		
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');
+		}		
 
 		if ( (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$coreFeatures > 3){
 			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;	
@@ -314,14 +328,15 @@ sub run {
 
 			$obj->calc_features;
 			last if $parameter->nofilter;
-		}		
+		}				
 		next if $threshold && $threshold == 999999;
-		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
+		next if $parameter->cfg->rf_rna=~/SU_rRNA/;		
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
-		next if $#{$sequences} == -1;
+		next if $#{$sequences} == -1;		
 		#print "align\n";
 		if ($parameter->cfg->cm){
 			my ($scorefile,$stk);
+
 			try{
 				($scorefile,$stk) = $stkdb->align(
 					$parameter->cfg->rf_rna,
@@ -345,14 +360,14 @@ sub run {
 			} else {				
 				$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
 			}
-		}
-		
+		}		
 		#store annotations already in the database in case of errors		
 		while($#{$thrListener->finished}>-1){
 			$gffdb->store(shift @{$thrListener->finished});
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
 		}				
-	}	
+		
+	}		
 	
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
 	
@@ -375,7 +390,7 @@ sub get_phylo_features {
 	my ($ssuToAbbr,$coreToAbbr,$rnomeToAbbr);
 
 	for my $cfg (@{$parameter->queries}){
-		$parameter->set_cfg($cfg);
+		$parameter->set_cfg($cfg);		
 
 		my $featureScore;	
 		if ($cfg=~/_SSU_/){			
@@ -397,15 +412,16 @@ sub get_phylo_features {
 					$featureScore->{$abbr} = $f->score;					
 				}
 			}
-		}		
+		}
+
 		next if $cfg=~/_tRNA/ || $cfg=~/_rRNA/ || $cfg=~/CRISPR/;
 
 		my $speciesFeature;	
 		my $speciesSTKseq;	
 		$featureScore={};
 
-		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){			
-			my @id = split /\./ , $_->seq_id;										
+		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){
+			my @id = split /\./ , $_->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 			if (exists $featureScore->{$abbr}){
 				if ($_->score > $featureScore->{$abbr}){
@@ -476,7 +492,7 @@ GORAP - Genomewide ncRNA Annotation Pipeline
 
 Gorap.pl [OPTION]...
   
-example: Gorap.pl -a x,y -i 1.fa,2.fa,*.fa -g x1.gff:x2.gff,,3.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s 'species name'
+example: Gorap.pl -a x,y -i 1.fa,2.fa -g 1.gff,2.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s 'species name'
 
 =head1 DESCRIPTION
 
@@ -500,7 +516,7 @@ B<-update>, B<--update>=I<all,rfam,ncbi,silva,cfg>
 
 	(optional, default: all) 
 	updates internal used databases (Rfam, NCBI, Silva)
-	!!! updating the configuration files will cause loss of all mismatch/indel settings
+	!!! check your edited configuration files afterwards
 	
 B<-file>, B<--file>=F<FILE> 
 	
@@ -564,6 +580,11 @@ B<-b>, B<--bams>=F<FILE>,...
 	(optional) 
 	paths(s) of comma separated list of colon separated indexed BAM file(s) - wildcards allowed
 
+B<-ss>, B<--strandspecific>
+
+	(optional) 
+	mapping data (BAM files) had strand specific library preparation
+
 B<minl>, B<--minlength>=I<INT>
 	
 	(optional, default 50)
@@ -612,7 +633,7 @@ B<-noo>, B<--nooverlap>
 B<-notpm>, B<--notpm>
 	
 	(optional)
-	disables FPKM and TPM calculation
+	disables TPM calculation
 
 B<-nofi>, B<--nofilter>
 	
@@ -634,7 +655,7 @@ at your option, any later version of Perl 5 you may have available.
 =head1 SEE ALSO
 
 The full description of all in-/outputs and parameters is maintained as PDF manual. 
-You can access it at L<www.rna.uni-jena.de/software.php>.
+See L<www.rna.uni-jena.de/software.php>.
 
 =cut
 

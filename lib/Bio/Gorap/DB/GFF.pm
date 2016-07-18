@@ -314,17 +314,16 @@ sub _set_db {
 	for (0..$#{$self->parameter->gffs}){
 		my $abbr = ${$self->parameter->abbreviations}[$_];		
 		for my $f (@{${$self->parameter->gffs}[$_]}){
-			$self->userdb->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 ) unless $self->userdb->{$abbr};
-			print $f."\n";
+			$self->userdb->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 ) unless $self->userdb->{$abbr};			
 			open GFF, '<'.$f or die $!;
-			&add_user_entry($self,$self->userdb->{$abbr},$_,$abbr,(++$idc)) while <GFF>;
+			&add_user_entry($self,$_,$abbr,(++$idc)) while <GFF>;
 			close GFF;
 		}		
 	}
 }
 
 sub add_user_entry(){
-	my ($self,$db,$line,$abbr,$idc) = @_;
+	my ($self,$line,$abbr,$idc) = @_;
 
 	chomp $line;
 	return unless $line || $line=~/^#/ || $line=~/^\s*$/;
@@ -358,8 +357,10 @@ sub add_user_entry(){
 	if (! $self->parameter->notpm && $self->parameter->has_bams && ($line[2]=~/exon/i || $attr!~/parent=/i)) {
 		($tpm,$rpkm,$reads) = $self->bamdb->rpkm($abbr,$line[0],$line[3],$line[4],$line[6]);		
 	}	
+
+	#TODO try to get feature und iterate over subfeatures for exons to normalice exon tpm counts for full gene
 	
-	$db->new_feature(
+	$self->userdb->{$abbr}->new_feature(
 		-start => $line[3],
 		-stop => $line[4],		
 		-seq_id => $line[0],
@@ -440,8 +441,7 @@ sub _read {
 			}
 		}
 		close FA;		
-		unlink $file;
-			
+		unlink $file unless $self->parameter->skip_comp;
 		$headerMapSeq->{$seqid}=$seq if $seqid;
 
 		$file=~s/\.fa$/\.gff/;
@@ -460,8 +460,8 @@ sub _read {
 			&add_gff3_entry($self,\@l, exists $headerMapSeq->{$id} ? $headerMapSeq->{$id} : '');			
 		}
 		close GFF;			
-		unlink $file;
-	}	
+		unlink $file unless $self->parameter->skip_comp;
+	}
 }
 
 sub store {
@@ -531,7 +531,6 @@ sub store {
 			close FAFO;
 		}
 	} else {
-
 		for my $abbr (keys %{$self->db}){
 			my @features = sort {$a->seq_id cmp $b->seq_id || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
 			
@@ -539,10 +538,10 @@ sub store {
 			open FA , '>'.catfile($self->parameter->output,'annotations',$abbr.'.fa') or die $!;
 			open GFFF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.gff') or die $!;
 			open FAF , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.fa') or die $!;
-			open GFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.gff') or die $!;
-			open FAO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.fa') or die $!;
-			open GFFFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.gff') or die $!;
-			open FAFO , '>>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.fa') or die $!;
+			open GFFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.gff') or die $!;
+			open FAO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.orig.fa') or die $!;
+			open GFFFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.gff') or die $!;
+			open FAFO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.final.orig.fa') or die $!;
 			for my $i (0..$#features){
 				my $f1 = $features[$i];
 
@@ -572,16 +571,18 @@ sub store {
 					print GFFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 					print GFFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
-					my $seq = $f1->get_tag_values('seq');
-					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
+					my ($seq) = $f1->get_tag_values('seq');
+					print FAF '>'.$faid."\n".$seq."\n" if $seq;
 					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
+					print FAFO '>'.$faid."\n".$seq."\n" if $seq;
 				} else {
 					print GFF $f1->seq_id."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
+					print GFFO $orig."\t".$source."\t".$f1->primary_tag."\t".$f1->start."\t".$f1->stop."\t".$score."\t",$f1->strand ? $f1->strand > 0 ? '+' : '-' : '.',"\t".$f1->phase."\t".$attributes."\n";
 
-					my $seq = $f1->get_tag_values('seq');
+					my ($seq) = $f1->get_tag_values('seq');					
 					print FA '>'.$faid."\n".$seq."\n" if $seq;
 					$faid = join '.' , ($orig,$f1->primary_tag,$source,$copy);
-					print FA '>'.$faid."\n".$seq."\n" if $seq;
+					print FAO '>'.$faid."\n".$seq."\n" if $seq;
 				}
 			}
 			close GFF;

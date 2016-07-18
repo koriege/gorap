@@ -137,46 +137,96 @@ sub structure_filter(){
 	my ($self, $stk, $features, $minstructures) = @_;
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	my @update;
 	my $write;
 
 	my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
-	$ss=~s/[{\[<]/(/g;
-	$ss=~s/[}\]>]/)/g;
+	$ss=~y/\{\<\[\}\>\]/\(\(\(\)\)\)/;	
 	my @ss = split // , $ss;
 
-	my @so;
-	my @ssAreas;
-	
-	for (my $i=0 ; $i < $#ss ; $i++){
-		if ($ss[$i] eq '('){
-			push @so , $i;	
-		} else {
-			next if $ss[$i] ne ')'; 	
-			
-			my $pos = pop @so;
-			$pos = pop @so while(not defined $pos);
-				 
-			my @areaStart = ($pos);
-			my @areaStop= ($i); 		
-			while($i < $#ss && $ss[++$i] ne '(' && defined $so[$#so]){			
-				next if $ss[$i] ne ')';			 			
-				push @areaStart , pop @so;
-				push @areaStop , $i;
-			} 
-			$i--;		
-			push @ssAreas , {$areaStart[$#areaStart] => $areaStart[0]};
-			push @ssAreas , {$areaStop[0] => $areaStop[$#areaStop]};
-			push @so , undef;				
+	my @open;
+	my @close;	
+	my $x = 0;
+	for (my $i=0 ; $i <= $#ss ; $i++){
+		if ($ss[$i] eq '('){		
+			push @open , $i;
+			$x = 0;		
+		}elsif($ss[$i] eq ')'){		
+			$#close = $#open;
+			if ($close[-1*(1+$x)]){			
+				$x++ while $close[-1*(1+$x)];
+				$close[-1*(1+$x)] = $i;
+			} else {				
+				$close[-1*(1+$x)] = $i;
+				$x++;			
+			}		
 		}
 	}
+	my %c2o = map {$close[$_] => $open[$_]} (0..$#open);
+	# for (0..$#open){
+	# 	say $open[$_].' '.$close[$_];
+	# }
+	my @stack;
+	$#stack = 0;
+	my $bracket='(';
+	for (0..$#ss){
+		next unless $ss[$_]=~/[\(\)]/;
+		if ($ss[$_] eq $bracket){
+			push @{$stack[-1]} , {$ss[$_] => $_};
+		} else {
+			$bracket = $bracket eq ')' ? '(' : ')';		
+			$#stack++;
+			push @{$stack[-1]} , {$ss[$_] => $_};
+		}
+	}
+	# for (@stack){	
+	# 	for (@$_){
+	# 		($bracket) = keys %$_;
+	# 		print $bracket.$_->{$bracket};
+	# 	}
+	# 	say '';
+	# }
+	my ($o,$c,@areas);
+	for (my $i = 1; $i<=$#stack; $i+=2){
+		my $j = $i - 1;
+		$j-=2 while $#{$stack[$j]} == -1;
+		#area open	
+		($bracket) = keys %{$stack[$i][0]};
+		$o = $stack[$i][0]->{$bracket};
+		while(my $h = shift @{$stack[$i]}){
+			if ($#{$stack[$j]} == -1){
+				#area close
+				push @areas , ([$o,$c],[$c2o{$c},$c2o{$o}]);
+				# say "$o-$c $c2o{$c}-$c2o{$o}";
+				$j-=2 while $#{$stack[$j]} == -1;
+				#area open
+				($bracket) = keys %$h;
+				$o = $h->{$bracket};
+				pop @{$stack[$j]};			
+			} else {
+				pop @{$stack[$j]};
+				($bracket) = keys %$h;
+				$c = $h->{$bracket};
+			}
+		}	
+		#area close
+		push @areas , ([$o,$c],[$c2o{$c},$c2o{$o}]);
+		# say "$o-$c $c2o{$c}-$c2o{$o}";
+	}
+	# for (sort {$$a[0] <=> $$b[0]} @areas){	
+	# 	say $$_[0].' '.$$_[1];
+	# }
 
-	return ($stk , $features, \@update , $write) if $#ssAreas==-1;
+	return ($stk , $features, \@update , $write) if $#areas == -1;
 	
-	my $ssPresentCount;
-
-	for (@ssAreas){
-		my ($sta, $sto) = each(%$_);
+	my ($annastart,$annastop,$ssPresentCount);
+	for (sort {$$a[0] <=> $$b[0]} @areas){		
+		my ($sta, $sto) = ($$_[0],$$_[1]);
+		
+		$annastop = $sta if ! $annastop && $sta > $#ss/2 && $#areas > 0;
+		$annastart = $sto+2 unless $annastop;
+				
 		my $tmpStk = $stk->slice($sta+1, $sto+1);
 
 		for (keys %{$features}){		
@@ -190,23 +240,34 @@ sub structure_filter(){
 			}			
 		}
 	}
-	
-	$minstructures = ($#ssAreas +1)/2 unless $minstructures;	
+
+	$minstructures = ($#areas +1)/2 unless $minstructures;
+	$minstructures = $#areas +1 if $type=~/_SNORA/ || $type=~/_snopsi/;
 	for (keys %{$features}){
-		my $f = $features->{$_};
-		if ($#ssAreas == 1){
-			if ($ssPresentCount->{$f->seq_id} < 1){
-				delete $features->{$_};
-				$write = 1;
+		my $f = $features->{$_};		
+
+		if ($#areas == 1){
+			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < 1){
+				delete $features->{$_};	
+				$write = 1;			
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' S';
+				push @update , $f->seq_id.' '.$f->primary_tag.' S';		
 			}
 		} else {
-			if ($ssPresentCount->{$f->seq_id} < $minstructures){
+			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < $minstructures){
 				delete $features->{$_};
 				$write = 1;
-				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 				push @update , $f->seq_id.' '.$f->primary_tag.' S';
+			} elsif ($annastop && ($type=~/_SNORA/ || $type=~/_snopsi/)){
+				my $s = ($stk->get_seq_by_id($f->seq_id))->subseq($annastart,$annastop);
+				$s=~s/\W//g;
+				unless ( $s=~/(A|a).{1,3}(A|a).{1,4}(A|a)/ ){
+					delete $features->{$_};
+					$write = 1;
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					push @update , $f->seq_id.' '.$f->primary_tag.' S';
+				}				
 			}
 		}
 	}
@@ -219,7 +280,7 @@ sub sequence_filter {
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	
 	my @update;
 	my $write;
 
@@ -256,7 +317,7 @@ sub sequence_filter {
 			# 		push @update , $f->seq_id.' '.$f->primary_tag.' P';	
 			# 	}
 			# } elsif ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
-			if ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
+			if ($consC/$allCons < 0.7 || ($f->primary_tag=~/_mir/i && $consC/$allCons < 0.9)){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
@@ -354,70 +415,24 @@ sub user_filter {
 		my @cu_ga;
 		for my $c (0..$#{$constrains}){
 			my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
-			my @query = split // , lc($query);			
-			my @stkseq = split // , lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));
-			# print @query;
-			# print ' vs ';
-			# print @stkseq;
-			# print "\n";
-			my $j=0;
 			
-			for (my $i=0; $i<=$#query; $i++){
-				$j++ while $i+$j <= $#stkseq && $stkseq[$i+$j]!~/\w/;				
+			$query = lc($query);
+			$query=~s/\W//g;
+			
+			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));			
 
-				push @uga_ug , $stkseq[$i+$j] if $c==0 && ($i==3 || $i==4);
-				push @cu_ga , $stkseq[$i+$j] if $c==1 && ($i==0 || $i==1);					
-				
-				switch($query[$i]){
-					case /[acgtu]/ {
-						$mm-- unless $stkseq[$i+$j] eq $query[$i];
-					}
-					case "r" {
-						$mm-- unless $stkseq[$i+$j]=~/[ag]/;
-					}
-					case "y" {
-						$mm-- unless $stkseq[$i+$j]=~/[ctu]/;	
-					}
-					case "s" {
-						$mm-- unless $stkseq[$i+$j]=~/[gc]/;	
-					}
-					case "w" {
-						$mm-- unless $stkseq[$i+$j]=~/[atu]/;	
-					}
-					case "k" {
-						$mm-- unless $stkseq[$i+$j]=~/[gtu]/;	
-					}
-					case "m" {
-						$mm-- unless $stkseq[$i+$j]=~/[ac]/;	
-					}
-					case "b" {
-						$mm-- unless $stkseq[$i+$j]=~/[cgtu]/;	
-					}
-					case "d" {
-						$mm-- unless $stkseq[$i+$j]=~/[agtu]/;	
-					}
-					case "h" {
-						$mm-- unless $stkseq[$i+$j]=~/[actu]/;	
-					}
-					case "v" {
-						$mm-- unless $stkseq[$i+$j]=~/[acg]/;	
-					}
-					case "n" {
-						$mm-- unless $stkseq[$i+$j]=~/[acgtu]/;	
-					}
-					else {}
-				}					
-			}
-			# print $mm." ".join('',@query)." ".join('',@stkseq)."\n";
-			if ($mm < 0){
+			my ($costs, @alnmap) = &gotoh($query,$stkseq);			
+			if ($costs*-1 > $mm){
 				$hold=0;
 				last;
 			}
+			@uga_ug = ($alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
+			@cu_ga = ($alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
 
 		if ($hold && $f->score ne '.' && $f->score < 25 && ($f->primary_tag=~/_sno[A-Z]/ || $f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR[ND\d]/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
-			my $bpmm=0;
+			my $bpmm=0;			
 			switch ($uga_ug[0]){
 				case "a" {
 					$bpmm++ unless $cu_ga[1]=~/[tu]/;
@@ -426,10 +441,13 @@ sub user_filter {
 					$bpmm++ unless $cu_ga[1] eq 'g';
 				}
 				case "g" {
-					$bpmm++ unless $cu_ga[1]=~/[cu]/;
+					$bpmm++ unless $cu_ga[1]=~/[cut]/;
 				}
 				case /[tu]/ {
-					$bpmm++ unless $cu_ga[1]=~/[au]/;
+					$bpmm++ unless $cu_ga[1]=~/[aut]/;
+				}
+				else {
+					$bpmm++
 				}
 			}
 			switch ($uga_ug[1]){
@@ -440,15 +458,20 @@ sub user_filter {
 					$bpmm++ unless $cu_ga[0] eq 'g';
 				}
 				case "g" {
-					$bpmm++ unless $cu_ga[0]=~/[cu]/;
+					$bpmm++ unless $cu_ga[0]=~/[cut]/;
 				}
 				case /[tu]/ {
 					$bpmm++ unless $cu_ga[0] eq 'a';
 				}
-			}			
-			$hold=0 if $bpmm > 1;
-			$hold=0 if $uga_ug[0]!~/[ut]/ && $cu_ga[1]!~/[ut]/;
-		}		
+				else {
+					$bpmm++
+				}
+			}
+			if ($hold){
+				$hold=0 if $bpmm > 1;
+				$hold=0 if $uga_ug[0]!~/[ut]/ && $cu_ga[1]!~/[ut]/;
+			}	
+		}	
 
 		unless ($hold){
 			# print $features->{$k}->seq_id."\n";
@@ -530,8 +553,9 @@ sub get_ss_cs_from_file {
 }
 
 sub get_ss_cs_from_object {
-	my ($self,$stk) = @_;
-
+	my ($self,$stk,$tmpfile) = @_;
+	my $out;
+	
 	open my $READER, '>', \$out;
 	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
 	close $READER;
@@ -544,6 +568,137 @@ sub get_ss_cs_from_object {
 	} 
 
 	return ($s,$c);
+}
+
+sub cost(){
+	my ($q, $s) = @_;
+
+	switch($q){
+		case /[acgtu]/ {
+			return $q eq $s ? 0 : -1;
+		}
+		case "r" {
+			return $s=~/[ag]/ ? 0 : -1;
+		}
+		case "y" {
+			return $s=~/[ctu]/ ? 0 : -1;
+		}
+		case "s" {
+			return $s=~/[gc]/ ? 0 : -1;
+		}
+		case "w" {
+			return $s=~/[atu]/ ? 0 : -1;
+		}
+		case "k" {
+			return $s=~/[gtu]/ ? 0 : -1;
+		}
+		case "m" {
+			return $s=~/[ac]/ ? 0 : -1;
+		}
+		case "b" {
+			return $s=~/[cgtu]/ ? 0 : -1;
+		}
+		case "d" {
+			return $s=~/[agtu]/ ? 0 : -1;
+		}
+		case "h" {
+			return $s=~/[actu]/ ? 0 : -1;
+		}
+		case "v" {
+			return $s=~/[acg]/ ? 0 : -1;
+		}
+		case "n" {
+			return $s=~/[acgtu]/ ? 0 : -1;
+		}
+		else {}
+	}	
+}
+
+sub gotoh (){
+	my ($q,$s) = @_;	
+
+	my @s = split //, $s;
+	my @q = split //, $q;
+
+	# my $factory = new dpAlign(-match => 0,
+ #                   -mismatch => -1,
+ #                   -gap => -1,
+ #                   -ext => -1,
+ #                   -alg => Bio::Tools::dpAlign::DPALIGN_GLOBAL_MILLER_MYERS);
+	# $q = Bio::Seq->new( -display_id => 'my_id', -seq => $q);
+	# $s = Bio::Seq->new( -display_id => 'my_id', -seq => $s);
+	
+	my $go=-1;
+	my $ge=-1;
+
+	my @M;
+	my @H;
+	my @V;
+	
+	for(my $i=0; $i<=scalar(@q); $i++){	
+		$M[$i][0]=$ge*($i-1)+$go;
+		# $M[$i][0]=0;
+		$H[$i][0]=-inf;			
+	}
+	for(my $j=0; $j<=scalar(@s); $j++){
+		$M[0][$j]=$ge*($j-1)+$go;
+		# $M[0][$j]=0;
+		$V[0][$j]=-inf;	
+	}
+	$M[0][0]=0;
+	
+	my @maxposi;
+	my @maxposj;
+	my $max=-inf;
+	my $c;
+	for(my $i=1; $i<=scalar(@q); $i++){
+		for(my $j=1; $j<=scalar(@s); $j++){
+			$H[$i][$j]=max($H[$i][$j-1]+$ge,$M[$i][$j-1]+$go);
+			$V[$i][$j]=max($V[$i-1][$j]+$ge,$M[$i-1][$j]+$go);			
+			$M[$i][$j]=max(max($M[$i-1][$j-1]+&cost($q[$i-1],$s[$j-1]),$H[$i][$j]),$V[$i][$j]);						
+		}		
+	}
+
+	my $i=scalar(@q);
+	my $j=scalar(@s);
+	my $alS='';
+	my $alQ='';
+	my @map;
+	$#map=$#q;	
+	while($i > 0 || $j > 0){
+		if (($i > 0 && $j > 0) && $M[$i][$j]==$M[$i-1][$j-1]+&cost($q[$i-1],$s[$j-1])){
+			$map[$i-1]=$j-1;
+			$alS=$s[$j-1].$alS;
+			$alQ=$q[$i-1].$alQ;
+			$i--;
+			$j--;
+		} elsif ($j > 0 && $M[$i][$j]==$M[$i][$j-1]+$go) {			
+			$map[$i]=$j-1;
+			$alS=$s[$j-1].$alS;
+			$alQ="-".$alQ;
+			$j--;
+		} elsif ($i > 0 && $M[$i][$j]==$M[$i-1][$j]+$go){
+			$map[$i-1]=$j;
+			$alS="-".$alS;
+			$alQ=$q[$i-1].$alQ;
+			$i--;
+		} elsif ($j > 0 && $M[$i][$j]==$H[$i][$j-1]+$ge){
+			$map[$i]=$j-1;
+			$alS=$s[$j-1].$alS;
+			$alQ="-".$alQ;
+			$j--;
+		} else {
+			$map[$i-1]=$j;
+			$alS="-".$alS;
+			$alQ=$q[$i-1].$alQ;
+			$i--;
+		}
+		
+	}	
+	# say $alS;
+	# say $alQ;
+		
+	return ($M[scalar(@q)][scalar(@s)],@map);
 }
 
 1;

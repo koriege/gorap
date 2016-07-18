@@ -205,6 +205,12 @@ has 'check_overlaps' => (
 	default => 1
 );
 
+has 'strandspec' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 has 'denovolength' => (
 	is => 'rw',
 	isa => 'Int',
@@ -261,9 +267,10 @@ sub BUILD {
 		'minh|minheigth=i' => \my $denovoheigth,
 		'nobutkingsnofi|nobutkingsnofi' => \my $nobutkingsnofilter, #hidden dev option
 		'nofi|nofilter' => \my $nofilter, 
+		'ss|strandspecific' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
-	) or pod2usage(-exitval => 1, -verbose => 3) if $self->commandline;
+	) or pod2usage(-exitval => 2, -verbose => 1) if $self->commandline;
 
 	
 	&read_parameter($self,$file) if $file && $file ne 'x';
@@ -305,7 +312,8 @@ sub BUILD {
 				}
 			}
 		}					
-		pod2usage(-exitval => 1, -verbose => 3) if ($file eq 'x' && $help) || ($file eq 'x' && ! $genomes && ! $example);
+		pod2usage(-exitval => 2, -verbose => 2) if $file eq 'x' && $help;
+		pod2usage(-exitval => 2, -verbose => 1) if $file eq 'x' && ! $genomes && ! $example;
 	}
 
 	$self->force(1) if $force;
@@ -338,7 +346,7 @@ sub BUILD {
 		$self->kingdoms({});
 		for (split(/\s*,\s*/,$kingdoms)) {
 			my $s = lc $_;
-			pod2usage(-exitval => 1, -verbose => 3) unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
+			pod2usage(-exitval => 2, -verbose => 1) unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
 			$self->kingdoms->{$s}=1
 		}
 	}		
@@ -392,6 +400,7 @@ sub BUILD {
 	$self->nobutkingsnofilter(1) if $nobutkingsnofilter;
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
+	$self->strandspec(1) if $strandspec;
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
@@ -496,56 +505,35 @@ sub read_parameter {
 
 	my $c=1;
 	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){		
-		if ($#g > 0){
-			for (@g){				
-				push @genomes , $_;
-				push @{$assignment->{'genome'.$c}} , $#genomes;
-				my $abbr = basename($_);
-				my @abbr = split /\./ , $abbr;
-				pop @abbr if $#abbr > 0;
-				$abbr = join '' , @abbr;
-				$abbr=~s/\W//g;
-				push @abbreviations , $abbr;
-			}
-		} else {
-			push @genomes , $g[0];
+		for (@g){
+			push @genomes , $_;
 			push @{$assignment->{'genome'.$c}} , $#genomes;
-			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
-			unless ($abbr){
-				$abbr = basename($g[0]);
+			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);			
+			unless ($abbr) {
+				$abbr = basename($_);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;
 				$abbr=~s/\W//g;
-			}
+			}			
 			push @abbreviations , $abbr;
 		}		
 		$c++;
-	}
+	}	
 	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
-		if ($#g > 0){
-			for (@g){
-				push @ogenomes , $_;
-				my $abbr = basename($_);
-				my @abbr = split /\./ , $abbr;
-				pop @abbr if $#abbr > 0;
-				$abbr = join '' , @abbr;
-				$abbr=~s/\W//g;
-				push @ogabbreviations , $abbr;
-			}
-		} else {
-			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
-			push @ogenomes , $g[0];
-			unless ($abbr){
-				$abbr = basename($g[0]);
+		for (@g){
+			push @ogenomes , $_;
+			my $abbr = $cfg->GetParameterTrailingComment('addons', 'genome'.$c);
+			unless ($abbr) {
+				$abbr = basename($_);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;
 				$abbr=~s/\W//g;
 			}
 			push @ogabbreviations , $abbr;
-		}		
+		}
 		$c++;
 	}
 	my $v = $cfg->val('query','kingdom');
@@ -553,10 +541,12 @@ sub read_parameter {
 		my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
-	$v = $cfg->val('query','rfam');
+	$v = $cfg->val('query','rfam');	
 	if ($v){
 		&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
 		$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
+	} else {
+		$self->skip_comp(1);
 	}
 
 	$v = $cfg->val('system','threads');
@@ -581,22 +571,22 @@ sub read_parameter {
 	$#bams=$#genomes;
 	$#gffs=$#genomes;
 	$c=1;	
-	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){		
+	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){			
 			push @{$bams[$_]} , @g;
 		}
 		$c++;
 	}
-	
+	$self->bams(\@bams) if $c > 1;
+	$self->strandspec(1) if $cfg->val('addons','strandspecific');
 	$c=1;	
 	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){		
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
 			push @{$gffs[$_]} , @g;	
 		}		
 		$c++;
-	}
-	$self->bams(\@bams) if $#bams > -1;
-	$self->gffs(\@gffs) if $#gffs > -1;	
+	}	
+	$self->gffs(\@gffs) if $c > 1;		
 }
 
 1;

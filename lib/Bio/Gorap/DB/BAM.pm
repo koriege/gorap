@@ -3,6 +3,7 @@ package Bio::Gorap::DB::BAM;
 use Moose;
 use Bio::DB::Sam;
 use List::Util qw(max);
+use Try::Tiny;
 
 has 'parameter' => (
 	is => 'ro',
@@ -33,6 +34,7 @@ sub _set_db {
 		my $abbr = ${$self->parameter->abbreviations}[$_];
 		$sizes->{$abbr}=0;
 		for my $f (@{${$self->parameter->bams}[$_]}){
+			
 			my $c = 0;
 			my $map = {};
 			my $next;
@@ -46,40 +48,65 @@ sub _set_db {
 			}
 			next if $next;
 			push @{$self->db->{$abbr}} , Bio::DB::Sam->new(-bam => $f, -autindex => 1, -verbose => -1);
-			# my ($foo) = ${$self->db->{$abbr}}[-1]->features();
-
-			# exit;
 			$sizes->{$abbr} += $c;
 		}
 	}
-	$self->sizes($sizes);	
+	$self->sizes($sizes);
 }
 
 sub rpkm {	
 	my ($self,$abbr,$id,$start,$stop,$strand) = @_;
+	$strand = $strand=~/(\.|0)/ ? 0 : $strand=~/(\+|1)/ ? 1 : -1;
 
 	my $count = 0;
-	my $ex;
 	for (0..$#{$self->db->{$abbr}}){		
 		my $bam = ${$self->db->{$abbr}}[$_];		
-		$ex=1;
 
 		my $readstrand = '+';
-		for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
-			my $strandspec;
-			for ($_->segments){
-				$strandspec = $_->get_tag_values('FLAGS');
-				$readstrand = '-' if $strandspec && $strandspec=~/REVERSED/;				
+		try {
+			if ($self->parameter->strandspec && $strand != 0){
+				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){					
+					my @segments = $_->segments;
+					my $rstrand = 1;
+					my $unmapped = 0;
+					for (@segments){
+						my @flags = split /\|/ , $_->get_tag_values('FLAGS');
+						for (@flags){
+							$unmapped++ if $_ eq 'UNMAPPED'; #counts read also if only one mate maps
+							$rstrand = -1 if $_ eq 'REVERSED'; #to exclude M_REVERSED
+							# $mates++ if $_=~/FIRST/ || $_=~/SECOND/;
+							# $matemapped = 0 if $_=~/M_UNMAPPED/;
+							# $paired = 1 if $_=~/PAIRED/;
+						}
+					}
+					$count++ if $unmapped < ($#segments +1) && $strand == $rstrand;
+				}
+			} else {
+				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
+					my @segments = $_->segments;
+					my $unmapped = 0;
+					for (@segments){
+						for (split /\|/ , $_->get_tag_values('FLAGS')){
+							$unmapped++ if $_ eq 'UNMAPPED';
+						}
+					}
+					$count++ if $unmapped < ($#segments +1);
+				}
 			}
-			$count++ if ! $strandspec || $strand eq '.' || $strand eq $readstrand;
-		}		
-	}
-	
-	return ('.','.') unless $ex;
-	
-	my $libsize=$self->sizes->{$abbr};
+		} catch {
+			
+		};
+	}	
+
+	return ('.','.') unless $count;
+
+	$count /= ($#{$self->db->{$abbr}} + 1);			
+	my $libsize = $self->sizes->{$abbr} / ($#{$self->db->{$abbr}} + 1);
+
 	my $rpkm = $libsize ? ($count / ($libsize/10^6)) / (($stop-$start)/10^3) : 0;
 	my $tpm = $libsize ? ($count / (($stop-$start)/10^3)) / ($libsize/10^6) : 0;
+
+	$tpm = $count/($stop-$start) * 
 
 	return ($tpm == 0 ? '.' : sprintf("%.10f",$tpm), $rpkm == 0 ? '.' : sprintf("%.10f",$rpkm), $count == 0 ? '.' : $count);
 }

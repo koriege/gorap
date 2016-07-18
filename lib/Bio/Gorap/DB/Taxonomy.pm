@@ -204,12 +204,12 @@ sub getNameFromID {
 	my ($self, $taxid) = @_;	
 
 	my $taxon = $self->ncbi->get_taxon(-taxonid => $taxid);	
-	if ($taxon) {
-		return $taxon->name;
+	my $name;
+	if ($taxon) {		
+		$name = $taxon->scientific_name;
 	} else {
 		my $errorCounter=0;
-		my $error=1;
-		my $name;
+		my $error=1;		
 		while($error && $errorCounter < 10){
 			$errorCounter++;
 			$error=0;
@@ -219,18 +219,17 @@ sub getNameFromID {
 			} catch {					
 				$error=1;
 			};
-		} 
-		if ($name){
-			$name=~s/\s+/_/g;
-			$name=~s/\.\./\./g;
-			$name=~ s/[^a-zA-Z0-9_]*//g;		
-			$name=ucfirst($name);
-			return $name;
-		} else {
-			return 0;
-		}		
+		} 		
 	}
-	
+	if ($name){
+		$name=~s/\s+/_/g;
+		$name=~s/\.\./\./g;
+		$name=~ s/[^a-zA-Z0-9_]*//g;		
+		$name=ucfirst($name);
+		return $name;
+	} else {
+		return 0;
+	}		
 					
 }
 

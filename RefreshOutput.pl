@@ -38,10 +38,10 @@ my $gffdb = Bio::Gorap::DB::GFF->new(
 	parameter => $parameter
 ); 
 
-my $fastadb = Bio::Gorap::DB::Fasta->new(
-	parameter => $parameter,
-	do_chunks => 0
-);
+# my $fastadb = Bio::Gorap::DB::Fasta->new(
+# 	parameter => $parameter,
+# 	do_chunks => 0
+# );
 
 my $stkdb = Bio::Gorap::DB::STK->new(
 	parameter => $parameter
@@ -70,7 +70,7 @@ sub get_overlaps {
 for my $cfg (@{$parameter->queries}){
 	$parameter->set_cfg($cfg);
 	my $type = $parameter->cfg->rf_rna;
-	my $hold;
+	my $hold = 0;
 	for my $f (@{$gffdb->get_all_features($type)}){
 		my $seq;
 		$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
@@ -98,8 +98,10 @@ unlink $_ for glob catfile($parameter->tmp,$parameter->pid.'.*');
 $year = $year + 1900;
 $mon += 1;
 print "\n";
-print "To relink original STKs run:\n"
-print 'sed -i \'s/alignments\/\([a-zA-Z0-9_-]*\)/meta\/\1\.P/g\' <full.html>'."\n";
+print "To restore html links to original STKs run:\n";
+print 'sed -i \'s/alignments\/\([a-zA-Z0-9_-]*\)/meta\/\1\.O/g\' <full.html>'."\n";
+print "To restore original STK files execute:\n"
+print 'cp meta/*.O.stk  alignments/'."\n"
 print "\n";
 print "$mday.$mon.$year-$hour:$min:$sec\n";
 
