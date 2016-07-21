@@ -1,6 +1,11 @@
 #!/bin/bash
 retool=$1
 
+if [[ $GORAP == "" ]]; then
+	echo 'Setup $GORAP environment varibale first.'
+	exit 1
+fi
+
 if [[ $retool = '' ]]; then
 	echo 'Do you forgot to add a tool name as parameter? Or'
 	read -p 'do you want to recompile all tools [y|n] ' in
@@ -319,7 +324,7 @@ tool='samtools-0.1.19'
 samtool=$tool
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d "$GORAP/$tool" ]]; then
-		tool='zlib-1.2.8'		
+		tool='zlib-1.2.8'	
 		ex=0
 		download				
 		
@@ -333,19 +338,17 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make install
 		make clean
 		
-		tool='ncurses-5.9'
-		ex=0
-		download
-		
-		cd $GORAP/$tool  
-		make clean
-		./configure --prefix=$GORAP/$samtool
-		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
+		if [[ ! -e /usr/include/ncurses.h ]]; then 
+			tool='ncurses-5.9'
+			ex=0
+			download
+			cd $GORAP/$tool  
+			make clean
+			./configure --prefix=$GORAP/$samtool
+			make
+			make install
+			make clean
 		fi
-		make install
-		make clean
 
 		cd $GORAP/$samtool
 		sed -i '/^CFLAGS/ c\CFLAGS = -g -Wall -O2 -fPIC -I. -I.. -I./include -I../include -L. -L.. -L./lib -L../lib #-m64 #-arch ppc' Makefile
@@ -355,9 +358,25 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		make 
 		if [[ $? -gt 0 ]]; then				
 			exit 1
-		fi                       
+		fi 
 		mkdir -p bin 
 		cp samtools bin/samtools
+
+		if [[ ! -e $GORAP/example/ecoli.fa ]]; then
+			echo
+			echo $tool' installation failed'
+			echo 'Download corresponding databases first and try again'
+			rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+			exit 1
+		else
+			bin/samtools faidx $GORAP/example/ecoli.fa
+			if [[ $? -gt 0 ]]; then		
+				echo 'GORAP is unable to install Samtools for you.'
+				echo 'Please install Samtools and the Perl module Bio::DB::SAM by yourself, then try again'
+				exit 1
+				rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+			fi
+		fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'		
 	fi

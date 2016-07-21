@@ -44,12 +44,12 @@ wget https://github.com/rna-hta-jena/gorap/archive/master.zip
 unzip master.zip
 # Enter extracted directory
 cd gorap-master
-# Download and local installation of missing software into $GORAP
-bash install_tools.sh
 # Download corresponding databases
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz
 # Extract databases into $GORAP
 tar -xzf data-12.tar.gz -C $GORAP/
+# Download and local installation of missing software into $GORAP
+bash install_tools.sh
 # Set path to necessary and always downloaded Samtools software
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules

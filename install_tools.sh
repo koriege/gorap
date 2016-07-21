@@ -4,6 +4,10 @@ bit=$(uname -m | awk '{if ($0 == "i686"){print "32-"}else{print ""}}')
 if [[ $OSTYPE == darwin* ]]; then 
 	bit='mac-'
 fi
+if [[ $GORAP == "" ]]; then
+	echo 'Setup $GORAP environment varibale first.'
+	exit 1
+fi
 mkdir -p $GORAP
 rm -f $pwd/install.log 2> $pwd/install.log > $pwd/install.log
 
@@ -208,7 +212,10 @@ if [[ $ex -gt 0 ]]; then
 fi
 download
 if [[ $ex -eq 0 ]]; then
+	export PERL5LIB=$GORAP/$tool:$PERL5LIB
 	$GORAP/$tool/bin/tRNAscan-SE -h 2>> $pwd/install.log >> $pwd/install.log
+	echo $?
+	exit
 	if [[ $? -gt 0 ]]; then
 		recompile
 	fi
@@ -265,9 +272,17 @@ tool='samtools-0.1.19'
 ex=0
 download
 if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/samtools 2>> $pwd/install.log >> $pwd/install.log
-	if [[ $? -gt 0 ]]; then
-		recompile
+	if [[ ! -e $GORAP/example/ecoli.fa ]]; then
+		echo
+		echo $tool' installation failed'
+		echo 'Download corresponding databases first and try again'
+		rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+		exit 1
+	else
+		$GORAP/$tool/bin/samtools faidx $GORAP/example/ecoli.fa 2>> $pwd/install.log >> $pwd/install.log
+		if [[ $? -gt 0 ]]; then
+			recompile
+		fi
 	fi
 fi
 
