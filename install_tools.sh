@@ -214,8 +214,6 @@ download
 if [[ $ex -eq 0 ]]; then
 	export PERL5LIB=$GORAP/$tool:$PERL5LIB
 	$GORAP/$tool/bin/tRNAscan-SE -h 2>> $pwd/install.log >> $pwd/install.log
-	echo $?
-	exit
 	if [[ $? -gt 0 ]]; then
 		recompile
 	fi
@@ -272,18 +270,18 @@ tool='samtools-0.1.19'
 ex=0
 download
 if [[ $ex -eq 0 ]]; then
-	if [[ ! -e $GORAP/example/ecoli.fa ]]; then
-		echo
-		echo $tool' installation failed'
-		echo 'Download corresponding databases first and try again'
-		rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
-		exit 1
-	else
-		$GORAP/$tool/bin/samtools faidx $GORAP/example/ecoli.fa 2>> $pwd/install.log >> $pwd/install.log
-		if [[ $? -gt 0 ]]; then
-			recompile
-		fi
-	fi
+	# if [[ ! -e $GORAP/example/ecoli.fa ]]; then
+	# 	echo
+	# 	echo $tool' installation failed'
+	# 	echo 'Download corresponding databases first and try again'
+	# 	rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+	# 	exit 1
+	# else
+	# 	$GORAP/$tool/bin/samtools faidx $GORAP/example/ecoli.fa 2>> $pwd/install.log >> $pwd/install.log
+	# 	if [[ $? -gt 0 ]]; then
+	 		recompile
+	# 	fi
+	# fi
 fi
 
 echo

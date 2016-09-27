@@ -53,6 +53,7 @@ bash install_tools.sh
 # Set path to necessary and always downloaded Samtools software
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
+wget -O cpanm https://cpanmin.us && chmod 755 cpanm
 ./cpanm -l $GORAPLIB .
 # Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
 bash nowarnings.sh on

@@ -324,19 +324,21 @@ tool='samtools-0.1.19'
 samtool=$tool
 if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 	if [[ -d "$GORAP/$tool" ]]; then
-		tool='zlib-1.2.8'	
-		ex=0
-		download				
+        if [[ ! -e /usr/include/zlib.h ]]; then 
+			tool='zlib-1.2.8'	
+			ex=0
+			download				
 		
-		cd $GORAP/$tool 
-		make clean
-		./configure --prefix=$GORAP/$samtool				
-		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
-		make install
-		make clean
+			cd $GORAP/$tool 
+			make clean
+			./configure --prefix=$GORAP/$samtool				
+			make
+			if [[ $? -gt 0 ]]; then				
+				exit 1
+			fi
+			make install
+			make clean
+        fi
 		
 		if [[ ! -e /usr/include/ncurses.h ]]; then 
 			tool='ncurses-5.9'
@@ -346,6 +348,9 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 			make clean
 			./configure --prefix=$GORAP/$samtool
 			make
+            if [[ $? -gt 0 ]]; then				
+				exit 1
+			fi
 			make install
 			make clean
 		fi
@@ -362,21 +367,21 @@ if [[ $tool = $retool ]] || [[ $retool = 'all' ]]; then
 		mkdir -p bin 
 		cp samtools bin/samtools
 
-		if [[ ! -e $GORAP/example/ecoli.fa ]]; then
-			echo
-			echo $tool' installation failed'
-			echo 'Download corresponding databases first and try again'
-			rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
-			exit 1
-		else
-			bin/samtools faidx $GORAP/example/ecoli.fa
-			if [[ $? -gt 0 ]]; then		
-				echo 'GORAP is unable to install Samtools for you.'
-				echo 'Please install Samtools and the Perl module Bio::DB::SAM by yourself, then try again'
-				exit 1
-				rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
-			fi
-		fi
+		# if [[ ! -e $GORAP/example/ecoli.fa ]]; then
+		# 	echo
+		# 	echo $tool' installation failed'
+		# 	echo 'Download corresponding databases first and try again'
+		# 	rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+		# 	exit 1
+		# else
+		# 	bin/samtools faidx $GORAP/example/ecoli.fa
+		# 	if [[ $? -gt 0 ]]; then		
+		# 		echo 'GORAP is unable to install Samtools for you.'
+		# 		echo 'Please install Samtools and the Perl module Bio::DB::SAM by yourself, then try again'
+		# 		exit 1
+		# 		rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
+		# 	fi
+		# fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'		
 	fi

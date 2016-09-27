@@ -1,5 +1,5 @@
 #! /bin/bash
-echo $1;
+
 if [[ $1 == 'on' ]]; then
 	if [[ -e $GORAPLIB/lib/perl5/Bio/SimpleAlign.pm ]]; then
 		chmod 644 $GORAPLIB/lib/perl5/Bio/AlignIO/stockholm.pm
