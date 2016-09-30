@@ -69,8 +69,10 @@ sub store {
 	if ($id){
 		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$self->idToPath->{$id}, -verbose => -1))->write_aln($self->db->{$id});		
 	} else {
-		for (keys %{$self->db}){
-			&remove_gap_columns_and_write($self,$self->db->{$_},$self->idToPath->{$_});
+		for my $k (keys %{$self->db}){
+			my $stk = $self->db->{$k};
+			$stk = $self->taxonomy->sort_stk($stk) if $self->has_taxonomy && $self->parameter->sort;
+			&remove_gap_columns_and_write($self,$stk,$self->idToPath->{$k});
 		}	
 	}
 }

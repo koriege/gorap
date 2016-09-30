@@ -15,6 +15,11 @@ use List::Util qw(min max);
 use List::MoreUtils qw(uniq);
 use Config::IniFiles;
 
+has 'label' => (
+	is => 'rw',
+	isa => 'Str',
+);
+
 has 'mem' => (
 	is => 'ro',
 	isa => 'Int',
@@ -23,20 +28,20 @@ has 'mem' => (
 
 has 'pwd' => (
 	is => 'ro',
-    isa => 'Str',
-    required => 1
+	isa => 'Str',
+	required => 1
 );
 
 has 'pid' => (
 	is => 'ro',
-    isa => 'Int',
-    required => 1
+	isa => 'Int',
+	required => 1
 );
 
 has 'commandline' => (
 	is => 'ro',
-    isa => 'Bool',
-    required => 1
+	isa => 'Bool',
+	required => 1
 );
 
 has 'cfg' => (
@@ -46,26 +51,26 @@ has 'cfg' => (
 
 has 'genomes' => (
 	is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [catfile($ENV{GORAP},'example','ecoli.fa')] }
+	isa => 'ArrayRef',
+	default => sub { [catfile($ENV{GORAP},'example','ecoli.fa')] }
 );
 
 has 'threads' => (
 	is => 'rw',
-    isa => 'Int',		
-    default => 1
+	isa => 'Int',		
+	default => 1
 );
 
 has 'abbreviations' => (
 	is => 'rw',
-    isa => 'ArrayRef',
-    default => sub { [ 'ecoli' ] }
+	isa => 'ArrayRef',
+	default => sub { [ 'ecoli' ] }
 );
 
 has 'tmp' => (
 	is => 'rw',
-    isa => 'Str',
-    default => sub { 
+	isa => 'Str',
+	default => sub { 
 		if ($ENV{TMPDIR}){
 			return $ENV{TMPDIR};
 		} elsif (-e catdir(rootdir,'tmp')){
@@ -74,31 +79,31 @@ has 'tmp' => (
 			make_path(catdir($ENV{GORAP},'tmp'));
 			return catdir($ENV{GORAP},'tmp');
 		}
-    }
+	}
 );
 
 has 'skip_comp' => (
 	is => 'rw',
-    isa => 'Bool',		
-    default => 0
+	isa => 'Bool',		
+	default => 0
 );
 
 has 'taxonomy' => (
 	is => 'rw',
-    isa => 'Bool',		
-    default => 1
+	isa => 'Bool',		
+	default => 1
 );
 
 has 'kingdoms' => (
 	is => 'rw',
-    isa => 'HashRef',		
-    default => sub { {bac => 1 , arc => 1 , euk => 1 , fungi => 1 , virus => 1} }
+	isa => 'HashRef',		
+	default => sub { {bac => 1 , arc => 1 , euk => 1 , fungi => 1 , virus => 1} }
 );
 
 has 'queries' => (
 	is => 'rw',
-    isa => 'ArrayRef',		
-    builder => '_set_queries'
+	isa => 'ArrayRef',		
+	builder => '_set_queries'
 );
 
 has 'verbose' => (
@@ -115,28 +120,28 @@ has 'sort' => (
 
 has 'output' => (
 	is => 'rw',
-    isa => 'Str',		
-    lazy => 1,      
-    default => sub { my $self = shift; 
-    	make_path(catdir($self->pwd,'gorap_out','alignments'));
+	isa => 'Str',		
+	lazy => 1,
+	default => sub { my $self = shift; 
+		make_path(catdir($self->pwd,'gorap_out','alignments'));
 		make_path(catdir($self->pwd,'gorap_out','annotations'));
 		make_path(catdir($self->pwd,'gorap_out','meta'));
 		make_path(catdir($self->pwd,'gorap_out','html'));
-    	return catdir($self->pwd,'gorap_out'); 
-    },
-    trigger => \&_make_paths
+		return catdir($self->pwd,'gorap_out'); 
+	},
+	trigger => \&_make_paths
 );
 
 has 'rank' => (
 	is => 'rw',
-    isa => 'Str',
-    predicate => 'has_rank'
+	isa => 'Str',
+	predicate => 'has_rank'
 );
 
 has 'species' => (
 	is => 'rw',
-    isa => 'Str',
-    predicate => 'has_species'		    
+	isa => 'Str',
+	predicate => 'has_species'		    
 );
 
 has 'bams' => (
@@ -211,6 +216,18 @@ has 'strandspec' => (
 	default => 0
 );
 
+has 'notax' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
+has 'refresh' => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 0
+);
+
 has 'denovolength' => (
 	is => 'rw',
 	isa => 'Int',
@@ -235,11 +252,18 @@ has 'cmtaxbiascutoff' => (
 	default => 0.333
 );
 
+has 'file' => (
+	is => 'rw',
+	isa => 'Str',
+	predicate => 'has_file',
+);
+
 sub BUILD {
 	my ($self) = @_;
 	my $file='x';
 
 	(Getopt::Long::Parser->new)->getoptions (
+		'l|label=s' => \my $label, 
 		'i|fastas=s' => \my $genomes, 
 		'o|output=s' => \my $output, 
 		'c|cpu=i' => \my $threads,
@@ -255,19 +279,21 @@ sub BUILD {
 		'update|update=s' => \my $update,
  		'file|file:s' => \$file,
 		'h|help' => \my $help,
-		'force|force' => \my $force,
+		'force|force' => \my $force, #hidden dev option
 		't|tmp:s' => \my $tmp,
 		'notax|notaxonomy' => \my $notax,
 		'notpm|notpm' => \my $notpm,
 		'nobl|noblast' => \my $noblast,
 		'sort|sort' => \my $sort,
+		'refresh|refresh' => \my $refresh,
+		'skip|skipanno' => \my $skipanno,
 		'example|example' => \my $example,
-		'noo|nooverlap' => \my $nooverlaps,
+		'noc|nooverlapcheck' => \my $nooverlaps,
 		'minl|minlength=i' => \my $denovolength,
 		'minh|minheigth=i' => \my $denovoheigth,
 		'nobutkingsnofi|nobutkingsnofi' => \my $nobutkingsnofilter, #hidden dev option
 		'nofi|nofilter' => \my $nofilter, 
-		'ss|strandspecific' => \my $strandspec,
+		'strand|strandspecific' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
 	) or pod2usage(-exitval => 2, -verbose => 1) if $self->commandline;
@@ -317,6 +343,13 @@ sub BUILD {
 	}
 
 	$self->force(1) if $force;
+	if ($label){
+		$label=~s/\s+/_/g;
+		$self->label($label);
+	}
+	$self->skip_comp(1) if $skipanno;
+	$self->notax(1) if $notax;
+	$self->refresh(1) if $refresh;
 
 	#store arguments into data structure
 	$self->threads($threads) if $threads;
@@ -390,7 +423,7 @@ sub BUILD {
 
 	$self->tmp($tmp) if $tmp;
 	$self->sort(1) if ! $notax && $sort && ($self->has_rank || $self->has_species);
-	$self->taxonomy(0) if $notax || ! ($self->has_rank || $self->has_species);
+	$self->taxonomy(0) if $notax || ! ($self->has_rank || $self->has_species) || $#{$self->queries} == -1 || $skipanno;
 	$self->notpm(1) if $notpm;
 	$self->check_overlaps(0) if $nooverlaps;
 	$self->denovoheigth($denovoheigth) if $denovoheigth;
@@ -404,7 +437,6 @@ sub BUILD {
 		
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
-
 }
 
 sub _make_paths {
@@ -414,7 +446,6 @@ sub _make_paths {
 	make_path(catdir($self->output,'annotations'));
 	make_path(catdir($self->output,'meta'));
 	make_path(catdir($self->output,'html'));
-	make_path(catdir($self->output,'phylogeny'));
 }
 
 sub set_genomes {
@@ -457,6 +488,7 @@ sub set_queries {
 		if ($_ eq '0'){
 			@queries = ();
 			$self->skip_comp(1);
+			# $self->taxonomy(0); #dont do this e.g. if someone want to sort available alignments wo calculation
 			last;
 		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
@@ -495,6 +527,7 @@ sub _set_queries {
 
 sub read_parameter {
 	my ($self,$file) = @_;
+	$self->file($file);
 
 	my $cfg = Config::IniFiles->new( -file => $file , -nomultiline => 1, -handle_trailing_comment => 1);
 	my @genomes;
@@ -542,11 +575,9 @@ sub read_parameter {
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
 	$v = $cfg->val('query','rfam');	
-	if ($v){
+	if (defined $v){
 		&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
 		$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
-	} else {
-		$self->skip_comp(1);
 	}
 
 	$v = $cfg->val('system','threads');
@@ -586,7 +617,12 @@ sub read_parameter {
 		}		
 		$c++;
 	}	
-	$self->gffs(\@gffs) if $c > 1;		
+	$self->gffs(\@gffs) if $c > 1;
+	$v = $cfg->val('addons','label');
+	if ($v){
+		$v=~s/\s+/_/g;
+		$self->label($v);
+	}
 }
 
 1;

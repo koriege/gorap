@@ -32,6 +32,8 @@ species=Escherichia coli
 
 [addons]
 #all optional:
+#give this run a label for identification afterwards (default: date+time)
+label=my_run
 #single outgroup genome files with optional, unique abbreviation (default: file name)
 #or multiple outgroup genomes by using wildcards for SSU and RNome based phylogeny reconstruction
 genome1=/my/outgroups1/*.fa

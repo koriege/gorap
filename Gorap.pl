@@ -23,12 +23,14 @@ use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
 use List::Util qw(any);
 use Hash::Merge qw(merge);
+use File::Copy qw(copy);
+use File::Path qw(make_path);
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
 $mon += 1;
-print "$mday.$mon.$year-$hour:$min:$sec\n";
 my $stamp = "$mday.$mon.$year-$hour:$min:$sec";
+print $stamp."\n";
 
 print "\nFor help run Gorap.pl -h\n\n";
 
@@ -46,16 +48,75 @@ my $parameter = Bio::Gorap::Parameter->new(
 	#pwd => dirname(abs_path(__FILE__)),
 	pwd => $ENV{PWD},
 	pid => $$,
-	commandline => 1
+	commandline => 1,
+	label => $stamp,
 );
 
 my $taxdb;
 my $stkdb;
+
+if ($parameter->refresh){
+	print "Updating GFF and FASTA files from Stockholm alignments\n";
+
+	my $gffdb = Bio::Gorap::DB::GFF->new(
+		parameter => $parameter
+	); 
+	if ($parameter->taxonomy){
+		$taxdb = Bio::Gorap::DB::Taxonomy->new(
+			parameter => $parameter
+		);
+		$stkdb = Bio::Gorap::DB::STK->new(
+			parameter => $parameter,
+			taxonomy => $taxdb
+		);
+	} else {
+		$stkdb = Bio::Gorap::DB::STK->new(
+			parameter => $parameter
+		);
+	}
+
+	for my $cfg (@{$parameter->queries}){
+		$parameter->set_cfg($cfg);
+		my $type = $parameter->cfg->rf_rna;
+		my $hold = 0;
+		for my $f (@{$gffdb->get_all_features($type)}){
+			my $seq;
+			$seq = $stkdb->db->{$type}->get_seq_by_id($f->seq_id) if exists $stkdb->db->{$type};
+			if ($seq){
+				$hold=1;
+				$gffdb->update_filter($f->seq_id,$type,'!');
+			} else {
+				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
+			}		
+		}	
+		if ( ! $hold && exists $stkdb->db->{$type} && $parameter->force){
+			unlink $stkdb->idToPath->{$type};
+			delete $stkdb->db->{$type};
+		}
+	}
+	print "Storing changes\n";
+	$stkdb->store;
+	$gffdb->store_overlaps;
+
+	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$parameter->label);
+	print "\nResults stored with label ".$parameter->label."\n";
+
+	unlink $_ for glob catfile($parameter->tmp,'*');
+	system("rm -rf ".$parameter->tmp);
+
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
+	$year = $year + 1900;
+	$mon += 1;
+	print "$mday.$mon.$year-$hour:$min:$sec\n";
+
+	exit 0;
+}
+
 if ($parameter->taxonomy){
 	$taxdb = Bio::Gorap::DB::Taxonomy->new(
 		parameter => $parameter
 	);
-	$taxdb->findRelatedSpecies;
+	$taxdb->findRelatedSpecies unless $parameter->skip_comp;
 	$stkdb = Bio::Gorap::DB::STK->new(
 		parameter => $parameter,
 		taxonomy => $taxdb
@@ -71,12 +132,12 @@ unless ($parameter->skip_comp){
  	$fastadb = Bio::Gorap::DB::Fasta->new(
 		parameter => $parameter
 	);
-} else {
-	$fastadb = Bio::Gorap::DB::Fasta->new(
-		parameter => $parameter,
-		do_chunks => 0
-	);
-}
+} #else {
+# 	$fastadb = Bio::Gorap::DB::Fasta->new(
+# 		parameter => $parameter,
+# 		do_chunks => 0
+# 	);
+# }
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
@@ -113,20 +174,15 @@ unless ($parameter->skip_comp){
 	#store final annotation results
 	$gffdb->store_overlaps;
 
-	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp);
+	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 }
 
-if ($parameter->has_outgroups){	
-	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
-	$year = $year + 1900;
-	$mon += 1;
-	print "$mday.$mon.$year-$hour:$min:$sec\n";
-
+if ($parameter->has_outgroups){
 	print "Preparing phylogeny reconstruction\n" if $parameter->verbose;
 	my @newQ;	
 	my @oldqueries = @{$parameter->queries};
-	my @genomes = @{$parameter->genomes};
-	my @abbres = @{$parameter->abbreviations};
+	my @oldgenomes = @{$parameter->genomes};
+	my @oldabbres = @{$parameter->abbreviations};
 
 	$parameter->set_queries();
 	for my $cfg (@{$parameter->queries}){		
@@ -134,23 +190,22 @@ if ($parameter->has_outgroups){
 		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
 	}	
 
-	if ($#newQ > -1){	
-		my $outdir = catdir($parameter->output,'phylogeny');
-
+	if ($#newQ > -1){
+		my $outdir = catdir($parameter->output,'phylogeny-'.$parameter->label);
+		make_path($outdir);
 		unlink $_ for glob catfile($outdir,'RAxML_*');			
 
-		$parameter->set_genomes($parameter->outgroups,$parameter->ogabbreviations);
-
-		push @genomes, @{$parameter->genomes};
-		push @abbres, @{$parameter->abbreviations};	
+		my @newgenomes = @{$parameter->outgroups};
+		my @newabbres = @{$parameter->ogabbreviations};
+		$parameter->set_genomes(\@newgenomes,\@newabbres); #new referenfce, otherwise og will be unset during set_genomes
 
 		$parameter->set_queries(\@newQ);
+
+		$gffdb->add_db($_) for @{$parameter->ogabbreviations};
 		
 		unless ($parameter->skip_comp){
 
 			print "\nAnnotation of outgroups for phylogeny reconstruction\n" if $parameter->verbose;
-			
-			$gffdb->add_db($_) for @{$parameter->abbreviations};			
 
 			$fastadb = Bio::Gorap::DB::Fasta->new(
 				parameter => $parameter
@@ -170,12 +225,17 @@ if ($parameter->has_outgroups){
 			}
 			#store final annotation results
 			$gffdb->store_overlaps;
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');
 		}
-				
-		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@abbres);		
+	
+		my @allabbres = (@oldabbres,@{$parameter->ogabbreviations});
+		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@allabbres,$outdir);
 
-		if ( (any { exists $speciesSSU->{$_} } @{$parameter->abbreviations}) && scalar keys %$speciesSSU > 3){			
+		$parameter->set_genomes(\@oldgenomes,\@oldabbres);
+		$parameter->set_queries(\@oldqueries);
+
+		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
+
+		if ( (any { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$speciesSSU > 3){
 			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;	
 			for my $k (keys %$speciesSSU ){
 				print FA '>'.$k."\n";
@@ -186,16 +246,17 @@ if ($parameter->has_outgroups){
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
 			&ABORT("mafft not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->abbreviations}));
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}));
 			&ABORT("raxml not found") unless $ex == 0;
 
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
+			copy catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'), catfile($outdir,'SSU.mafft.tree');
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');
-		}		
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
+		}	
 
-		if ( (any { exists $coreFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$coreFeatures > 3){
+		if ( (any { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$coreFeatures > 3){
 			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;	
 			for my $k (keys %$coreFeatures ){
 				print FA '>'.$k."\n";
@@ -213,20 +274,22 @@ if ($parameter->has_outgroups){
 
 			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
 			&ABORT("mafft not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
 			&ABORT("raxml not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->abbreviations}));
+			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
 			&ABORT("raxml not found") unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
+			copy catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'), catfile($outdir,'coreRNome.mafft.tree');
 			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
+			copy catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'), catfile($outdir,'coreRNome.stk.tree');
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);	
 		} 
 
-		if ( (any { exists $stkFeatures->{$_} } @{$parameter->abbreviations}) && scalar keys %$stkFeatures > 3){
+		if ( (any { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stkFeatures > 3){
 			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;				
 			for my $k (keys %$stkFeatures ){
 				print FA '>'.$k."\n";
@@ -235,13 +298,14 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 			
-			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->abbreviations}));
+			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}));
 			&ABORT("raxml not found") unless $ex == 0;
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
+			copy catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
 			
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$stamp.'-outgroup');			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}				
 	}
 } 
@@ -249,6 +313,9 @@ if ($parameter->has_outgroups){
 #remove temp files
 unlink $_ for glob catfile($parameter->tmp,'*');
 system("rm -rf ".$parameter->tmp);
+
+$stkdb->store if $parameter->skip_comp && $parameter->sort;
+print "\nResults stored with label ".$parameter->label."\n";
 
 ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year = $year + 1900;
@@ -364,7 +431,7 @@ sub run {
 		#store annotations already in the database in case of errors		
 		while($#{$thrListener->finished}>-1){
 			$gffdb->store(shift @{$thrListener->finished});
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,"$mday.$mon.$year-$hour:$min:$sec");
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}				
 		
 	}		
@@ -384,7 +451,7 @@ sub run {
 }
 
 sub get_phylo_features {
-	my ($abbres) = @_;	
+	my ($abbres,$outdir) = @_;	
 
 	my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);	
 	my ($ssuToAbbr,$coreToAbbr,$rnomeToAbbr);
@@ -457,11 +524,15 @@ sub get_phylo_features {
 		}		
 	}
 
-	open TXT , '>'.catfile($parameter->output,'phylogeny','INFO') or die $!;	
+	open TXT , '>'.catfile($outdir,'INFO_SSU.txt') or die $!;	
 	print TXT "SSU\n";
 	print TXT $_."\n" for sort keys %$ssuToAbbr;
+	close TXT;
+	open TXT , '>'.catfile($outdir,'INFO_RNome.txt') or die $!;	
 	print TXT "RNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$rnomeToAbbr->{$_}})."\n" for sort keys %$rnomeToAbbr;
+	close TXT;
+	open TXT , '>'.catfile($outdir,'INFO_coreRNome.txt') or die $!;	
 	print TXT "coreRNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$coreToAbbr->{$_}})."\n" for sort keys %$coreToAbbr;
 	close TXT;

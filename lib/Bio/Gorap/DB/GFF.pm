@@ -20,8 +20,14 @@ has 'parameter' => (
 #genome file based hashmap of Bio::DB::SeqFeature databases
 has 'db' => (
 	is => 'rw',
-    isa => 'HashRef',
-    default => sub { {} }
+	isa => 'HashRef',
+	default => sub { {} }
+);
+
+has 'rnas' => (
+	is => 'rw',
+	isa => 'HashRef',
+	default => sub { {} }	
 );
 
 has 'userdb' => (
@@ -61,6 +67,8 @@ sub add_gff3_entry {
 		}
 
 		$filter = $flag if $flag;
+
+		$self->rnas->{$type} = 1;
 
 		$self->db->{$abbr}->new_feature(
 		 	-start => $start, 
