@@ -191,6 +191,14 @@ sub create {
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stk.eps">Newick</a><br>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stkfa">Alignment</a><br>'."\n";
 		}
+		if (-e catfile($outdir,'core50RNome.stk.eps')){
+			print HTML '<h3>Phylogeny core50RNome</h3>'."\n";
+			print HTML 'Tree based on ncRNA predictions, present in 50% of given species and except rRNAs and tRNAs, built from Stockholm super-alignment<br>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stk.eps">EPS</a><br>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stk.eps">Newick</a><br>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stkfa">Alignment</a><br>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/INFO_core50RNome.txt">Included ncRNAs</a><br>'."\n";
+		}
 		if (-e catfile($outdir,'coreRNome.stk.eps')){
 			print HTML '<h3>Phylogeny coreRNome (Stockholm)</h3>'."\n";
 			print HTML 'Tree based on ncRNAs present in all species, built from concatenated Stockholm alignments<br>'."\n";
@@ -333,13 +341,14 @@ __DATA__
 
 <body onResize="onResize()">
 <div id="header">
-	reloading (F5) and/or resizing the window may solve displaying issues
+	<!-- reloading (F5) and/or resizing the window may solve displaying issues -->
 	<h2>GORAP results</h2>
 	<select id="select" onChange="select()">
 		<option value="select">Select</option>
 	</select>
 	<br>
 	<br>
+	<a href="https://github.com/rna-hta-jena/gorap/blob/master/README" style="text-decoration: none; font-size: 12pt; color: rgb(0,255,0)"><b>>>Manual<<</b></a>
 </div>
 
 <div id="nav">

@@ -228,7 +228,7 @@ if ($parameter->has_outgroups){
 		}
 	
 		my @allabbres = (@oldabbres,@{$parameter->ogabbreviations});
-		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures) = &get_phylo_features(\@allabbres,$outdir);
+		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features) = &get_phylo_features(\@allabbres,$outdir);
 
 		$parameter->set_genomes(\@oldgenomes,\@oldabbres);
 		$parameter->set_queries(\@oldqueries);
@@ -290,11 +290,11 @@ if ($parameter->has_outgroups){
 		} 
 
 		if ( (any { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stkFeatures > 3){
-			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;				
+			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;
 			for my $k (keys %$stkFeatures ){
 				print FA '>'.$k."\n";
-				$stkFeatures->{$k}=~s/(\W|_)/-/g;				
-				print FA $_."\n" for unpack("(a80)*",$stkFeatures->{$k});				
+				$stkFeatures->{$k}=~s/(\W|_)/-/g;
+				print FA $_."\n" for unpack("(a80)*",$stkFeatures->{$k});
 			}
 			close FA;
 			
@@ -304,6 +304,25 @@ if ($parameter->has_outgroups){
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
+			
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
+		}	
+
+		if ( (any { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stk50Features > 3){
+			open FA , '>'.catfile($outdir,'core50RNome.stkfa') or die $!;
+			for my $k (keys %$stk50Features ){
+				print FA '>'.$k."\n";
+				$stk50Features->{$k}=~s/(\W|_)/-/g;
+				print FA $_."\n" for unpack("(a80)*",$stk50Features->{$k});
+			}
+			close FA;
+			
+			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}));
+			&ABORT("raxml not found") unless $ex == 0;
+			
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj->print(-file => catfile($outdir,'core50RNome.stk.eps'));	
+			copy catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'), catfile($outdir,'core50RNome.stk.tree');
 			
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}				
@@ -453,11 +472,11 @@ sub run {
 sub get_phylo_features {
 	my ($abbres,$outdir) = @_;	
 
-	my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);	
-	my ($ssuToAbbr,$coreToAbbr,$rnomeToAbbr);
+	my ($speciesSSU,$coreFeatures,$stkFeatures,$stk50Features,$stkCoreFeatures,);	
+	my ($ssuToAbbr,$coreToAbbr,$core50ToAbbr,$rnomeToAbbr);
 
 	for my $cfg (@{$parameter->queries}){
-		$parameter->set_cfg($cfg);		
+		$parameter->set_cfg($cfg);
 
 		my $featureScore;	
 		if ($cfg=~/_SSU_/){			
@@ -484,7 +503,7 @@ sub get_phylo_features {
 		next if $cfg=~/_tRNA/ || $cfg=~/_rRNA/ || $cfg=~/CRISPR/;
 
 		my $speciesFeature;	
-		my $speciesSTKseq;	
+		my $speciesSTKseq;
 		$featureScore={};
 
 		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){
@@ -515,13 +534,24 @@ sub get_phylo_features {
 			}
 		}
 
+		next if scalar keys %$speciesFeature < ($#{$abbres} + 1)/2;
+
+		for(@$abbres){
+			if(exists $speciesSTKseq->{$_}){
+				$core50ToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
+				$stk50Features->{$_} .= $speciesSTKseq->{$_};
+			} else {				
+				$stk50Features->{$_} .= join('',('?') x $l);
+			}
+		}
+
 		next if scalar keys %$speciesFeature < ($#{$abbres} + 1);		
 
 		for(@$abbres){
 			$coreToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 			$coreFeatures->{$_} .= $speciesFeature->{$_};			
 			$stkCoreFeatures->{$_} .= $speciesSTKseq->{$_};
-		}		
+		}
 	}
 
 	open TXT , '>'.catfile($outdir,'INFO_SSU.txt') or die $!;	
@@ -536,7 +566,12 @@ sub get_phylo_features {
 	print TXT "coreRNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$coreToAbbr->{$_}})."\n" for sort keys %$coreToAbbr;
 	close TXT;
-	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures);
+	open TXT , '>'.catfile($outdir,'INFO_core50RNome.txt') or die $!;	
+	print TXT "core50RNome\n";
+	print TXT $_."\t".join("\t",sort keys %{$core50ToAbbr->{$_}})."\n" for sort keys %$core50ToAbbr;
+	close TXT;
+
+	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features);
 }
 
 sub ABORT {
