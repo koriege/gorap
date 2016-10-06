@@ -97,7 +97,7 @@ sub calc_features {
 		}
 	}
 		
-	my $toolPath = `which CRT1.2-CLI.jar`;
+	my $toolPath = `which crt.jar`;
 	chomp $toolPath;
 	
 	my $select = IO::Select->new();

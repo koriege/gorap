@@ -34,6 +34,11 @@ print $stamp."\n";
 
 print "\nFor help run Gorap.pl -h\n\n";
 
+if ( ! $ENV{GORAP} || ! $ENV{PERL5LIB}){
+	print "Environment variables GORAP, PERL5LIB necessary - see README\n";
+	exit 1;
+}
+
 #push gorap tools to $PATH
 my $PATHtools;
 for(reverse glob(catdir($ENV{GORAP},'*','bin'))){	
@@ -98,7 +103,7 @@ if ($parameter->refresh){
 	$stkdb->store;
 	$gffdb->store_overlaps;
 
-	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb->idToPath,$parameter->label);
+	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 	print "\nResults stored with label ".$parameter->label."\n";
 
 	unlink $_ for glob catfile($parameter->tmp,'*');
@@ -177,7 +182,8 @@ unless ($parameter->skip_comp){
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 }
 
-if ($parameter->has_outgroups){
+if ($parameter->has_outgroups && `which mafft` && `which raxml`){
+
 	print "Preparing phylogeny reconstruction\n" if $parameter->verbose;
 	my @newQ;	
 	my @oldqueries = @{$parameter->queries};
@@ -244,14 +250,14 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 
-			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
-			&ABORT("mafft not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}));
-			&ABORT("raxml not found") unless $ex == 0;
+			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
+			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}));
 
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'), catfile($outdir,'SSU.mafft.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'));
+			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'SSU.mafft.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}	
@@ -272,19 +278,21 @@ if ($parameter->has_outgroups){
 			}			
 			close FA;
 
-			my $ex = system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
-			&ABORT("mafft not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
-			&ABORT("raxml not found") unless $ex == 0;
-			$ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
-			&ABORT("raxml not found") unless $ex == 0;
+			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
+			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
+			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'), catfile($outdir,'coreRNome.mafft.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'));
+			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.mafft.pdf');
+
 			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'), catfile($outdir,'coreRNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.stk.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);	
 		} 
@@ -298,12 +306,13 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 			
-			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}));
-			&ABORT("raxml not found") unless $ex == 0;
+			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}));
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'RNome.stk.pdf');
 			
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}	
@@ -317,17 +326,20 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 			
-			my $ex = system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}));
-			&ABORT("raxml not found") unless $ex == 0;
+			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}));
 			
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'core50RNome.stk.eps'));	
 			copy catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'), catfile($outdir,'core50RNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'core50RNome.stk.pdf');
 			
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}				
 	}
-} 
+} else {
+	print "Phylogeny reconstruction aborted!\nRAxML and/or Mafft is not installed\n" if $parameter->has_outgroups;
+}
 
 #remove temp files
 unlink $_ for glob catfile($parameter->tmp,'*');
@@ -574,21 +586,18 @@ sub get_phylo_features {
 	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features);
 }
 
-sub ABORT {
-	print $_[0]."\n";
+sub SIGABORT {	
+	$thrListener->stop if $thrListener;
+	print "\n".'Safety store in progress..'."\n";
+	$gffdb->store_overlaps if $gffdb;
 	unlink $_ for glob catfile($parameter->tmp,'*');
 	system("rm -rf ".$parameter->tmp);
 	exit 1;
 }
 
-sub SIGABORT {	
-	$thrListener->stop if $thrListener;
-	print "\n".'Safety store in progress..'."\n";
-	$gffdb->store_overlaps if $gffdb;
-	&ABORT;
-}
-
 __END__
+
+=encoding utf8
 
 =head1 NAME
 
@@ -598,171 +607,170 @@ GORAP - Genomewide ncRNA Annotation Pipeline
 
 Gorap.pl [OPTION]...
   
-example: Gorap.pl -a x,y -i 1.fa,2.fa -g 1.gff,2.gff -c 1 -k bac -q 1:20,169,1852: -r 543 -s 'species name'
+example: Gorap.pl -a sa,sb -i s1.fa,s2.fa -g s1.gff,s2.gff -c 4 -k bac -q 1:20,169,1852: -r 123 -s 'species name' -sort
 
 =head1 DESCRIPTION
 
-For more parameters check also RNA family specific configuration files $GORAP/config/*.cfg
-Please read the manual for improved annotations by the use of specific:
-queries, 
-covariance models, 
-thresholds, 
-structural properties
-and how to add own software or scripts
+B<GORAP> will read given input sequences and screen them for all non-coding RNAs present in the Rfam database with 
+generalized or specialized software by use of developed filtering strategies. Furthermore the pipeline is able to 
+reconstruct phylogenetic trees and perform de novo predictions as well as TPM/FPKM calculations from RNA-Seq experiments.
+Screening options are defined in RNA family configuration files at $GORAP/config/*.cfg, setting up software and 
+parameters, queries, covariance models, thresholds and sequence constrains. These files can be easily amended and completed by own queries.
 
-B<-h>, B<--help>	
+=head1 OPTIONS
 
-	this (help) message
+=over 4
 
-B<-example>, B<--example>	
+=item B<-h>, B<--help>
 
-	Apply GORAP on $GORAP/example/ecoli.fa
-	
-B<-update>, B<--update>=I<all,rfam,ncbi,silva,cfg>	
+this (help) message
 
-	(optional, default: all) 
-	updates internal used databases (Rfam, NCBI, Silva)
-	!!! check your edited configuration files afterwards
+=item B<-example>, B<--example>
+
+apply GORAP on $GORAP/example/ecoli.fa
+
+=item B<-update>, B<--update>=[all,rfam,ncbi,silva,cfg]
+
+updates internal used databases (Rfam, NCBI, Silva)	!!! check your edited configuration files afterwards
+
+=item B<-file>, B<--file>=FILE
+
+run GORAP with a parameter file - see provided example for detailed information. 
+note: command line parameters priorize parameter file settings
+
+=back
+
+=head1  -------------------------
+
+=over 4
 	
-B<-file>, B<--file>=F<FILE> 
-	
-	(optional)
-	(example file at: $GORAP/parameter/parameter.txt) 
-	run GORAP with a parameter file
-	following parameters will override settings from the parameter file
-	
-	
--------------------------
-	
+=item B<-i>, B<--fastas>=FILE,...
+
+(required) 
+paths of comma separated FASTA files
 		
-B<-i>, B<--fastas>=F<FILE>,...
+=item B<-a>, B<--abbreviations>=STRING,...	
 
-	(optional, default $GORAP/example/ecoli.fa) 
-	path(s) of comma separated species FASTA file(s) - wildcards allowed
-		
-B<-a>, B<--abbreviations>=I<abbreviation,> ...	
+(default: build from FASTA file names) 
+list of comma separated abbreviations as unique identifiers.
+note: in equal order and list size to -i (otherwise use parameter file)
 
-	(optional, default: build from FASTA file name(s)) 
-	list of comma separated abbreviations as unique identifiers
-	note: list lengths of B<-i> and B<-a> must be equal
+=item B<-q>, B<--queries>=1:5,8,...
 
-B<-q>, B<--queries>=I<RF00001:RF00005,RF00008,> ...
+list of comma separated, single Rfam ids (e.g. RF00001) or numbers (e.g. 1) and ranges defined by ':' (default: all queries)
 
-	(default: all Rfam families)
-	list of comma separated Rfam ids/numbers or ranges by ':'
-	to enable additional features only and skip annotation set B<-q> 0
+=item B<-k>, B<--kingdom>=[bac,arc,euk,fungi,virus]
 
-B<-k>, B<--kingdom>=I<bac,arc,euk,fungi,virus>
+list of comma separated kingdoms to screen for kingdom specific ncRNAs (default: all)
 
-	(optional, default: all) 
-	list of comma separated kingdoms to screen for kingdom specific ncRNAs only
+=item B<-r>, B<--rank>=[INT/STRING]	
 
-B<-r>, B<--rank>=[I<INT/STRING>]	
-
-	(optional) 
-	NCBI taxonomy matching scientific name or taxonomy id of rank/genus/... for given species
-	please escape white spaces i.e. Bacillus\\ subtilis\\ group or write 'Bacillus subtilis group'
+NCBI taxonomy matching id or scientific name of rank/genus/... for given sequences.	please use quotas if using names e.g. 'Bacillus subtilis group'
 	
-B<-s>, B<--species>=[I<INT/STRING>]
+=item B<-s>, B<--species>=[INT/STRING]
 
-	(optional) 
-	NCBI taxonomy matching scientific name or taxonomy id of given species
-	please escape white spaces i.e. Bacillus\\ subtilis or write 'Bacillus subtilis'
-								
-B<-og>, B<--outgroup>=F<FILE>
+NCBI taxonomy matching scientific name or taxonomy id of given species. please use quotas if using names e.g. 'Bacillus subtilis'
 
-	(optional) 
-	path to an additional species FASTA file to be used as outgroup for
-	SSU rRNA based phylogeny reconstruction including all SSU rRNA annotations of B<-i>
+=item B<-o>, B<--output>=PATH
 
-B<-oga>, B<--ogabbreviations>=F<FILE>
+(default: <working directory>/gorap_out) 
+output directory
+
+=item B<-c>, B<--cpu>=INT
+
+(default: 1) 
+number of threads to use 
+
+=item B<-t>, B<--tmp>=F<PATH>	
+
+(default: $TMPDIR or /tmp or $GORAP/tmp)
+set the temporary directory - will be removed after successful GORAP run
+
+=item B<-sort>, B<--sort>
 	
-	(optional)
-	(default: build from FASTA file name of B<-og> 
-	list of comma separated abbreviations as unique identifiers
+enable resulting alignments to be sorted in taxonomic order
+
+=item B<-notax>, B<--notaxonomy>
 	
-B<-b>, B<--bams>=F<FILE>,...
+disables taxonomic sorting and filters based on given rank/species information useful to skip time consuming initializations for testing purposes
 
-	(optional) 
-	paths(s) of comma separated list of colon separated indexed BAM file(s) - wildcards allowed
-
-B<-ss>, B<--strandspecific>
-
-	(optional) 
-	mapping data (BAM files) had strand specific library preparation
-
-B<minl>, B<--minlength>=I<INT>
+=item B<-nofi>, B<--nofilter>
 	
-	(optional, default 50)
-	minimum length of de novo predicted genes
+disables GORAP specific sequence and structure filter
 
-B<minh>, B<--minheigth>=I<INT>
+=back
 
-	(optional, default 1000)
-	minimum number of reads at the same locus for de novo gene prediction
+=head1 ADDITIONAL OPTIONS
 
-B<-g>, B<--gffs>=F<FILE>,...
+=over 4
 
-	(optional) 
-	paths(s) of comma separated list of colon separated GFF3 file(s) - wildcards allowed
+=item B<-skip>, B<--skipanno>
+
+disables annotation step - useful e.g. for additional phylogeny reconstruction
+
+=item B<-og>, B<--outgroups>=FILE
+
+path to additional FASTA files as trigger for starting phylogeny reconstructions based on RNome and SSU rRNA annotations in given sequences
+
+=item B<-oga>, B<--ogabbreviations>=FILE
+
+(default: build from FASTA file name of -og)
+list of comma separated abbreviations as unique identifiers.
+note: in equal order and list size to -og (otherwise use parameter file)
+
+=item B<-g>, B<--gffs>=FILE,...
+
+comma separated paths of known annotations in GFF3 format with necessary ID tag for filtering against and TMP/FPKM assignment.
+note1: in equal order and list size to -i (otherwise use parameter file).
+note2: separate multiple BAMs related to one input FASTA by colons
+e.g. s1g1.gff:s1g2.gff,s2.gff
+
+=item B<-noc>, B<--nooverlapcheck>
 	
-B<-o>, B<--output>=F<PATH>	
+disables deletion of predictions even if they overlap with a given GFF3 file
 
-	(optional, default: <working directory>/gorap_out) 
-	output directory
+=item B<-b>, B<--bams>=FILE,...
 
-B<-c>, B<--cpu>=I<INT>	
+comma separated paths of mapping results in BAM format, triggering TPM/FPKM calculation and de novo prediction.
+note1: in equal order and list size to -i (otherwise use parameter file).
+note2: separate multiple BAMs related to one input FASTA by colons
+e.g. s1g1.bam:s1g2.bam,s2.bam
 
-	(optional, default: 1) 
-	number of threads (cpu cores to use)
+=item B<-strand>, B<--strandspecific>
 
-B<-t>, B<--tmp>=F<PATH>	
+mapping data (BAM files) resulted from strand specific library preparation
 
-	(optional, default: $TMPDIR or /tmp or $GORAP/tmp) 
-	set the temporary directory - will be removed afterwards
+=item B<-notpm>, B<--notpm>
 	
-B<-sort>, B<--sort>
-	
-	(optional)
-	enable resulting alignments to be sorted taxonomical by given rank or species 
+disables TPM/FPKM calculation
 
-B<-notax>, B<--notaxonomy>
-	
-	(optional)
-	disables taxonomic sorting and filter using rank and species information
+=item B<-minl>, B<--minlength>=INT
 
-B<-noo>, B<--nooverlap>
-	
-	(optional)
-	disables deletion of de novo predictions if they overlap with a given GFF3 file
+(default: 50)
+minimum length for de novo gene prediction 
 
-B<-notpm>, B<--notpm>
-	
-	(optional)
-	disables TPM calculation
+=item B<-minh>, B<--minheigth>=INT
 
-B<-nofi>, B<--nofilter>
-	
-	(optional)
-	disables GORAP specific sequence and structure filter
+(default: 1000)
+minimum nucleotide coverage for de novo gene prediction
+
+=back
 
 =head1 AUTHOR
 
-Konstantin Riege, E<lt>konstantin.riege@gmail.comE<gt>
+Konstantin Riege, E<lt>konstantin.riege@uni-jena.deE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2015 by Konstantin Riege
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.14.2 or,
+it under the same terms as Perl itself, either Perl version 5.10 or,
 at your option, any later version of Perl 5 you may have available.
 
 =head1 SEE ALSO
 
-The full description of all in-/outputs and parameters is maintained as PDF manual. 
-See L<www.rna.uni-jena.de/software.php>.
+L<www.rna.uni-jena.de>
 
 =cut
-
 

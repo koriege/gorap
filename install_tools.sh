@@ -1,144 +1,297 @@
 #!/bin/bash
-pwd=$PWD
-bit=$(uname -m | awk '{if ($0 == "i686"){print "32-"}else{print ""}}')
-if [[ $OSTYPE == darwin* ]]; then 
-	bit='mac-'
-fi
-if [[ $GORAP == "" ]]; then
-	echo 'Setup $GORAP environment varibale first.'
+if [[ ! $GORAP ]]; then
+	echo 'Setup $GORAP environment variable first.'
 	exit 1
 fi
 mkdir -p $GORAP
-rm -f $pwd/install.log 2> $pwd/install.log > $pwd/install.log
 
-progress(){
+pwd=$PWD
+rm -f install.log &> /dev/null
+os='linux'
+if [[ $OSTYPE == darwin* ]]; then 
+	os='mac'
+fi
+bit=$(uname -m | awk '{if ($0 == "i686"){print "32"}else{print "64"}}')
+
+progress (){
 	x=0
 	while [ 1 ]; do	
 		x=$((x+1))
 		if [ "$x" -eq "2" ]
 			then
 				x=0
-				echo -en "\r/ for more information type: tail -f install.log"
+				echo -en "\r/"
 			else
-				echo -en "\r\\ for more information type: tail -f install.log"
+				echo -en "\r\\"
 		fi
 		sleep 1
 	done
 }
 
-download () {
-	if [[ ! -d $GORAP/$tool ]] && [[ $ex -eq 0 ]]; then
+extract (){
+	echo "Extracting $tool"
+	# progress &
+	# pid=$!
+	tar -xzf $1 -C $GORAP
+	if [[ $? -gt 0 ]]; then
+		kill $pid &> /dev/null
+		wait $pid &> /dev/null
 		echo
-		echo 'Downloading '$tool	
-		echo		
-		wget -T 10 -N www.rna.uni-jena.de/supplements/gorap/$bit$tool.tar.gz
-		if [[ $? -gt 0 ]]; then
-			echo
-			echo $tool' download failed'
-			exit 1
-		fi 
-		echo 'Extracting '$tool		
-		tar -xzf $bit$tool.tar.gz -C $GORAP
-		rm $bit$tool.tar.gz
-	fi
+		echo "Extracting $tool failed - see install.log for details"
+		exit 1
+	fi 
+	# kill $pid &> /dev/null
+	# wait $pid &> /dev/null
+	# echo
 }
 
-recompile () {
-	echo
-	echo 'Installing '$tool
-	echo
+recompile (){
+	echo "Installing $tool"
 	progress &
 	pid=$!
 	bash recompile_tool.sh $tool 2>> $pwd/install.log >> $pwd/install.log
 	if [[ $? -gt 0 ]]; then
-		kill $pid 2>/dev/null > /dev/null
-		wait $pid 2>/dev/null > /dev/null
+		kill $pid &> /dev/null
+		wait $pid &> /dev/null
 		echo
-		echo $tool' installation failed'
+		echo "Installing $tool failed - see install.log for details"
 		exit 1
 	fi 
-	kill $pid 2>/dev/null > /dev/null
-	wait $pid 2>/dev/null > /dev/null
+	kill $pid &> /dev/null
+	wait $pid &> /dev/null
 	echo
 }
 
-if [[ $bit = '32-' ]]; then
-	echo 'I am sorry, it is not possible to calculate phylogenies with RAxML on a 32 bit operating system'
-	echo 'Skipping installation of RAxML and Mafft'
-else
-	echo 'Do you want to calculate phylogenies and'
-	read -p 'therefor install RAxML and Mafft? [y|n] ' in
-	bitbu=$bit
-	bit=""
-	if [[ $in = 'y' ]] || [[ $in = 'Y' ]]; then
-		cd $pwd
-		tool='RAxML-7.4.2'
-		ex=$(which raxml | wc | awk '{print $1}')
-		if [[ $ex -gt 0 ]]; then
-			raxml -h 2>> $pwd/install.log >> $pwd/install.log
-			if [ $? -gt 0 ]; then
-				ex=0
-			fi
+download (){
+	toolid=$tool
+	case $toolid in
+	'RAXML')
+		tool='standard-RAxML-8.2.9'
+		dlpath='https://github.com/stamatak/standard-RAxML/archive/v8.2.9.tar.gz'
+	;;
+	'MAFFT')
+		tool='mafft-7.305-with-extensions'
+		dlpath="http://mafft.cbrc.jp/alignment/software/$tool-src.tgz"
+	;;
+	'NEWICKTOPDF')
+		tool='newicktopdf'
+		dlpath=''
+		if [[ ! -d $GORAP/$tool ]]; then
+			echo
+			echo "Downloading"	
+			mkdir -p $GORAP/newicktopdf/bin
+			echo "Extracting $tool"
+			wget -q --show-progress -T 10 ftp://pbil.univ-lyon1.fr/pub/mol_phylogeny/njplot/newicktopdf -O $GORAP/newicktopdf/bin/newicktopdf
+			echo "Installing $tool"
+			echo "\\"
+			chmod 755 $GORAP/newicktopdf/bin/newicktopdf
 		fi
-		download
-		if [[ $ex -eq 0 ]]; then
-			$GORAP/$tool/bin/raxml -h 2>> $pwd/install.log >> $pwd/install.log
-			if [[ $? -gt 0 ]]; then				
-				recompile
+	;;
+	'INFERNAL')
+		tool='infernal-1.1.2'
+		dlpath="http://eddylab.org/software/infernal/$tool.tar.gz"
+	;;
+	'INFERNAL1')
+		tool='infernal-1.0'
+		dlpath="http://eddylab.org/software/infernal/$tool.tar.gz"
+	;;
+	'GLIBC')
+		tool='glibc-2.24'
+		dlpath="https://ftp.gnu.org/gnu/libc/$tool.tar.gz"
+	;;
+	'RNABOB')
+		tool='rnabob-2.2.1'
+		dlpath="http://eddylab.org/software/rnabob/$tool.tar.gz"
+	;;
+	'BLAST')
+		dlpath=''
+		tool=$(ls -d $GORAP/ncbi-blast*/ 2> /dev/null)
+		if [[ $tool ]]; then
+			tool=$(basename $tool)
+		else
+			echo
+			echo "Downloading"
+			rm -f ncbi-blast*.tar.gz
+			if [[ $bit -eq 32 ]]; then
+				if [[ $os == 'mac' ]]; then
+					wget -q --show-progress -T 10 ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.4.0/ncbi-blast-2.4.0+-universal-macosx.tar.gz
+				else
+					wget -q --show-progress -T 10 ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.30/ncbi-blast-2.2.30+-ia32-linux.tar.gz
+				fi
+			else
+				if [[ $os == 'mac' ]]; then
+					wget -q --show-progress -T 10 -r -nd -np -l 1 -A *x64-macosx.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/
+				else
+					wget -q --show-progress -T 10 -r -nd -np -l 1 -A *x64-linux.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/
+				fi
 			fi
+			tool=$(ls ncbi-blast*.tar.gz | egrep -Eo 'ncbi-blast-[0-9]+\.[0-9]+\.[0-9]+\+')
+			extract $(ls ncbi-blast*.tar.gz)
+			rm -f ncbi-blast*.tar.gz
+			echo "Installing $tool"
+			echo "\\"
 		fi
+	;;
+	'TRNASCAN')
+		tool='tRNAscan-SE-1.3.1'
+		dlpath="http://www.rna.uni-jena.de/supplements/gorap/$tool-src.tar.gz"
+	;;
+	'HMMER')
+		tool='hmmer-2.3.2'
+		dlpath="http://eddylab.org/software/hmmer/2.3.2/$tool.tar.gz"
+	;;
+	'RNAMMER')
+		tool='rnammer-1.2'
+		dlpath="http://www.rna.uni-jena.de/supplements/gorap/$tool.tar.gz"		
+	;;
+	'BCHECK')
+		tool='Bcheck-0.6'
+		dlpath='http://rna.tbi.univie.ac.at/bcheck/Bcheck.tgz'
+	;;
+	'CRT')
+		tool='crt-1.2'
+		dlpath=''
+		if [[ ! -d $GORAP/$tool ]]; then
+			echo "Downloading"
+			mkdir -p $GORAP/$tool/bin
+			wget -q --show-progress -T 10 http://www.room220.com/crt/CRT1.2-CLI.jar.zip
+			echo "Extracting $tool"
+			unzip -q -d $GORAP/$tool/bin CRT1.2-CLI.jar.zip		
+			rm -f CRT1.2-CLI.jar.zip
+			echo "Installing $tool"
+			echo "\\"
+			mv $GORAP/crt-1.2/bin/CRT1.2-CLI.jar $GORAP/crt-1.2/bin/crt.jar
+		fi
+	;;
+	'SAMTOOLS')
+		tool='samtools-0.1.19'
+		dlpath='https://github.com/samtools/samtools/archive/0.1.19.tar.gz'
+	;;
+	'ZLIB')
+		tool='zlib-1.2.8'
+		dlpath="http://zlib.net/$tool.tar.gz"
+	;;
+	'NCURSES')
+		tool='ncurses-6.0'
+		dlpath="https://ftp.gnu.org/pub/gnu/ncurses/$tool.tar.gz"
+	;;
+	*)
+		echo
+		echo "Downloading $tool failed - see install.log for details"
+		exit 1
+	;;
+	esac
+	if [[ $dlpath ]] && [[ ! -d $GORAP/$tool ]]; then
+		echo "Downloading"
+		wget -q --show-progress -T 10 $dlpath -O $tool.tar.gz
+		if [[ $? -gt 0 ]]; then 
+			echo "Download failed - see install.log for details"
+			exit 1
+		fi
+		extract $tool.tar.gz
+		rm -f $tool.tar.gz
+	fi
+	sed -i "s/$toolid=.*/$toolid='$tool'/g" recompile_tool.sh
+}
 
-		cd $pwd
-		tool='mafft-7.017-with-extensions' 
-		ex=$(which mafft | wc | awk '{print $1}')
-		if [[ $ex -gt 0 ]]; then
-			mafft --help 2>> $pwd/install.log >> $pwd/install.log
-			if [[ $? -gt 0 ]]; then
-				ex=0
-			fi
-		fi
-		download
-		if [[ $ex -eq 0 ]]; then
-			$GORAP/$tool/bin/mafft -h 2>> $pwd/install.log >> $pwd/install.log
-			if [[ $? -gt 0 ]]; then
-				recompile
-			fi
+if [[ $bit -eq 32 ]] || [[ $os == 'mac' ]]; then
+	echo 'Unexpected operating system detected. Software compilation necessary.'
+	if [[ $bit -eq 32 ]]; then
+		echo 'NOTE: Phylogeny reconstruction will not be available on your 32 bit OS'
+	fi
+	read -p 'Do you want to continue [y|n] ' in
+	if [[ $in != 'y' ]] && [[ $in != 'Y' ]]; then
+		echo 'Installation aborted...'
+		exit
+	fi
+fi
+
+if [[ $bit -eq 64 ]]; then
+	echo '64 bit operating system detected. Compiled software dependencies available.'
+	read -p 'Do you want to download them instead of starting compilation [y|n]? ' in
+	if [[ $in == 'y' ]] || [[ $in == 'Y' ]]; then
+		echo
+		echo 'Downloading software'
+		wget -q --show-progress -T 10 www.rna.uni-jena.de/supplements/gorap/dependencies.tar.gz -O dependencies.tar.gz
+		extract dependencies.tar.gz
+	fi
+fi
+
+if [[ $bit -eq 64 ]]; then
+	cd $pwd
+	tool=RAXML
+	ex=$(which raxml)
+	if [[ $ex ]]; then
+		raxml -h &> /dev/null
+		if [ $? -gt 0 ]; then
+			unset ex
 		fi
 	fi
-	bit=$bitbu
+	if [[ ! $ex ]]; then
+		download
+		$GORAP/$tool/bin/raxml -h &> /dev/null
+		if [[ $? -gt 0 ]]; then				
+			recompile
+		fi
+	fi
+
+	cd $pwd
+	tool=MAFFT
+	ex=$(which mafft)
+	if [[ $ex ]]; then
+		if [[ ! $(mafft -h 2>&1 | grep MAFFT | wc -l) ]]; then
+			unset ex
+		fi
+	fi
+	if [[ ! $ex ]]; then
+		download
+		if [[ ! $($GORAP/$tool/bin/mafft -h 2>&1 | grep MAFFT) ]]; then
+			recompile
+		fi
+	fi
+
+	cd $pwd
+	tool=NEWICKTOPDF
+	ex=$(which newicktopdf)
+	if [[ ! $ex ]]; then
+		download
+		$GORAP/$tool/bin/newicktopdf -h &> /dev/null
+		if [[ $? -gt 0 ]]; then
+			echo
+			echo $tool' installation failed - see install.log for details'
+			exit 1
+		fi
+	fi
 fi
 
 cd $pwd
-tool='infernal-1.1rc2'
-ex=$(which cmsearch | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then
-	cmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+tool=INFERNAL
+ex=$(which cmsearch)
+if [[ $ex ]]; then
+	cmsearch -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	else 
-		ex=$(cmsearch -h | grep INFERNAL | awk '{if($3>=1.1){print "1"}else{print "0"}}')
+		ex=$(cmsearch -h | grep INFERNAL | awk '$3>=1.1{print 1}')
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/cmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+if [[ ! $ex ]]; then
+	$GORAP/$tool/bin/cmsearch -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
 		recompile
 	fi
 fi
-
 cd $pwd
-tool='infernal-1.1rc2'
-ex=$(which esl-alimerge | wc | awk '{print $1}')
+ex=$(which esl-alimerge | wc -l)
 if [[ $ex -gt 0 ]]; then
-	esl-alimerge -h 2>> $pwd/install.log >> $pwd/install.log
+	esl-alimerge -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
 		ex=0		
 	fi			
 fi
-download
 if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/esl-alimerge -h 2>> $pwd/install.log >> $pwd/install.log
+	download
+	$GORAP/$tool/bin/esl-alimerge -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
 		tool='esl-alimerge'
 		recompile
@@ -146,143 +299,159 @@ if [[ $ex -eq 0 ]]; then
 fi
 
 cd $pwd
-tool='infernal-1.0'
-ex=$(which cmsearch | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then	
-	cmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+tool=INFERNAL1
+ex=$(which cmsearch)
+if [[ $ex ]]; then	
+	cmsearch -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	else
-		ex=$(cmsearch -h | grep INFERNAL | awk '{if($3=="1.0"){print "1"}else{print "0"}}')
+		ex=$(cmsearch -h | grep INFERNAL | awk '$3=="1.0"{print 1}')
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/cmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+if [[ ! $ex ]]; then
+	download
+	$GORAP/$tool/bin/cmsearch -h &> /dev/null
 	if [[ $? -gt 0 ]]; then		
 		recompile
 	fi
 fi
 
 cd $pwd
-tool='rnabob-2.2'
-ex=0
-ex=$(which rnabob | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then
-	rnabob -h 2>> $pwd/install.log >> $pwd/install.log
+tool=RNABOB
+ex=$(which rnabob)
+if [[ $ex ]]; then
+	rnabob -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/rnabob -h 2>> $pwd/install.log >> $pwd/install.log
+if [[ ! $ex ]]; then
+	download
+	$GORAP/$tool/bin/rnabob -h &> /dev/null
 	if [[ $? -gt 0 ]]; then		
 		recompile
 	fi
 fi
 
 cd $pwd
-tool='ncbi-blast-2.2.30+'
-ex=$(which blastn | wc | awk '{print $1}') 
-if [[ $ex -gt 0 ]]; then
-	blastn -h 2>> $pwd/install.log >> $pwd/install.log
+tool=BLAST
+ex=$(which blastn) 
+if [[ $ex ]]; then
+	blastn -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	else
-		ex=$(blastn -h | grep DESCRIPTION -A 1 | tail -n 1 | awk '{if ($3~/^2\.2\.2.+\+$/ || $3~/^2\.2\.3.+\+$/ || $3~/^2\.3\..+\+$/){print "1"}else{print "0"}}')		
+		ex=$(blastn -h | grep DESCRIPTION -A 1 | tail -n 1 | awk '{split($NF,a,"."); if(a[2]>=2 && $NF~/\+$/){print 1}}')
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/blastn -h 2>> $pwd/install.log >> $pwd/install.log
-	if [[ $? -gt 0 ]]; then		
-		recompile
+if [[ ! $ex ]]; then
+	download
+	$GORAP/$tool/bin/blastn -h &> /dev/null
+	if [[ $? -gt 0 ]]; then
+		echo
+		echo $tool' installation failed - see install.log for details'
+		exit 1
 	fi
 fi
 
 cd $pwd
-tool='tRNAscan-SE-1.3.1' 
-ex=$(which tRNAscan-SE | wc | awk '{print $1}') 
+tool=TRNASCAN
+ex=$(which tRNAscan-SE) 
 if [[ $ex -gt 0 ]]; then
-	tRNAscan-SE -h 2>> $pwd/install.log >> $pwd/install.log
+	tRNAscan-SE -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
+if [[ ! $ex ]]; then
+	download
 	export PERL5LIB=$GORAP/$tool:$PERL5LIB
-	$GORAP/$tool/bin/tRNAscan-SE -h 2>> $pwd/install.log >> $pwd/install.log
+	$GORAP/$tool/bin/tRNAscan-SE -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
 		recompile
 	fi
 fi
 
 cd $pwd
-tool='hmmer-2.3.2'
-ex=$(which hmmsearch | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then
-	hmmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+tool=HMMER
+ex=$(which hmmsearch)
+hmmer=$ex
+if [[ $ex ]]; then
+	hmmsearch -h &> /dev/null
 	if [ $? -gt 0 ]; then
-		ex=0
+		unset ex
 	else
-		ex=$(hmmsearch -h | grep HMMER | awk '{if($2=="2.3.2"){print "1"}else{print "0"}}')
+		ex=$(hmmsearch -h | grep HMMER | awk '$3=="2.3.2" || $2=="2.3.2"{print 1}')
 	fi
 fi
-download
-if [[ $ex -eq 0 ]]; then
-	$GORAP/$tool/bin/hmmsearch -h 2>> $pwd/install.log >> $pwd/install.log
+if [[ ! $ex ]]; then
+	download
+	$GORAP/$tool/bin/hmmsearch -h &> /dev/null
 	if [[ $? -gt 0 ]]; then
 		recompile
 	fi
+	hmmer=$GORAP/$tool/bin/hmmsearch
 fi
 
 cd $pwd
-tool='rnammer-1.2'
-ex=$(which rnammer | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then
-	rnammer -v 2>> $pwd/install.log >> $pwd/install.log
+tool=RNAMMER
+ex=$(which rnammer)
+if [[ $ex ]]; then
+	rnammer -v &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		unset ex
 	fi
 fi
-download
-
-cd $pwd
-tool='bcheck-0.6'
-ex=$(which Bcheck | wc | awk '{print $1}')
-if [[ $ex -gt 0 ]]; then
-	Bcheck 2>> $pwd/install.log >> $pwd/install.log
+if [[ ! $ex ]]; then
+	download
+	sed -iE "s@HMMSEARCH_BINARY\s*=.*@HMMSEARCH_BINARY='$hmmer';@" $GORAP/$tool/bin/rnammer
+	$GORAP/$tool/bin/rnammer -v &> /dev/null
 	if [[ $? -gt 0 ]]; then
-		ex=0
+		echo
+		echo $tool' installation failed - see install.log for details'
+		exit 1
 	fi
 fi
-download
 
 cd $pwd
-tool='crt-1.2'
-ex=$(which CRT1.2-CLI.jar | wc | awk '{print $1}')
-download
-
-cd $pwd
-tool='samtools-0.1.19'
-ex=0
-download
-if [[ $ex -eq 0 ]]; then
-	# if [[ ! -e $GORAP/example/ecoli.fa ]]; then
-	# 	echo
-	# 	echo $tool' installation failed'
-	# 	echo 'Download corresponding databases first and try again'
-	# 	rm -rf $GORAP/samtools* $GORAP/zlib* $GORAP/ncurses*
-	# 	exit 1
-	# else
-	# 	$GORAP/$tool/bin/samtools faidx $GORAP/example/ecoli.fa 2>> $pwd/install.log >> $pwd/install.log
-	# 	if [[ $? -gt 0 ]]; then
-	 		recompile
-	# 	fi
-	# fi
+tool=BCHECK
+ex=$(which Bcheck)
+if [[ $ex ]]; then
+	Bcheck -h &> /dev/null
+	if [[ $? -gt 0 ]]; then
+		unset ex
+	fi
 fi
+if [[ ! $ex ]]; then
+	download
+	mkdir -p $GORAP/$tool/bin
+	mv $GORAP/$tool/* $GORAP/$tool/bin &> /dev/null
+	sed -i '/bob_version/,+3d' $GORAP/$tool/bin/Bcheck
+fi
+
+cd $pwd
+tool='CRT'
+download
+
+cd $pwd
+tool=SAMTOOLS
+download
+samtool=$tool
+if [[ ! -e /usr/include/zlib.h ]]; then 
+	cd $pwd
+	tool=ZLIB
+	download
+	recompile
+fi
+if [[ ! -e /usr/include/ncurses.h ]]; then 
+	cd $pwd
+	tool=NCURSES
+	download
+	recompile
+fi
+tool=$samtool
+recompile
 
 echo
 echo 'All tools are successfully installed'

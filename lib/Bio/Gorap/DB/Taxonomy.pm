@@ -374,11 +374,11 @@ sub findRelatedIDs {
 sub sort_stk {
 	my ($self, $stk) = @_;
 
-	return $stk unless $self->rankID || $self->speciesID;
+	# return $stk unless $self->rankID || $self->speciesID;
 
 	my @tosort;
 	my @remaining;
-	my $taxID = $self->speciesID ? $self->speciesID : $self->rankID;
+	# my $taxID = $self->speciesID ? $self->speciesID : $self->rankID;
 	for ( $stk->each_seq() ) {
 		if (exists $self->nameToTaxid->{(split(/\./,$_->id))[0]}){
 			push @tosort , $_;	

@@ -38,12 +38,6 @@ has 'pid' => (
 	required => 1
 );
 
-has 'commandline' => (
-	is => 'ro',
-	isa => 'Bool',
-	required => 1
-);
-
 has 'cfg' => (
 	is => 'rw',
 	isa => 'Bio::Gorap::CFG'
@@ -82,16 +76,22 @@ has 'tmp' => (
 	}
 );
 
-has 'skip_comp' => (
+has commandline => (
+	is => 'rw',
+	isa => 'Bool',
+	required => 1
+);
+
+has ['taxonomy', 'verbose', 'check_overlaps'] => (
+	is => 'rw',
+	isa => 'Bool',
+	default => 1
+);
+
+has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'strandspec', 'notax', 'refresh'] => (
 	is => 'rw',
 	isa => 'Bool',		
 	default => 0
-);
-
-has 'taxonomy' => (
-	is => 'rw',
-	isa => 'Bool',		
-	default => 1
 );
 
 has 'kingdoms' => (
@@ -104,18 +104,6 @@ has 'queries' => (
 	is => 'rw',
 	isa => 'ArrayRef',		
 	builder => '_set_queries'
-);
-
-has 'verbose' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 1
-);
-
-has 'sort' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
 );
 
 has 'output' => (
@@ -168,65 +156,12 @@ has 'ogabbreviations' => (
 	default => sub { [] }
 );
 
-has 'force' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'notpm' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'noblast' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'nofilter' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'nobutkingsnofilter' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
 has 'querystring' => (
 	is => 'rw',
 	isa => 'Str',
 	default => ''
 );
 
-has 'check_overlaps' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 1
-);
-
-has 'strandspec' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'notax' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
-
-has 'refresh' => (
-	is => 'rw',
-	isa => 'Bool',
-	default => 0
-);
 
 has 'denovolength' => (
 	is => 'rw',
@@ -279,7 +214,6 @@ sub BUILD {
 		'update|update=s' => \my $update,
  		'file|file:s' => \$file,
 		'h|help' => \my $help,
-		'force|force' => \my $force, #hidden dev option
 		't|tmp:s' => \my $tmp,
 		'notax|notaxonomy' => \my $notax,
 		'notpm|notpm' => \my $notpm,
@@ -296,12 +230,11 @@ sub BUILD {
 		'strand|strandspecific' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
-	) or pod2usage(-exitval => 2, -verbose => 1) if $self->commandline;
+	) or pod2usage(-exitval => 1, -verbose => 0) if $self->commandline;
 
-	
 	&read_parameter($self,$file) if $file && $file ne 'x';
 
-	unless ($force || ! $self->commandline){
+	unless (! $self->commandline){
 		if($update){
 			#downloading and parsing latest databases
 			switch (lc $update) {
@@ -338,11 +271,10 @@ sub BUILD {
 				}
 			}
 		}					
-		pod2usage(-exitval => 2, -verbose => 2) if $file eq 'x' && $help;
-		pod2usage(-exitval => 2, -verbose => 1) if $file eq 'x' && ! $genomes && ! $example;
+		pod2usage(-exitval => 0, -verbose => 2) if $file eq 'x' && $help;
+		pod2usage(-exitval => 1, -verbose => 0, -message => "-i requiered: define input sequences\n") if $file eq 'x' && ! $genomes && ! $example;
 	}
 
-	$self->force(1) if $force;
 	if ($label){
 		$label=~s/\s+/_/g;
 		$self->label($label);
@@ -355,7 +287,12 @@ sub BUILD {
 	$self->threads($threads) if $threads;
 	if ($genomes){
 		my @g;
-		push @g , glob $_ for split(/\s*,\s*/,$genomes);
+		for (split(/\s*,\s*/,$genomes)){
+			for (glob $_){
+				pod2usage(-exitval => 1, -verbose => 0, -message => "-i error: file does not exists") unless -e $_;
+				push @g , $_;
+			}
+		}		
 		&set_genomes($self, \@g ,[split(/\s*,\s*/,$abbreviations ? $abbreviations : "")]);
 	}
 
@@ -379,7 +316,7 @@ sub BUILD {
 		$self->kingdoms({});
 		for (split(/\s*,\s*/,$kingdoms)) {
 			my $s = lc $_;
-			pod2usage(-exitval => 2, -verbose => 1) unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
+			pod2usage(-exitval => 1, -verbose => 0, -message => "-k error: check kingdom definition") unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
 			$self->kingdoms->{$s}=1
 		}
 	}		
@@ -395,7 +332,10 @@ sub BUILD {
 		for (split(/\s*,\s*/,$bams)){
 			$c++;
 			next unless $_;
-			push @{$bams[$c]} , split(/\s*:\s*/,$_);
+			for (split(/\s*:\s*/,$_)) {
+				pod2usage(-exitval => 1, -verbose => 0, -message => "-b error: file does not exists") unless -e $_;
+				push @{$bams[$c]} , $_;
+			}
 		}		
 		$self->bams(\@bams);
 	}		
@@ -405,7 +345,10 @@ sub BUILD {
 		for (split(/\s*,\s*/,$gffs)){
 			$c++;
 			next unless $_;
-			push @{$gffs[$c]} , split(/\s*:\s*/,$_);
+			for (split(/\s*:\s*/,$_)) {
+				pod2usage(-exitval => 1, -verbose => 0, -message => "-g error: file does not exists") unless -e $_;
+				push @{$gffs[$c]} , $_;
+			}
 		}		
 		$self->gffs(\@gffs);
 	}
@@ -422,8 +365,8 @@ sub BUILD {
 	$self->species($species) if $species;
 
 	$self->tmp($tmp) if $tmp;
-	$self->sort(1) if ! $notax && $sort && ($self->has_rank || $self->has_species);
-	$self->taxonomy(0) if $notax || ! ($self->has_rank || $self->has_species) || $#{$self->queries} == -1 || $skipanno;
+	$self->sort(1) if ! $notax && $sort;
+	$self->taxonomy(0) if (! $sort && $refresh) || $notax || (!($self->has_rank || $self->has_species) && ! $sort) || $#{$self->queries} == -1 || $skipanno;
 	$self->notpm(1) if $notpm;
 	$self->check_overlaps(0) if $nooverlaps;
 	$self->denovoheigth($denovoheigth) if $denovoheigth;
@@ -539,6 +482,7 @@ sub read_parameter {
 	my $c=1;
 	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){		
 		for (@g){
+			pod2usage(-exitval => 1, -verbose => 0, -message => "input genome error: file does not exists") unless -e $_;
 			push @genomes , $_;
 			push @{$assignment->{'genome'.$c}} , $#genomes;
 			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);			
@@ -556,6 +500,7 @@ sub read_parameter {
 	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
 		for (@g){
+			pod2usage(-exitval => 1, -verbose => 0, -message => "addons genome error: file does not exists") unless -e $_;
 			push @ogenomes , $_;
 			my $abbr = $cfg->GetParameterTrailingComment('addons', 'genome'.$c);
 			unless ($abbr) {
@@ -571,7 +516,7 @@ sub read_parameter {
 	}
 	my $v = $cfg->val('query','kingdom');
 	if ($v){
-		my %h = map { $_ => 1 } split /\n/ , $cfg->val('query','kingdom');
+		my %h = map { if ($_ =~ /^(bac|arc|euk|fungi|virus)$/) { $_ => 1 } else { pod2usage(-exitval => 1, -verbose => 0, -message => "kingdom error: check kingdom definition")} } split /\n/ , $cfg->val('query','kingdom');
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
 	$v = $cfg->val('query','rfam');	
@@ -603,6 +548,9 @@ sub read_parameter {
 	$#gffs=$#genomes;
 	$c=1;	
 	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){
+		for (@g){
+			pod2usage(-exitval => 1, -verbose => 0, -message => "addons bam error: file does not exists") unless -e $_;
+		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){			
 			push @{$bams[$_]} , @g;
 		}
@@ -611,7 +559,10 @@ sub read_parameter {
 	$self->bams(\@bams) if $c > 1;
 	$self->strandspec(1) if $cfg->val('addons','strandspecific');
 	$c=1;	
-	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){		
+	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){
+		for (@g){
+			pod2usage(-exitval => 1, -verbose => 0, -message => "addons gff error: file does not exists") unless -e $_;
+		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
 			push @{$gffs[$_]} , @g;	
 		}		
