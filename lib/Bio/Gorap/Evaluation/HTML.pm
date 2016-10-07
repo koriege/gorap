@@ -156,7 +156,7 @@ sub create {
 					print HTML '<td>'.join('_',@rna).'</td>'."\t";
 					print HTML '<td>'.$rf.'</td>'."\t";
 					my $path = $stkdb->idToPath->{$rf_rna};
-					print HTML $path ? '<td><a href="../alignments/'.$path.'.stk">STK</a></td>' : '<td>NA</tp>';
+					print HTML $path ? '<td><a href="../alignments/'.$path.'">STK</a></td>' : '<td>NA</tp>';
 					for (@counts){												
 						print HTML "\t".'<td>'.$_.'</td>';
 					}
@@ -180,9 +180,10 @@ sub create {
 			print HTML '<div class="staticbox" id="phylo">'."\n";
 			print HTML '<h3>Phylogeny SSU</h3>'."\n";
 			print HTML 'Tree based on all SSU rRNA predictions, built from Mafft alignment.<br><br>'."\n";
-			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.eps">EPS</a>='."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.eps">EPS</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.tree">Newick</a>'."\n";
-			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft">Alignment</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft">Alignment</a><br><br>'."\n";			
 			print HTML '<embed src="../phylogeny-'.$parameter->label.'/SSU.mafft.pdf#view=FitH" width="400" height="400" type="application/pdf">'."\n";
 			print HTML '</div>'."\n";
 		}
@@ -191,6 +192,7 @@ sub create {
 			print HTML '<h3>Phylogeny RNome</h3>'."\n";
 			print HTML 'Tree based on all ncRNA predictions except rRNAs and tRNAs, built from Stockholm super-alignment.<br><br>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stk.eps">EPS</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stk.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stk.tree">Newick</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/RNome.stkfa">Alignment</a><br><br>'."\n";
 			print HTML '<embed src="../phylogeny-'.$parameter->label.'/RNome.stk.pdf#view=FitH" width="400" height="400" type="application/pdf">'."\n";
@@ -201,6 +203,7 @@ sub create {
 			print HTML '<h3>Phylogeny core50RNome</h3>'."\n";
 			print HTML 'Tree based on ncRNA predictions, present in 50% of given species and except rRNAs and tRNAs, built from Stockholm super-alignment.<br><br>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stk.eps">EPS</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stk.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stk.tree">Newick</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/core50RNome.stkfa">Alignment</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/INFO_core50RNome.txt">Included ncRNAs</a><br><br>'."\n";
@@ -212,6 +215,7 @@ sub create {
 			print HTML '<h3>Phylogeny coreRNome (Stockholm)</h3>'."\n";
 			print HTML 'Tree based on ncRNAs present in all species, built from concatenated Stockholm alignments.<br><br>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.stk.eps">EPS</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.stk.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.stk.tree">Newick</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.stkfa">Alignment</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/INFO_coreRNome.txt">Included ncRNAs</a><br><br>'."\n";
@@ -223,6 +227,7 @@ sub create {
 			print HTML '<h3>Phylogeny coreRNome (Mafft)</h3>'."\n";
 			print HTML 'Tree based on ncRNAs present in all species, built by Mafft from concatenated FASTA sequences.<br><br>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.mafft.eps">EPS</a>'."\n";
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.mafft.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.mafft.tree">Newick</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/coreRNome.mafft">Alignment</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/INFO_coreRNome.txt">Included ncRNAs</a><br><br>'."\n";

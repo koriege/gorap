@@ -94,9 +94,9 @@ if ($parameter->refresh){
 				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
 			}		
 		}	
-		if ( ! $hold && exists $stkdb->db->{$type} && $parameter->force){
+		if ( ! $hold && exists $stkdb->db->{$type}){ #&& $parameter->force){
 			unlink $stkdb->idToPath->{$type};
-			delete $stkdb->db->{$type};
+			# delete $stkdb->db->{$type};
 		}
 	}
 	print "Storing changes\n";
