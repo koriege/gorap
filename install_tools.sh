@@ -49,7 +49,7 @@ recompile (){
 	echo "Installing $tool"
 	progress &
 	pid=$!
-	bash recompile_tool.sh $tool 2>> $pwd/install.log >> $pwd/install.log
+	bash recompile_tool.sh $tool &>> $pwd/install.log
 	if [[ $? -gt 0 ]]; then
 		kill $pid &> /dev/null
 		wait $pid &> /dev/null
@@ -160,7 +160,7 @@ download (){
 			rm -f CRT1.2-CLI.jar.zip
 			echo "Installing $tool"
 			echo "\\"
-			mv $GORAP/crt-1.2/bin/CRT1.2-CLI.jar $GORAP/crt-1.2/bin/crt.jar
+			mv $GORAP/$tool/bin/CRT1.2-CLI.jar $GORAP/$tool/bin/crt.jar
 		fi
 	;;
 	'SAMTOOLS')

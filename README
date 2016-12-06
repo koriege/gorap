@@ -136,7 +136,7 @@ perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
 # 3-Step Phylogeny reconstruction from a full annotation after hand curating alignments
 # we recommend to use a defined label to update related HTML page displaying results
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l myphylo
-# Evaluate alignments by removing/adding seqeunces and now update annotation files
+# Evaluate alignments by removing/adding sequences and now update annotation files
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -refresh -l myphylo
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -skip -l myphylo
 
@@ -172,14 +172,14 @@ phylogeny: containes reconstructed phylogenies of given species based on
 		using a super-matrix approach
 	coreRNome STK - ncRNAs present in all species, built from concatenated Stockholm alignments
 	coreRNome MAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
-html: contains labeled html files linking to related results, accessable via main index.html webpage
+html: contains labeled html files linking to related results, accessible via main index.html web page
 
 
 ----------------------------
 4 KNOWN ISSUES AND SOLUTIONS
 ----------------------------
 
-GORAP dies due to a Blast bug, if FASTA headers have NCBI typic accession numbers somewhere inside
+GORAP dies due to a Blast bug, if FASTA headers have NCBI typical accession numbers somewhere inside
 >something gi|00000000|ref|NC_000000.0| something else
 Transform headers into 
 >gi|00000000|ref|NC_000000.0| something else

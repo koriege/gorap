@@ -36,8 +36,17 @@ sub score_filter {
 	my @update;	
 	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	
-	#HACAS: _SNORA _snopsi
-	if ( ! $nofilter && $userfilter && ($type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/_sn\d/ || $type=~/_sno[A-Z]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
+	my $cdsno = 0;
+	if ($type=~/_SNOR[ND\d]/ || $type=~/_Afu/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
+		$cdsno = 1;
+	# } elsif ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/){
+	# 	$cdsno = 0;
+	} elsif ($type=~/_sn\d/ || $type=~/_sno[A-Z]/){
+		my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
+		$cdsno =1 if $cs=~/CUGA.{0,12}$/i;
+	}
+	
+	if ( ! $nofilter && $userfilter && $cdsno){
 		for (keys %{$features}){		
 			my $f = $features->{$_};
 			next if $f->score eq '.';
@@ -144,6 +153,7 @@ sub structure_filter(){
 	my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
 	$ss=~y/\{\<\[\}\>\]/\(\(\(\)\)\)/;	
 	my @ss = split // , $ss;
+	my @cs = split // , $cs;
 
 	my @open;
 	my @close;	
@@ -241,8 +251,34 @@ sub structure_filter(){
 		}
 	}
 
+	my $hacasno = 0;
+	my @aca;
+	my @anna;
+	my $i=0;
+	for(reverse @cs){
+		if ($_=~/[a-zA-Z]/){
+			unshift @aca, $_; 
+			$i++;
+		}
+		last if $i==10;
+	}
+	my $aca=join("",@aca);
+	if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/CUGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
+		$hacasno = 1;
+		my ($hp,$i,$bracket) = (0,0,0); 
+		for(@ss){ #count hairpins and get ananna locus between both hairpins
+			$i++; 
+			unless($_=~/(\(|\))/){
+				push @anna, $i-1 if $hp==1 && $bracket==0;
+			} else {
+				$bracket = $_ eq "(" ? $bracket+1 : $bracket-1; 
+				$hp++ if $bracket==1 && $_ eq "(";
+			}
+		}
+		$hacasno = 0 unless $hp == 2;
+	}
+
 	$minstructures = ($#areas +1)/2 unless $minstructures;
-	$minstructures = $#areas +1 if $type=~/_SNORA/ || $type=~/_snopsi/;
 	for (keys %{$features}){
 		my $f = $features->{$_};		
 
@@ -259,10 +295,12 @@ sub structure_filter(){
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 				push @update , $f->seq_id.' '.$f->primary_tag.' S';
-			} elsif ($annastop && ($type=~/_SNORA/ || $type=~/_snopsi/)){
-				my $s = ($stk->get_seq_by_id($f->seq_id))->subseq($annastart,$annastop);
+			} elsif ($hacasno){
+				my $s = ($stk->get_seq_by_id($f->seq_id))->subseq($anna[0],$anna[-1]);
+				my $s2 = $stk->get_seq_by_id($f->seq_id);
 				$s=~s/\W//g;
-				unless ( $s=~/(A|a).{1,3}(A|a).{1,4}(A|a)/ ){
+				$s2=~s/\W//g;
+				unless ( $s=~/(A|a).{1,3}(A|a).{1,4}(A|a)/ && $s2=~/a[^g]a.{2,8}$/i){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 

@@ -97,13 +97,15 @@ sub create {
 					print HTML '<td><a href="'.${$parameter->genomes}[$_].'">'.basename(${$parameter->genomes}[$_]).'</a></td>'."\n";
 					print HTML '</tr>'."\n";	
 				}
-				for (0..$#{$parameter->outgroups}){
-					print HTML '<tr>'."\n";					
-					print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
-					print HTML '<td><a href="'.${$parameter->outgroups}[$_].'">'.basename(${$parameter->outgroups}[$_]).'</a></td>'."\n";
-					print HTML '</tr>'."\n";	
-				}			
-				print HTML '</tbody>'."\n";				
+				if ($parameter->has_outgroups){
+					for (0..$#{$parameter->outgroups}){
+						print HTML '<tr>'."\n";					
+						print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
+						print HTML '<td><a href="'.${$parameter->outgroups}[$_].'">'.basename(${$parameter->outgroups}[$_]).'</a></td>'."\n";
+						print HTML '</tr>'."\n";	
+					}
+				}
+				print HTML '</tbody>'."\n";
 				print HTML '</table>'."\n";
 			} elsif($_=~/ncRNA annotation/) {
 				print HTML $_;
@@ -121,12 +123,14 @@ sub create {
 					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.final.orig.fa">final</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
 					print HTML '</tr>'."\n";	
 				}
-				for (0..$#{$parameter->outgroups}){
-					print HTML '<tr>'."\n";					
-					print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
-					print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.gff">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.gff">unreliable</a></td>';
-					print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.fa">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
-					print HTML '</tr>'."\n";	
+				if ($parameter->has_outgroups){
+					for (0..$#{$parameter->outgroups}){
+						print HTML '<tr>'."\n";					
+						print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
+						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.gff">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.gff">unreliable</a></td>';
+						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.fa">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
+						print HTML '</tr>'."\n";	
+					}
 				}
 				print HTML '</tbody>'."\n";				
 				print HTML '</table>'."\n";
@@ -256,7 +260,7 @@ __DATA__
 
 	<style> 
 		button {
-			width: 80px
+			width: 90px
 		}
 		#header {
 			background-color:black;
@@ -313,7 +317,7 @@ __DATA__
 			}
 			document.getElementById("frame").onload = function() {
 				var x = document.getElementById("frame");
-				var y = (x.contentDocument || x.contentWindow);					
+				var y = (x.contentDocument || x.contentWindow.document);					
 				if (y.getElementById("phylo")) {
 					document.getElementById("bphylo").style.display="inline";
 				} else {
