@@ -260,10 +260,10 @@ sub structure_filter(){
 			unshift @aca, $_; 
 			$i++;
 		}
-		last if $i==10;
+		last if $i==12;
 	}
 	my $aca=join("",@aca);
-	if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/CUGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
+	if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/UGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
 		$hacasno = 1;
 		my ($hp,$i,$bracket) = (0,0,0); 
 		for(@ss){ #count hairpins and get ananna locus between both hairpins
@@ -434,7 +434,21 @@ sub user_filter {
 	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]])."\n";
 	# }	
-	
+
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	my $cdsno = 0;
+	my @aca;
+	my $i=0;
+	for(reverse @cs){
+		if ($_=~/[a-zA-Z]/){
+			unshift @aca, $_; 
+			$i++;
+		}
+		last if $i==12;
+	}
+	$cdsno = 1 if $type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && join("",@aca)=~/UGA.{0,12}$/i);
+
+
 	for my $k (keys %{$features}){				
 		my $f = $features->{$k};
 		# print $f->seq_id."\n";
@@ -446,7 +460,7 @@ sub user_filter {
 		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1))."\n";
 		# }		
 
-		next if $f->score ne '.' && $f->score > 30 && ($f->primary_tag=~/_sno[A-Z]/ || $f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR[ND\d]/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/);
+		next if $f->score ne '.' && $f->score > 30 && $cdsno;
 
 		my $hold=1;
 		my @uga_ug;
@@ -457,7 +471,7 @@ sub user_filter {
 			$query = lc($query);
 			$query=~s/\W//g;
 			
-			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));			
+			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));
 
 			my ($costs, @alnmap) = &gotoh($query,$stkseq);			
 			if ($costs*-1 > $mm){
@@ -467,8 +481,8 @@ sub user_filter {
 			@uga_ug = ($alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
 			@cu_ga = ($alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
-
-		if ($hold && $f->score ne '.' && $f->score < 25 && ($f->primary_tag=~/_sno[A-Z]/ || $f->primary_tag=~/_Afu/ || $f->primary_tag=~/_SNOR[ND\d]/ || $f->primary_tag=~/_sn\d/ || $f->primary_tag=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/)){
+		print $cdsno." ".$f->score."\n";
+		if ($hold && $f->score ne '.' && $f->score < 25 && $cdsno && $#uga_ug>=1 && $#cu_ga>=1){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;			
 			switch ($uga_ug[0]){
