@@ -481,7 +481,7 @@ sub user_filter {
 			@uga_ug = ($alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
 			@cu_ga = ($alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
-		print $cdsno." ".$f->score."\n";
+
 		if ($hold && $f->score ne '.' && $f->score < 25 && $cdsno && $#uga_ug>=1 && $#cu_ga>=1){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;			
