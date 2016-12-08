@@ -104,7 +104,7 @@ if ($parameter->refresh){
 	$gffdb->store_overlaps;
 
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-	print "\nResults stored with label ".$parameter->label."\n";
+	print "\nResults stored with label: ".$parameter->label."\n";
 
 	unlink $_ for glob catfile($parameter->tmp,'*');
 	system("rm -rf ".$parameter->tmp);

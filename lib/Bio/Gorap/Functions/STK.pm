@@ -254,15 +254,16 @@ sub structure_filter(){
 	my $hacasno = 0;
 	my @aca;
 	my @anna;
-	my $i=0;
+	my $i=$#cs;
 	for(reverse @cs){
 		if ($_=~/[a-zA-Z]/){
-			unshift @aca, $_; 
-			$i++;
+			unshift @aca, $i;
 		}
-		last if $i==12;
+		$i--;
+		last if $#aca==11;
 	}
-	my $aca=join("",@aca);
+	my $aca=join("",@cs[$aca[0]..$aca[-1]]);
+	$aca=~s/[\W_]//g;
 	if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/UGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
 		$hacasno = 1;
 		my ($hp,$i,$bracket) = (0,0,0); 
@@ -277,11 +278,9 @@ sub structure_filter(){
 		}
 		$hacasno = 0 unless $hp == 2;
 	}
-
 	$minstructures = ($#areas +1)/2 unless $minstructures;
 	for (keys %{$features}){
-		my $f = $features->{$_};		
-
+		my $f = $features->{$_};
 		if ($#areas == 1){
 			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < 1){
 				delete $features->{$_};	
@@ -297,10 +296,10 @@ sub structure_filter(){
 				push @update , $f->seq_id.' '.$f->primary_tag.' S';
 			} elsif ($hacasno){
 				my $s = ($stk->get_seq_by_id($f->seq_id))->subseq($anna[0],$anna[-1]);
-				my $s2 = $stk->get_seq_by_id($f->seq_id);
-				$s=~s/\W//g;
-				$s2=~s/\W//g;
-				unless ( $s=~/(A|a).{1,3}(A|a).{1,4}(A|a)/ && $s2=~/a[^g]a.{2,8}$/i){
+				my $s2 = ($stk->get_seq_by_id($f->seq_id))->subseq($aca[0],$aca[-1]);
+				$s=~s/[\W_]//g;
+				$s2=~s/[\W_]//g;
+				unless ( $s=~/a.{1,3}a.{1,4}a/i && $s2=~/a[^g]a.{2,8}$/i){
 					delete $features->{$_};
 					$write = 1;
 					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
