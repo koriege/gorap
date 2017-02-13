@@ -237,7 +237,7 @@ toolid=HMMER
 getpaths
 ex=$([[ $(which hmmsearch) ]] && echo $(which hmmsearch) || echo $GORAP/$tool/bin/hmmsearch)
 hmmer=$ex
-if [[ ! $(hmmsearch -h | grep HMMER | awk '$3=="2.3.2" || $2=="2.3.2"{print 1}') ]]; then
+if [[ ! $($ex -h | grep HMMER | awk '$3=="2.3.2" || $2=="2.3.2"{print 1}') ]]; then
 	download
 	hmmer=$GORAP/$tool/bin/hmmsearch 
 fi
