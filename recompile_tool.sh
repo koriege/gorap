@@ -257,7 +257,7 @@ tool=$SAMTOOLS
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d "$GORAP/$tool" ]]; then
 		cd $GORAP/$tool
-		cfl=''
+		cfl='-fPIC '
 		ldfl=''
 		if [[ ! -e /usr/include/zlib.h ]]; then 
 			cfl="-I$GORAP/$zlib/built/include "
