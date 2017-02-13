@@ -119,7 +119,6 @@ download (){
 	progress &
 	pid=$!
 	if [[ $dlpath =~ (tgz|tar.gz)$ ]]; then
-		echo $dlpath
 		wget -q -T 10 $dlpath -O $GORAP/$tool.tar.gz && tar -xzf $GORAP/$tool.tar.gz -C $GORAP && rm -f $GORAP/$tool.tar.gz
 	else
 		mkdir -p $GORAP/$tool/bin
