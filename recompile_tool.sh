@@ -1,4 +1,5 @@
-#!/bin/bash
+#! /usr/bin/env bash
+
 if [[ ! $GORAP ]]; then
 	echo 'Setup $GORAP environment variable first.'
 	exit 1
@@ -34,24 +35,20 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 
 		if [[ ! $cpu ]]; then
 			cd $GORAP/$tool
-			make clean -f Makefile.SSE3.PTHREADS.gcc
-			make -f Makefile.SSE3.PTHREADS.gcc
+			make clean -f Makefile.SSE3.PTHREADS.gcc; make -f Makefile.SSE3.PTHREADS.gcc && make clean -f Makefile.SSE3.PTHREADS.gcc
 			if [[ $? -gt 0 ]]; then				
 				exit 1
 			fi 
 			mkdir -p bin 
-			mv raxmlHPC-PTHREADS-SSE3 bin/raxml 		
-			make clean -f Makefile.SSE3.PTHREADS.gcc			
+			mv raxmlHPC-PTHREADS-SSE3 bin/raxml
 		else
 			cd $GORAP/$tool 
-			make clean -f Makefile.AVX.PTHREADS.gcc 
-			make -f Makefile.AVX.PTHREADS.gcc 
+			make clean -f Makefile.AVX.PTHREADS.gcc; make -f Makefile.AVX.PTHREADS.gcc && make clean -f Makefile.AVX.PTHREADS.gcc
 			if [[ $? -gt 0 ]]; then				
 				exit 1
 			fi
 			mkdir -p bin 
 			mv raxmlHPC-PTHREADS-AVX bin/raxml
-			make clean -f Makefile.AVX.PTHREADS.gcc
 		fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'
@@ -64,16 +61,43 @@ tool=$MAFFT
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool/
-		mkdir bin
 		cd $GORAP/$tool/core
-		sed -iE "s@PREFIX\s*=.*@PREFIX=$GORAP/$tool@" Makefile
-		make clean
-		make
+		make clean;	sed -i -r "s@PREFIX\s*=.*@PREFIX=$GORAP/$tool@" Makefile && make PREFIX=$GORAP/$tool && make install && make clean
 		if [[ $? -gt 0 ]]; then
 			exit 1
 		fi
-		make install
-		make clean
+	else 
+		echo 'Please run install_tools.sh first, then try again'
+	fi
+fi
+
+cd $pwd
+NEWICKTOPDF='newicktopdf'
+tool=$NEWICKTOPDF
+if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
+	if [[ -d $GORAP/$tool ]]; then
+		chmod 755 $GORAP/$tool/bin/$tool
+		if [[ $? -gt 0 ]]; then
+			exit 1
+		fi
+	else
+		echo 'Please run install_tools.sh first, then try again'
+	fi
+fi
+
+cd $pwd
+GLIBC='glibc-2.24'
+tool=$GLIBC
+glibc=$tool
+if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
+	if [[ -d $GORAP/$tool ]]; then
+		cd $GORAP/$tool
+		rm -rf built; mkdir -p built
+		cd built
+		../configure --prefix=$PWD && make && make install && make clean
+		if [[ $? -gt 0 ]]; then
+			exit 1
+		fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -82,74 +106,28 @@ fi
 cd $pwd
 INFERNAL='infernal-1.1.2'
 tool=$INFERNAL
-infernal=$tool
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool
-		./configure --prefix=$PWD
-		make clean
-		make
+		make clean; ./configure --prefix=$PWD && make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi
-		make install
-		make clean
-	else 
-		echo 'Please run install_tools.sh first, then try again'
-	fi
-fi
 
-cd $pwd
-tool='esl-alimerge'
-if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
-	if [[ -d $GORAP/$infernal ]]; then
 		cd $GORAP/$infernal/easel
-		./configure --prefix=$GORAP/$infernal
-		if [[ ! $(egrep -E 'CFLAGS\s*=' Makefile | grep 'I\.\/include') ]]; then
-			sed -iE -r 's/(CFLAGS\s*=.+)/\1 -I\.\/include/' Makefile
+		if [[ $(which ldd) ]]; then
+			gv=$(ldd --version | head -n 1 | awk '{split($NF,a,"."); print a[1]a[2]}')
+		else 
+			gv=0
 		fi
-		make clean
-		make
+		if [[ $gv -lt 214 ]]; then
+			make clean; ./configure --prefix=$GORAP/$tool CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && sed -i -r 's/^\s*(C|LD)FLAGS\s*=\s*/override \1FLAGS += /' Makefile && make CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && make install && make clean
+		else 
+			make clean; ./configure --prefix=$GORAP/$tool && make && make install && make clean
+		fi
 		if [[ $? -gt 0 ]]; then
-			
-			if [[ $(which ldd) ]]; then
-				gv=$(ldd --version | head -n 1 | awk '{split($NF,a,"."); print a[1]a[2]}')
-			else 
-				gv=0
-			fi
-			if [[ $gv -lt 214 ]]; then
-				cd $pwd
-				tool='glibc-2.24'
-				if [[ ! -d $GORAP/$tool ]]; then
-					wget -q --show-progress -T 10 https://ftp.gnu.org/gnu/libc/$tool.tar.gz -O $tool.tar.gz
-					tar -xzf $tool.tar.gz -C $GORAP
-				fi
-				
-				cd $GORAP/$tool
-				mkdir -p build
-				cd build
-				../configure --prefix=$GORAP/$infernal/easel
-				make clean
-				make
-				if [[ $? -gt 0 ]]; then				
-					exit 1
-				fi
-				make install
-				make clean
-
-				cd $GORAP/$infernal/easel
-				if [[ ! $(egrep -E 'CFLAGS\s*=' Makefile | grep 'I\.\/include') ]]; then
-					sed -iE -r 's/(CFLAGS\s*=.+)/\1 -I\.\/include/' Makefile
-				fi
-				make clean
-				make
-				if [[ $? -gt 0 ]]; then				
-					exit 1
-				fi
-			fi
+			exit 1
 		fi
-		make install 
-		make clean	
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -161,14 +139,24 @@ tool=$INFERNAL1
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then		
 		cd $GORAP/$tool
-		./configure --prefix=$PWD
-		make clean
-		make
+		make clean; ./configure --prefix=$PWD && make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi
-		make install
-		make clean
+	else 
+		echo 'Please run install_tools.sh first, then try again'
+	fi
+fi
+
+cd $pwd
+CRT='crt-1.2'
+tool=$CRT
+if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
+	if [[ -d $GORAP/$tool ]]; then	
+		cp $GORAP/$tool/bin/CRT1.2-CLI.jar $GORAP/$tool/bin/crt.jar
+		if [[ $? -gt 0 ]]; then
+			exit 1
+		fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -184,13 +172,10 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 		mkdir -p man/man1
 		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile
 		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
-		make clean
-		make
+		make clean; make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi
-		make install
-		make clean
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -200,7 +185,7 @@ cd $pwd
 TRNASCAN='tRNAscan-SE-1.3.1'
 tool=$TRNASCAN
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
-	if [[ -d "$GORAP/$tool" ]]; then
+	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool
 		mkdir -p bin
 		mkdir -p man/man1
@@ -208,13 +193,10 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile 
 		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
 		sed -i '/^LIBDIR/ c\LIBDIR = $(CURDIR)/lib/tRNAscan-SE' Makefile
-		make clean
-		make
+		make clean; make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi
-		make install
-		make clean
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -226,14 +208,44 @@ tool=$HMMER
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then	
 	if [[ -d $GORAP/$tool ]]; then
 		cd $GORAP/$tool
-		make clean
-		./configure --enable-threads --enable-lfs --prefix=$PWD
-		make
+		make clean;	./configure --enable-threads --enable-lfs --prefix=$PWD && make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
 		fi
-		make install
-		make clean
+	else 
+		echo 'Please run install_tools.sh first, then try again'
+	fi
+fi
+
+cd $pwd
+ZLIB='zlib-1.2.8'
+tool=$ZLIB
+zlib=$tool
+if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
+	if [[ -d "$GORAP/$tool" ]]; then
+		cd $GORAP/$tool 
+		rm -rf built; mkdir -p built
+		make clean; ./configure --prefix=$PWD/built && make && make install && make clean
+		if [[ $? -gt 0 ]]; then				
+			exit 1
+		fi
+	else 
+		echo 'Please run install_tools.sh first, then try again'		
+	fi
+fi
+
+cd $pwd
+NCURSES='ncurses-6.0'
+tool=$NCURSES
+ncurses=$tool
+if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
+	if [[ -d "$GORAP/$tool" ]]; then
+		cd $GORAP/$tool
+		rm -rf built; mkdir -p built
+		make clean; ./configure --prefix=$PWD/built && make && make install && make clean
+		if [[ $? -gt 0 ]]; then
+			exit 1
+		fi
 	else 
 		echo 'Please run install_tools.sh first, then try again'
 	fi
@@ -242,63 +254,26 @@ fi
 cd $pwd
 SAMTOOLS='samtools-0.1.19'
 tool=$SAMTOOLS
-samtool=$tool
-
-ZLIB='zlib-1.2.8'
-tool=$ZLIB
-if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
-	if [[ -d "$GORAP/$tool" ]]; then
-		cd $GORAP/$tool 
-		make clean
-		./configure --prefix=$GORAP/$samtool
-		make
-		if [[ $? -gt 0 ]]; then				
-			exit 1
-		fi
-		make install
-		make clean
-	else 
-		echo 'Please run install_tools.sh first, then try again'		
-	fi
-fi
-
-NCURSES='ncurses-6.0'
-tool=$NCURSES
-if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
-	if [[ -d "$GORAP/$tool" ]]; then
-		cd $GORAP/$tool 
-		make clean
-		./configure --prefix=$GORAP/$samtool
-		make
-		if [[ $? -gt 0 ]]; then
-			exit 1
-		fi
-		make install
-		make clean
-		cp $GORAP/$samtool/include/ncurses/* $GORAP/$samtool/include/
-	else 
-		echo 'Please run install_tools.sh first, then try again'
-	fi
-fi
-
-tool=$samtool
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d "$GORAP/$tool" ]]; then
 		cd $GORAP/$tool
-		if [[ ! $(egrep -E 'CFLAGS\s*=' Makefile | grep 'I\.\/include') ]]; then
-			sed -i '/^CFLAGS/ c\CFLAGS = -g -Wall -O2 -fPIC -I./include -L./lib #-m64 #-arch ppc' Makefile
+		cfl=''
+		ldfl=''
+		if [[ ! -e /usr/include/zlib.h ]]; then 
+			cfl="-I$GORAP/$zlib/built/include "
+			ldfl="-L$GORAP/$zlib/built/lib "
 		fi
-		make clean
-		make 
+		if [[ ! -e /usr/include/ncurses.h ]]; then 
+			cfl="$cfl-I$GORAP/$ncurses/built/include -I$GORAP/$ncurses/built/include/ncurses"
+			ldfl="$ldfl-L$GORAP/$ncurses/built/lib"
+		fi
+		make clean; sed -i -r 's/^\s*CFLAGS\s*=\s*/override CFLAGS += /' Makefile && sed -i 's/-lcurses/-lncurses/' Makefile && make CFLAGS="$cfl $ldfl"
 		if [[ $? -gt 0 ]]; then
 			exit 1
 		fi 
 		mkdir -p bin 
-		mv samtools bin/samtools
-		mv libbam.a libbam.x
-		make clean
-		mv libbam.x libbam.a
+		cp samtools bin/samtools
 	else 
-		echo 'Please run install_tools.sh first, then try again'		
+		echo 'Please run install_tools.sh first, then try again'
 	fi
 fi
