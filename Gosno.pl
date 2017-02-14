@@ -65,6 +65,7 @@ close S;
 my $features;
 for my $seq ($stk->each_seq){		
 	next unless $seq->display_id=~/$regex/;	
+	next unless exists $scores->{$seq->display_id};
 	say $seq->display_id.' '.$scores->{$seq->display_id} if $verbose && exists $scores->{$seq->display_id};
 	push @{$features} , Bio::SeqFeature::Generic->new(-seq_id => $seq->display_id, -primary_tag => $cfg->rf_rna, -score => $scores->{$seq->display_id});
 }

@@ -470,13 +470,14 @@ sub user_filter {
 			$query=~s/\W//g;
 			
 			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));
-
+			my @stkseq = split //, $stkseq;
+			$stkseq=~s/-//g;
 			my ($costs, @alnmap) = &gotoh($query,$stkseq);			
 			if ($costs*-1 > $mm){
 				$hold=0;
 				last;
 			}
-			my @stkseq = split //, $stkseq;
+			
 			@uga_ug = (defined $alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', defined $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
 			@cu_ga = (defined $alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', defined $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
