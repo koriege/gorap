@@ -369,7 +369,6 @@ sub sequence_filter {
 sub user_filter {
 	my ($self, $stk, $features, $constrains, $cs, $seedstk) = @_;	
 	$cs=~s/\W/-/g;
-
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 
 	my @update;
@@ -477,11 +476,12 @@ sub user_filter {
 				$hold=0;
 				last;
 			}
-			@uga_ug = ($alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
-			@cu_ga = ($alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
+			my @stkseq = split //, $stkseq;
+			@uga_ug = (defined $alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', defined $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
+			@cu_ga = (defined $alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', defined $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
 
-		if ($hold && $f->score ne '.' && $f->score < 25 && $cdsno && $#uga_ug>=1 && $#cu_ga>=1){
+		if ($hold && $cdsno && $f->score ne '.' && $f->score < 25 && $#uga_ug>=1 && $#cu_ga>=1){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;			
 			switch ($uga_ug[0]){
@@ -746,8 +746,9 @@ sub gotoh (){
 		}
 		
 	}	
-	# say $alS;
-	# say $alQ;
+	# print "$alS\n";
+	# print "$alQ\n";
+	# print @map; print "\n";
 		
 	return ($M[scalar(@q)][scalar(@s)],@map);
 }

@@ -44,12 +44,12 @@ export GORAPLIB=$HOME/perl5
 export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
 # Update the binaries path to make GORAP available globally
 export PATH=$GORAP:$PATH
-# Download GORAP latest
-wget https://github.com/rna-hta-jena/gorap/archive/master.zip -O master.zip
+# Download GORAP latest release
+wget https://github.com/rna-hta-jena/gorap/archive/v2.3.1-stable.zip -O v2.3.1-stable.zip
 # Extract GORAP
-unzip master.zip
+unzip v2.3.1-stable.zip
 # Enter extracted directory
-cd gorap-master
+cd gorap-2.3.1-stable
 # Download corresponding databases
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz -O data-12.tar.gz
 # Extract databases into $GORAP
