@@ -1,5 +1,6 @@
 #! /usr/bin/env bash
 trap "trap - SIGTERM && kill -PIPE -- -$$" INT TERM SIGINT SIGTERM EXIT 
+force=$([[ $1 == "force" ]] && echo 1 || echo '')
 
 if [[ ! $GORAP ]]; then
 	echo 'Setup $GORAP environment variable first.'
@@ -101,8 +102,8 @@ getpaths (){
 		dlpath='https://github.com/samtools/samtools/archive/0.1.19.tar.gz'
 	;;
 	'ZLIB')
-		tool='zlib-1.2.8'
-		dlpath="http://zlib.net/$tool.tar.gz"
+		tool='zlib-1.2.11'
+		dlpath="https://github.com/madler/zlib/archive/v1.2.11.tar.gz"
 	;;
 	'NCURSES')
 		tool='ncurses-6.0'
@@ -164,14 +165,14 @@ if [[ $bit -eq 64 ]]; then
 	getpaths
 	ex=$([[ $(which raxml) ]] && echo $(which raxml) || echo $GORAP/$tool/bin/raxml)
 	$ex -h &> /dev/null
-	if [ $? -gt 0 ]; then
+	if [[ $? -gt 0 ]] || [[ $force ]]; then
 		download
 	fi
 
 	toolid=MAFFT
 	getpaths
 	ex=$([[ $(which mafft) ]] && echo $(which mafft) || echo $GORAP/$tool/bin/mafft)
-	if [[ $($ex -h 2>&1 | grep MAFFT | wc -l) -eq 0 ]]; then
+	if [[ $($ex -h 2>&1 | grep MAFFT | wc -l) -eq 0 ]] || [[ $force ]]; then
 		download
 	fi
 
@@ -179,7 +180,7 @@ if [[ $bit -eq 64 ]]; then
 	getpaths
 	ex=$([[ $(which newicktopdf) ]] && echo $(which newicktopdf) || echo $GORAP/$tool/bin/newicktopdf)
 	$ex -h &> /dev/null
-	if [[ $? -gt 0 ]]; then
+	if [[ $? -gt 0 ]] || [[ $force ]]; then
 		download
 	fi
 fi
@@ -198,14 +199,14 @@ fi
 toolid=INFERNAL
 getpaths
 ex=$([[ $(which cmsearch) ]] && echo $(which cmsearch) || echo $GORAP/$tool/bin/cmsearch)
-if [[ ! $($ex -h 2>&1 | grep INFERNAL | awk '$3>=1.1{print 1}') ]]; then
+if [[ ! $($ex -h 2>&1 | grep INFERNAL | awk '$3>=1.1{print 1}') ]] || [[ $force ]]; then
 	download
 fi
 
 toolid=INFERNAL1
 getpaths
 ex=$([[ $(which cmsearch) ]] && echo $(which cmsearch) || echo $GORAP/$tool/bin/cmsearch)
-if [[ ! $($ex -h 2>&1 | grep INFERNAL | awk '$3==1.0{print 1}') ]]; then
+if [[ ! $($ex -h 2>&1 | grep INFERNAL | awk '$3==1.0{print 1}') ]] || [[ $force ]]; then
 	download
 fi
 
@@ -213,14 +214,14 @@ toolid=RNABOB
 getpaths
 ex=$([[ $(which rnabob) ]] && echo $(which rnabob) || echo $GORAP/$tool/bin/rnabob)
 $ex -h &> /dev/null
-if [[ $? -gt 0 ]]; then
+if [[ $? -gt 0 ]] || [[ $force ]];; then
 	download
 fi
 
 toolid=BLAST
 getpaths
 ex=$([[ $(which blastn) ]] && echo $(which blastn) || echo $GORAP/$tool/bin/blastn)
-if [[ ! $($ex -h 2>&1 | grep DESCRIPTION -A 1 | tail -n 1 | awk '{split($NF,a,"."); if(a[2]>=2 && $NF~/\+$/){print 1}}') ]]; then
+if [[ $force ]] || [[ ! $($ex -h 2>&1 | grep DESCRIPTION -A 1 | tail -n 1 | awk '{split($NF,a,"."); if(a[2]>=2 && $NF~/\+$/){print 1}}') ]]; then
 	download
 fi
 
@@ -229,7 +230,7 @@ getpaths
 ex=$([[ $(which tRNAscan-SE) ]] && echo $(which tRNAscan-SE) || echo $GORAP/$tool/bin/tRNAscan-SE)
 export PERL5LIB=$GORAP/$tool:$PERL5LIB
 $ex -h &> /dev/null
-if [[ $? -gt 0 ]]; then
+if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
 fi
 
@@ -237,7 +238,7 @@ toolid=HMMER
 getpaths
 ex=$([[ $(which hmmsearch) ]] && echo $(which hmmsearch) || echo $GORAP/$tool/bin/hmmsearch)
 hmmer=$ex
-if [[ ! $($ex -h | grep HMMER | awk '$3=="2.3.2" || $2=="2.3.2"{print 1}') ]]; then
+if [[ ! $($ex -h | grep HMMER | awk '$3=="2.3.2" || $2=="2.3.2"{print 1}') ]] || [[ $force ]]; then
 	download
 	hmmer=$GORAP/$tool/bin/hmmsearch 
 fi
@@ -245,7 +246,7 @@ toolid=RNAMMER
 getpaths
 ex=$([[ $(which rnammer) ]] && echo $(which rnammer) || echo $GORAP/$tool/bin/rnammer)
 $ex -v &> /dev/null
-if [[ $? -gt 0 ]]; then
+if [[ $? -gt 0 ]] || [[ $force ]];; then
 	download
 	sed -iE "s@HMMSEARCH_BINARY\s*=.*@HMMSEARCH_BINARY='$hmmer';@" $GORAP/$tool/bin/rnammer
 fi
@@ -254,7 +255,7 @@ toolid=BCHECK
 getpaths
 ex=$([[ $(which Bcheck) ]] && echo $(which Bcheck) || echo $GORAP/$tool/bin/Bcheck)
 $ex -h &> /dev/null
-if [[ $? -gt 0 ]]; then
+if [[ $? -gt 0 ]] || [[ $force ]];; then
 	download
 	# mkdir -p $GORAP/$tool/bin
 	# mv $GORAP/$tool/* $GORAP/$tool/bin
@@ -265,12 +266,12 @@ toolid=CRT
 getpaths
 download
 
-if [[ ! -e /usr/include/zlib.h ]]; then 
+if [[ ! -e /usr/include/zlib.h ]] || [[ $force ]];; then 
 	toolid=ZLIB
 	getpaths
 	download
 fi
-if [[ ! -e /usr/include/ncurses.h ]]; then 
+if [[ ! -e /usr/include/ncurses.h ]] || [[ $force ]];; then 
 	toolid=NCURSES
 	getpaths
 	download
