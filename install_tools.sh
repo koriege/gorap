@@ -214,7 +214,7 @@ toolid=RNABOB
 getpaths
 ex=$([[ $(which rnabob) ]] && echo $(which rnabob) || echo $GORAP/$tool/bin/rnabob)
 $ex -h &> /dev/null
-if [[ $? -gt 0 ]] || [[ $force ]];; then
+if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
 fi
 
@@ -246,7 +246,7 @@ toolid=RNAMMER
 getpaths
 ex=$([[ $(which rnammer) ]] && echo $(which rnammer) || echo $GORAP/$tool/bin/rnammer)
 $ex -v &> /dev/null
-if [[ $? -gt 0 ]] || [[ $force ]];; then
+if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
 	sed -iE "s@HMMSEARCH_BINARY\s*=.*@HMMSEARCH_BINARY='$hmmer';@" $GORAP/$tool/bin/rnammer
 fi
@@ -255,7 +255,7 @@ toolid=BCHECK
 getpaths
 ex=$([[ $(which Bcheck) ]] && echo $(which Bcheck) || echo $GORAP/$tool/bin/Bcheck)
 $ex -h &> /dev/null
-if [[ $? -gt 0 ]] || [[ $force ]];; then
+if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
 	# mkdir -p $GORAP/$tool/bin
 	# mv $GORAP/$tool/* $GORAP/$tool/bin
@@ -266,12 +266,12 @@ toolid=CRT
 getpaths
 download
 
-if [[ ! -e /usr/include/zlib.h ]] || [[ $force ]];; then 
+if [[ ! -e /usr/include/zlib.h ]] || [[ $force ]]; then 
 	toolid=ZLIB
 	getpaths
 	download
 fi
-if [[ ! -e /usr/include/ncurses.h ]] || [[ $force ]];; then 
+if [[ ! -e /usr/include/ncurses.h ]] || [[ $force ]]; then 
 	toolid=NCURSES
 	getpaths
 	download
