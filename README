@@ -50,12 +50,12 @@ wget https://github.com/rna-hta-jena/gorap/archive/v2.3.1-stable.zip -O v2.3.1-s
 unzip v2.3.1-stable.zip
 # Enter extracted directory
 cd gorap-2.3.1-stable
-# Download corresponding databases
+# Download corresponding databases (includes Rfam 12.0)
 wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz -O data-12.tar.gz
 # Extract databases into $GORAP
 tar -xzf data-12.tar.gz -C $GORAP/
-# Download and local installation of missing software into $GORAP
-bash install_tools.sh
+# Local installation of missing software into $GORAP (for everything execute: ./install_tools.sh force)
+./install_tools.sh
 # Set path to necessary and always downloaded Samtools software
 export SAMTOOLS=$GORAP/samtools-0.1.19
 # Installation of GORAP and latest required Perl modules
@@ -81,10 +81,14 @@ echo 'export PERL5LIB='$PERL5LIB >> $HOME/.bashrc
 2 UPDATE GORAP
 --------------
 
-2.1 UPDATE GORAP LIBRARY
-wget https://github.com/rna-hta-jena/gorap/archive/master.zip -O master.zip
-unzip master.zip
-cd gorap-master
+This section describes how to install a newer releases of either Gorap or used databases
+
+2.1 UPDATE GORAP LIBRARY 
+
+# in case of a new release e.g. v2.x.x
+wget https://github.com/rna-hta-jena/gorap/archive/v2.x.x-stable.zip -O v2.x.x-stable.zip -O v2.x.x-stable.zip
+unzip v2.x.x-stable.zip
+cd gorap-v2.x.x-stable
 # make sure to have $GORAP and $GORAPLIB exported first/permanent
 wget https://cpanmin.us -O cpanm && chmod 755 cpanm
 ./cpanm -l $GORAPLIB --reinstall .
@@ -93,14 +97,12 @@ cp *.pl $GORAP
 
 2.2 UPDATE GORAP TOOLS
 
-wget https://github.com/rna-hta-jena/gorap/archive/master.zip -O master.zip
-unzip master.zip
-cd gorap-master
+# redo
 bash install_tools.sh
 
 2.3 UPDATE GORAP DATABASES
 
-# Update all databases or in single by typing silva, ncbi, rfam or cfg instead
+# Update all databases or single ones by defining silva, ncbi or rfam instead
 perl Gorap.pl -update all
 
 
@@ -113,9 +115,10 @@ perl Gorap.pl -update all
 # -> but enables additional computations like sorting and phylogeny reconstruction
 # Hint 3: Command line parameters priorize parameter file settings
 # -> e.g. call Gorap.pl -file parameter.txt -skip -sort -l new_label
-# Hint 4: For each Rfam model in $GORAP/config exists specifi configuration files
-# -> Optionally set thresholds, other prediction tools and sequnce constrains here
-# -> Create an own covariance model and similar configuration file to use GORAP for screening
+# Hint 4: For each Rfam model in $GORAP/config exists specific configuration files
+# -> Optionally set thresholds, other prediction tools and sequence mismatch constrains here
+# -> see an exmample here: $GORAP/config/RF00016_SNORD14.cfg 
+# -> Create an own covariance model and similar configuration file to screen for new families
 
 # Run GORAP using a parameter file - see example parameter file for available options
 perl Gorap.pl -file parameter.txt
@@ -133,11 +136,12 @@ perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:
 # A given outgroup will be screened only for families present in genome files given by -i
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
   
-# 3-Step Phylogeny reconstruction from a full annotation after hand curating alignments
+# 3-Step Phylogeny reconstruction from a full annotation after hand curated alignments
 # we recommend to use a defined label to update related HTML page displaying results
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l myphylo
 # Evaluate alignments by removing/adding sequences and now update annotation files
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -refresh -l myphylo
+# Skip the annotation process, but do downstream analysis i.e. phylogeny reconstruction
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -skip -l myphylo
 
 # De-novo prediction and TPM/FPKM calculation from (small-)RNA-Seq experiments
@@ -185,7 +189,7 @@ Transform headers into
 >gi|00000000|ref|NC_000000.0| something else
 by executing
 
-sed -iE 's/^>\S*\s*/>/' file.fasta
+sed -i'' -e 's/^>\S*\s*/>/' file.fasta
 
 
 ---------------

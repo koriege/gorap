@@ -305,8 +305,9 @@ sub create_cfgs {
 
 		my $bitscore = Bio::Gorap::Functions::CM->get_min_score($cmfile);
 		my $rf_rna = Bio::Gorap::Functions::CM->get_rf_rna($cmfile);
-		
-		my ($cfg) = glob catfile($ENV{GORAP},'config',(split(/_/,$rf_rna))[0].'*');
+		my ($rf,@rna) = split(/_/,$rf_rna);
+
+		my ($cfg) = glob catfile($ENV{GORAP},'config',$rf.'*');
 		my @userdescription;
 		if ($cfg){
 			my $data = Config::IniFiles->new( -file => $cfg , -nomultiline => 1, -handle_trailing_comment => 1);
@@ -315,8 +316,7 @@ sub create_cfgs {
 				@userdescription = split /\n/ , $v;
 			}
 		}
-
-		my ($rf,@rna) = split(/_/,$rf_rna);
+		
 		unlink $_ for glob catfile($ENV{GORAP},'config',$rf.'*');
 		
 		open CFG, '>'.catfile($ENV{GORAP},'config',$rf_rna.'.cfg') or die $!;

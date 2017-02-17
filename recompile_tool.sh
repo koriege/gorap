@@ -60,9 +60,8 @@ MAFFT='mafft-7.305-with-extensions'
 tool=$MAFFT
 if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 	if [[ -d $GORAP/$tool ]]; then
-		cd $GORAP/$tool/
 		cd $GORAP/$tool/core
-		make clean;	sed -i -r "s@PREFIX\s*=.*@PREFIX=$GORAP/$tool@" Makefile && make PREFIX=$GORAP/$tool && make install && make clean
+		make clean;	sed -i'''' -r "s@PREFIX\s*=.*@PREFIX=$GORAP/$tool@" Makefile && make PREFIX=$GORAP/$tool && make install && make clean
 		if [[ $? -gt 0 ]]; then
 			exit 1
 		fi
@@ -121,7 +120,7 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 			gv=0
 		fi
 		if [[ $gv -lt 214 ]]; then
-			make clean; ./configure --prefix=$GORAP/$tool CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && sed -i -r 's/^\s*(C|LD)FLAGS\s*=\s*/override \1FLAGS += /' Makefile && make CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && make install && make clean
+			make clean; ./configure --prefix=$GORAP/$tool CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && sed -i'' -r 's/^\s*(C|LD)FLAGS\s*=\s*/override \1FLAGS += /' Makefile && make CFLAGS="-I$GORAP/$glibc/built/include" LDFLAGS="-I$GORAP/$glibc/built/lib" && make install && make clean
 		else 
 			make clean; ./configure --prefix=$GORAP/$tool && make && make install && make clean
 		fi
@@ -170,8 +169,8 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 		cd $GORAP/$tool
 		mkdir -p bin
 		mkdir -p man/man1
-		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile
-		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
+		sed -i'' '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile
+		sed -i'' '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
 		make clean; make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -190,9 +189,9 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 		mkdir -p bin
 		mkdir -p man/man1
 		mkdir -p lib/tRNAscan-SE
-		sed -i '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile 
-		sed -i '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
-		sed -i '/^LIBDIR/ c\LIBDIR = $(CURDIR)/lib/tRNAscan-SE' Makefile
+		sed -i'' '/^BINDIR/ c\BINDIR = $(CURDIR)/bin' Makefile 
+		sed -i'' '/^MANDIR/ c\MANDIR = $(CURDIR)/man' Makefile
+		sed -i'' '/^LIBDIR/ c\LIBDIR = $(CURDIR)/lib/tRNAscan-SE' Makefile
 		make clean; make && make install && make clean
 		if [[ $? -gt 0 ]]; then				
 			exit 1
@@ -267,7 +266,7 @@ if [[ $tool == $retool ]] || [[ $retool == 'all' ]]; then
 			cfl="$cfl-I$GORAP/$ncurses/built/include -I$GORAP/$ncurses/built/include/ncurses"
 			ldfl="$ldfl-L$GORAP/$ncurses/built/lib"
 		fi
-		make clean; sed -i -r 's/^\s*CFLAGS\s*=\s*/override CFLAGS += /' Makefile && sed -i 's/-lcurses/-lncurses/' Makefile && make CFLAGS="$cfl $ldfl"
+		make clean; sed -i'' -r 's/^\s*CFLAGS\s*=\s*/override CFLAGS += /' Makefile && sed -i'' 's/-lcurses/-lncurses/' Makefile && make CFLAGS="$cfl $ldfl"
 		if [[ $? -gt 0 ]]; then
 			exit 1
 		fi 

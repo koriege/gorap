@@ -251,6 +251,8 @@ sub BUILD {
 				case 'rfam' {
 					print "Updating Rfam database\n";
 					Bio::Gorap::Update->dl_rfam($self);
+					print "Updating configuration files\n";
+					Bio::Gorap::Update->create_cfgs($self);
 					exit;
 				}
 				case 'cfg' {

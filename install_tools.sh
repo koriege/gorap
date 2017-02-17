@@ -136,7 +136,7 @@ download (){
 		echo "Downloading $tool failed - see $GORAP/install.log for details"
 		exit 1
 	fi
-	sed -i "s/$toolid=.*/$toolid='$tool'/g" recompile_tool.sh
+	sed -i'' "s/$toolid=.*/$toolid='$tool'/g" recompile_tool.sh
 	bash recompile_tool.sh $tool &>> $GORAP/install.log
 	excode=$?
 	kill $pid &> /dev/null
@@ -185,15 +185,17 @@ if [[ $bit -eq 64 ]]; then
 	fi
 fi
 
-toolid=GLIBC
-getpaths
-if [[ $(which ldd) ]]; then
-	gv=$(ldd --version | head -n 1 | awk '{split($NF,a,"."); print a[1]a[2]}')
-else 
-	gv=0
-fi
-if [[ $gv -lt 214 ]]; then
-	download
+if [[ $os != 'mac' ]]; then
+	toolid=GLIBC
+	getpaths
+	if [[ $(which ldd) ]]; then
+		gv=$(ldd --version | head -n 1 | awk '{split($NF,a,"."); print a[1]a[2]}')
+	else 
+		gv=0
+	fi
+	if [[ $gv -lt 214 ]]; then
+		download
+	fi
 fi
 
 toolid=INFERNAL
@@ -248,7 +250,7 @@ ex=$([[ $(which rnammer) ]] && echo $(which rnammer) || echo $GORAP/$tool/bin/rn
 $ex -v &> /dev/null
 if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
-	sed -iE "s@HMMSEARCH_BINARY\s*=.*@HMMSEARCH_BINARY='$hmmer';@" $GORAP/$tool/bin/rnammer
+	sed -i'' -e "s@HMMSEARCH_BINARY\s*=.*@HMMSEARCH_BINARY='$hmmer';@" $GORAP/$tool/bin/rnammer
 fi
 
 toolid=BCHECK
@@ -259,7 +261,7 @@ if [[ $? -gt 0 ]] || [[ $force ]]; then
 	download
 	# mkdir -p $GORAP/$tool/bin
 	# mv $GORAP/$tool/* $GORAP/$tool/bin
-	sed -i '/bob_version/,+3d' $GORAP/$tool/bin/Bcheck
+	sed -i'' '/bob_version/,+3d' $GORAP/$tool/bin/Bcheck
 fi
 
 toolid=CRT

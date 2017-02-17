@@ -41,7 +41,8 @@ if ( ! $ENV{GORAP} || ! $ENV{PERL5LIB}){
 
 #push gorap tools to $PATH
 my $PATHtools;
-for(reverse glob(catdir($ENV{GORAP},'*','bin'))){	
+for(reverse glob(catdir($ENV{GORAP},'*','bin'))){
+	next if $_=~'/infernal-1.0/';
 	$PATHtools .= $PATHtools ? ":$_" : $_;
 }
 local $ENV{PATH} = $ENV{PATH} ? "$PATHtools:$ENV{PATH}" : $PATHtools;
@@ -398,7 +399,8 @@ sub run {
 					$f = catfile('Bio','Gorap','Tool','Default.pm');
 					$class = 'Bio::Gorap::Tool::Default';				
 					require $f;
-				} else {					
+				} else {
+					print $_;
 					&SIGABORT($_);
 				}
 			};
@@ -643,6 +645,11 @@ note: command line parameters priorize parameter file settings
 =head1  -------------------------
 
 =over 4
+
+=item B<-l>, B<--label>=FILE,...
+
+a label for this RUN - useful to find it in the HTML output and for an output refesh
+note: see -refresh
 	
 =item B<-i>, B<--fastas>=FILE,...
 
@@ -706,7 +713,12 @@ disables GORAP specific sequence and structure filter
 
 =item B<-skip>, B<--skipanno>
 
-disables annotation step - useful e.g. for additional phylogeny reconstruction
+disables annotation process - useful for e.g. additional phylogeny reconstruction
+
+=item B<-refresh>, B<--refresh>
+
+disables any calculations - updates HTML page and annotation files (GFF and FASTA) according to manual changes in Stockholm alignment files
+note: see -l
 
 =item B<-og>, B<--outgroups>=FILE
 
@@ -720,7 +732,7 @@ note: in equal order and list size to -og (otherwise use parameter file)
 
 =item B<-g>, B<--gffs>=FILE,...
 
-comma separated paths of known annotations in GFF3 format with necessary ID tag for filtering against and TMP/FPKM assignment.
+comma separated paths of known annotations in GFF3 format with necessary ID tag for overlap filter and to calculate TMP/FPKM values
 note1: in equal order and list size to -i (otherwise use parameter file).
 note2: separate multiple BAMs related to one input FASTA by colons
 e.g. s1g1.gff:s1g2.gff,s2.gff
@@ -731,7 +743,7 @@ disables deletion of predictions even if they overlap with a given GFF3 file
 
 =item B<-b>, B<--bams>=FILE,...
 
-comma separated paths of mapping results in BAM format, triggering TPM/FPKM calculation and de novo prediction.
+comma separated paths of mapping results in BAM format, triggers TPM/FPKM calculation and de novo prediction.
 note1: in equal order and list size to -i (otherwise use parameter file).
 note2: separate multiple BAMs related to one input FASTA by colons
 e.g. s1g1.bam:s1g2.bam,s2.bam
