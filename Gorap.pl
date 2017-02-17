@@ -631,7 +631,7 @@ this (help) message
 
 apply GORAP on $GORAP/example/ecoli.fa
 
-=item B<-update>, B<--update>=[all,rfam,ncbi,silva,cfg]
+=item B<-update>, B<--update>=[all,rfam,ncbi,silva]
 
 updates internal used databases (Rfam, NCBI, Silva)	!!! check your edited configuration files afterwards
 
@@ -642,11 +642,11 @@ note: command line parameters priorize parameter file settings
 
 =back
 
-=head1  -------------------------
+=head1  ---
 
 =over 4
 
-=item B<-l>, B<--label>=FILE,...
+=item B<-l>, B<--label>=STRING
 
 a label for this RUN - useful to find it in the HTML output and for an output refesh
 note: see -refresh
@@ -688,7 +688,7 @@ output directory
 (default: 1) 
 number of threads to use 
 
-=item B<-t>, B<--tmp>=F<PATH>	
+=item B<-t>, B<--tmp>=PATH
 
 (default: $TMPDIR or /tmp or $GORAP/tmp)
 set the temporary directory - will be removed after successful GORAP run
