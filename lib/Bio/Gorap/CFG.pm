@@ -13,7 +13,7 @@ has 'cfg' => (
     trigger => \&_set
 );
 
-has ['rf' , 'rna' , 'rf_rna' , 'query_dir' , 'fasta' , 'stk' , 'cm'] => (
+has ['rf' , 'rna' , 'rf_rna' , 'query_dir' , 'fasta' , 'stk' , 'cm', 'types'] => (
 	is => 'rw',
     isa => 'Str',
     default => ''
@@ -34,7 +34,7 @@ has 'tools' => (
 has ['bitscore', 'bitscore_cm'] => (
 	is => 'rw',
 	isa => 'Num',
-	default => 0
+	default => 20
 );
 
 has 'evalue' => (
@@ -85,9 +85,13 @@ sub _set {
 	$self->rf($cfg->val('family','id')) or die 'Check your parameter file '.$self->cfg;
 	$self->rna($cfg->val('family','name')) or die 'Check your parameter file '.$self->cfg;
 	$self->rf_rna($self->rf.'_'.$self->rna);
-	$self->query_dir(catdir($ENV{GORAP},'data','rfam',$self->rf_rna));
+	my ($querydir) = glob(catdir($ENV{GORAP},'gorap','data','rfam',$self->rf.'*'));
+	my ($fastafile) = glob(catfile($querydir,$self->rf.'*.fa'));
+	my ($cmfile) = glob(catfile($querydir,$self->rf.'*.cm'));
+	my ($stkfile) = glob(catfile($querydir,$self->rf.'*.stk'));
+	$self->query_dir($querydir);
 
-	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;	
+	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
 	if ($v){		
 		$self->tools([split /\n/ , $v]);
 		$v = $cfg->val('cmd','parameter');
@@ -103,31 +107,30 @@ sub _set {
 	$self->bitscore($v) if $v;
 
 	$v = $cfg->val('query','fasta');
-	if ($v){
-		if(catfile($self->query_dir,$self->rf_rna.'.fa')=~/$v/){
-			$self->fasta(catfile($self->query_dir,$self->rf_rna.'.fa'));
-		} else {
-			$self->fasta($v);
-		}
+	if (-e $v){
+		$self->fasta($v);
+	} else {
+		die 'Check fasta definition in parameter file '.$self->cfg unless -e $fastafile;
+		$self->fasta($fastafile);
 	}
 	$v = $cfg->val('query','stk');
-	if ($v){
-		if(catfile($self->query_dir,$self->rf_rna.'.stk')=~/$v/){
-			$self->stk(catfile($self->query_dir,$self->rf_rna.'.stk'));
-		} else {
-			$self->stk($v);
-		}
+	if (-e $v){
+		$self->stk($v);
+	} else {
+		die 'Check stk definition in parameter file '.$self->cfg unless -e $stkfile;
+		$self->stk($stkfile);
 	}
 	$v = $cfg->val('query','cm');
-	if ($v){
-		if(catfile($self->query_dir,$self->rf_rna.'.cm')=~/$v/){
-			$self->cm(catfile($self->query_dir,$self->rf_rna.'.cm'));
-		} else {
-			$self->cm($v);
-		}
-		my $score = Bio::Gorap::Functions::CM->get_min_score($self->cm);		
-		$self->bitscore_cm($score) if $score;
+	if (-e $v){
+		$self->cm($v);
+	} else {
+		die 'Check cm definition in parameter file '.$self->cfg unless -e $cmfile;
+		$self->cm($cmfile);
 	}
+
+	$self->bitscore_cm(Bio::Gorap::Functions::STK->get_min_score($self->stk));
+	$self->types(Bio::Gorap::Functions::STK->get_rna_types($self->stk));
+
 	$v = $cfg->val('query','pseudogenes');
 	$self->pseudogenes($v) if $v && $v=~/^\d+$/;
 	$v = $cfg->val('query','kingdom');

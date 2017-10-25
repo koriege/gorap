@@ -3,13 +3,9 @@
 ###########
 
 1   INSTALLATION
-1.1 INFORMATION
-1.2 INSTALLATION
-1.3 HIGHLY RECOMMENDED POST INSTALLATION
 2   UPDATE GORAP
-2.1 UPDATE GORAP LIBRARY
-2.2 UPDATE GORAP TOOLS
-2.3 UPDATE GORAP DATABASES
+2.1 UPDATE LIBRARY
+2.2 UPDATE DATABASES
 3   RUNNING GORAP
 4	RESULTS
 5   KNOWN ISSUES AND SOLUTIONS
@@ -20,111 +16,69 @@
 1 INSTALLATION
 --------------
 
-1.1 INFORMATION
-
-We also provide a pre-compiled, operating system independent version based on Docker
-see http://www.rna.uni-jena.de/en/software/
-
---
-
-GORAP will be installed in the following directory, which can be changed
-during the INSTALLATION step: $HOME/gorap
-
-GORAP requires some Perl modules. By default missing ones will be installed 
-into a conventional, shared perl5 directory in your home. These modules can 
-be used by other Perl scripts, too. The location can be changed during the
-INSTALLATION step: $HOME/perl5
-
-1.2 INSTALLATION
-
-# Set the two following directories, which can be changed here
-export GORAP=$HOME/gorap
-export GORAPLIB=$HOME/perl5	
-# Update the Perl library path
-export PERL5LIB=$GORAPLIB/lib/perl5:$PERL5LIB
-# Update the binaries path to make GORAP available globally
-export PATH=$GORAP:$PATH
-# Download GORAP latest release
-wget https://github.com/rna-hta-jena/gorap/archive/v2.3.1-stable.zip -O v2.3.1-stable.zip
-# Extract GORAP
-unzip v2.3.1-stable.zip
-# Enter extracted directory
-cd gorap-2.3.1-stable
-# Download corresponding databases (includes Rfam 12.0)
-wget www.rna.uni-jena.de/supplements/gorap/data-12.tar.gz -O data-12.tar.gz
-# Extract databases into $GORAP
-tar -xzf data-12.tar.gz -C $GORAP/
-# Local installation of missing software into $GORAP (for everything execute: ./install_tools.sh force)
-./install_tools.sh
-# Set path to necessary and always downloaded Samtools software
-export SAMTOOLS=$GORAP/samtools-0.1.19
-# Installation of GORAP and latest required Perl modules
-wget https://cpanmin.us -O cpanm && chmod 755 cpanm
-./cpanm -l $GORAPLIB .
-# Mute BioPerl warnings (to restore changes execute: bash nowarnings.sh off)
-bash nowarnings.sh on
-# Copy all scripts to the $GORAP directory
-cp *.pl $GORAP	
-# you are done - go rapping!
-
-
-1.3 HIGHLY RECOMMENDED POST INSTALLATION
-
-# To use GORAP later from command line again and to be able to update it, you
-# can redo all exports from INSTALLATION or store them permanently this way.
-echo 'export PATH=$PATH:'$GORAP >> $HOME/.bashrc
-echo 'export GORAP='$GORAP >> $HOME/.bashrc
-echo 'export PERL5LIB='$PERL5LIB >> $HOME/.bashrc
-
+1) Set the GORAP variable, assigned to its installation directory
+export GORAP=/path/to/install/dir
+2) store the GORAP variable permanently to ensure that Gorap can always find the required tools
+echo "export GORAP=$GORAP" >> ~/.bashrc
+3) Download Gorap
+git clone --recursive https://github.com/rna-hta-jena/gorap.git
+4) Enter the source directory
+cd gorap
+5) Checkout latest stable version
+git checkout $(git describe --tags)
+6) Install Gorap and all necessary tools
+./setup -i all
 
 --------------
 2 UPDATE GORAP
 --------------
 
-This section describes how to install a newer releases of either Gorap or used databases
+2.1 UPDATE LIBRARY
 
-2.1 UPDATE GORAP LIBRARY 
+1) Follow the INSTALLATION steps 3 to 5
+2) Update Gorap
+./setup -i update
 
-# in case of a new release e.g. v2.x.x
-wget https://github.com/rna-hta-jena/gorap/archive/v2.x.x-stable.zip -O v2.x.x-stable.zip -O v2.x.x-stable.zip
-unzip v2.x.x-stable.zip
-cd gorap-v2.x.x-stable
-# make sure to have $GORAP and $GORAPLIB exported first/permanent
-wget https://cpanmin.us -O cpanm && chmod 755 cpanm
-./cpanm -l $GORAPLIB --reinstall .
-cp *.pl $GORAP
+2.3 UPDATE DATABASES
 
+# Info
+In case of updating to a newer Rfam release, you need to correct manually defined family specific configuration constrains.
+Therefore, please check the ERROR output and shift also the pre-annotated CD-box snoRNA constrains matching again: 
+- the C-box motif UGAUGA
+- the D-box motif CUGA
+Example:
+conserved=uuGCAAUGAUGuUAagAAUUUCUUcacCUGAAuuaaaCcuUGAaGuucAAAaauCGAGCUUUUUAACaCUGAGCaaa
+constrain=.....|..1...|......................................................|.1..|....
+constrain=......|0.|...........................................................|0.|....
 
-2.2 UPDATE GORAP TOOLS
+# Update all databases
+$GORAP/bin/gorap/Gorap.pl -update all
 
-# redo
-bash install_tools.sh
-
-2.3 UPDATE GORAP DATABASES
-
-# Update all databases or single ones by defining silva, ncbi or rfam instead
-perl Gorap.pl -update all
-
+# Or update single databases
+$GORAP/bin/gorap/Gorap.pl -update rfam
+$GORAP/bin/gorap/Gorap.pl -update ncbi
+$GORAP/bin/gorap/Gorap.pl -update silva
 
 ---------------
 3 RUNNING GORAP
 ---------------
 
-# Hint 1: Multiple (not parallel) runs can be saved into the same output directory
-# Hint 2: Restart a run with same parameters, adding -skip, skips annotation
-# -> but enables additional computations like sorting and phylogeny reconstruction
-# Hint 3: Command line parameters priorize parameter file settings
-# -> e.g. call Gorap.pl -file parameter.txt -skip -sort -l new_label
-# Hint 4: For each Rfam model in $GORAP/config exists specific configuration files
-# -> Optionally set thresholds, other prediction tools and sequence mismatch constrains here
-# -> see an exmample here: $GORAP/config/RF00016_SNORD14.cfg 
-# -> Create an own covariance model and similar configuration file to screen for new families
+#Info
+Hint 1: Multiple (not parallel) runs can be saved into the same output directory
+Hint 2: Restart a run with same parameters, adding -skip, skips annotation
+-> but enables additional computations like sorting and phylogeny reconstruction
+Hint 3: Command line parameters priorize parameter file settings
+-> e.g. call Gorap.pl -file parameter.txt -skip -sort -l new_label
+Hint 4: For each Rfam model in $GORAP/config exists specific configuration files
+-> Optionally set thresholds, other prediction tools and sequence mismatch constrains here
+-> see an exmample here: $GORAP/config/RF00016_SNORD14.cfg 
+-> Create an own covariance model and similar configuration file to screen for new families
 
 # Run GORAP using a parameter file - see example parameter file for available options
-perl Gorap.pl -file parameter.txt
+$GORAP/bin/gorap/Gorap.pl -file parameter.txt
 
 # Run GORAP using command line parameters
-perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -s 562 -r 543 -g $GORAP/example/ecoli.gff
+$GORAP/bin/gorap/Gorap.pl Gorap.pl -c 8 -i $GORAP/bin/gorap/example/ecoli.fa -a ecol -k bac -s 562 -r 543 -g $GORAP/bin/gorap/example/ecoli.gff
 
 # Run GORAP without taxonomy filter and reading of NCBI Taxonomy even if -s or -r are used
 perl Gorap.pl -notax -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac	-s 562 -r 543
@@ -146,7 +100,7 @@ perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -skip -l myphylo
 
 # De-novo prediction and TPM/FPKM calculation from (small-)RNA-Seq experiments
 perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> 
-# Hint: experimental feature. 
+-> very (!) experimental and still under construction
 
 ---------
 4 RESULTS
@@ -196,7 +150,7 @@ sed -i'' -e 's/^>\S*\s*/>/' file.fasta
 5 MISSING STUFF
 ---------------
 
-Suggestions? Bugs? Please let me know :)
+Suggestions? Bugs? Troubles? Please let me know!
 
 
 ---------

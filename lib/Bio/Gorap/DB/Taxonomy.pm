@@ -28,7 +28,7 @@ has 'silva' => (
 	is => 'rw',
     isa => 'Bio::Tree::Tree',
     lazy => 1,
-    default => sub { (Bio::TreeIO->new(-format => 'newick', -file => catfile($ENV{GORAP},'data','taxonomy','silva16s.newick') , -verbose => -1))->next_tree }
+    default => sub { (Bio::TreeIO->new(-format => 'newick', -file => catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1))->next_tree }
 );
 
 has 'silvaToTaxid' => (
@@ -52,7 +52,13 @@ has 'rfamToName' => (
 has 'nameToTaxid' => (
 	is => 'rw',
 	isa => 'HashRef',
-    default => sub { {} }	
+	default => sub { {} }	
+);
+
+has 'taxidToName' => (
+	is => 'rw',
+	isa => 'HashRef',
+	default => sub { {} }	
 );
 
 has 'speciesID' => (
@@ -69,6 +75,12 @@ has 'rankIDlineage' => (
 	is => 'rw',
 	isa => 'ArrayRef',
 	default => sub {[]}
+);
+
+has 'taxIDsToLineage' => (
+	is => 'rw',
+	isa => 'HashRef',
+	default => sub { {} }
 );
 
 has 'relatedRankIDsToLineage' => (
@@ -88,12 +100,13 @@ sub _set_db {
 	my ($self) = @_;
 
 	#initialize taxonomy database
-	print "Reading NCBI Taxonomy (can take up to 15 minutes)\n";
-	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'data','taxonomy','names.dmp'), -directory => $self->parameter->tmp , -force => 1 , -verbose => -1 ));
+	#directory was parameter-tmp -> unique id, but now we will reuse created indexes (force 0)
+	print "No index found. Indexing Taxonomy DB - may take a while\n" unless (-e catfile($ENV{GORAP},'gorap','data','taxonomy','parents'));
+	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','names.dmp'), -directory => catdir($ENV{GORAP},'gorap','data','taxonomy') , -force => 0 , -verbose => -1 ));
 	
 	#read in silva phylogeny accession numbers, already mapped to ncbi taxonomy
-	if (-e catfile($ENV{GORAP},'data','silvaNcbi.txt')){
-		open MAP, '<'.catfile($ENV{GORAP},'data','silvaNcbi.txt') or die $!;
+	if (-e catfile($ENV{GORAP},'gorap','data','silvaNcbi.txt')){
+		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','silvaNcbi.txt') or die $!;
 		while(<MAP>){
 			chomp $_;
 			my @tmp=split(/\s+/,$_);		
@@ -103,17 +116,37 @@ sub _set_db {
 	}
 
 	#read in rfam accession numbers, already mapped to ncbi taxonomy	
-	if (-e catfile($ENV{GORAP},'data','accSciTax.txt')){
-		open MAP, '<'.catfile($ENV{GORAP},'data','accSciTax.txt') or die $!;
+	if (-e catfile($ENV{GORAP},'gorap','data','accSciTax.txt')){
+		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','accSciTax.txt') or die $!;
 		while(<MAP>){
 			chomp $_;
 			my @tmp=split(/\s+/,$_);
 			$self->rfamToName->{$tmp[0]}=$tmp[1];
 			$self->rfamToTaxid->{$tmp[0]}=$tmp[2];
 			$self->nameToTaxid->{$tmp[1]}=$tmp[2];
+			$self->taxidToName->{$tmp[2]}=$tmp[1];
 		}
 		close MAP;
 	}
+}
+
+sub reindex {
+	my ($self) = @_;
+	print "Indexing Taxonomy DB - may take a while\n";
+	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','names.dmp'), -directory => catdir($ENV{GORAP},'gorap','data','taxonomy') , -force => 1 , -verbose => -1 ));
+}
+
+sub flatname {
+	my ($self, $name) = @_;
+
+	$name=~s/(^\s+|\s+$)//g;
+	$name=~s/\s+/_/g;
+	$name=~s/\.\.+/\./g;
+	$name=~s/__+/_/g;
+	$name=~s/[^a-zA-Z0-9_]*//g;
+	$name=ucfirst($name);
+
+	return $name;
 }
 
 #from taxid or Bio::Taxon
@@ -122,115 +155,131 @@ sub getLineageNodes { #does not include node of it self
 
 	my $taxon;	
 	if (ref(\$taxid) eq 'SCALAR'){
-		$taxon = $self->ncbi->get_taxon(-taxonid => $taxid);		
+		$taxon = $self->ncbi->get_taxon(-taxonid => $taxid);
 	} else {
 		$taxon = $taxid;
 		$taxid = $taxon->id;
-	}	
-
-	my @nodes;
+	}
+	# check for reuse of prior crated valid lineages
+	return $self->taxIDsToLineage->{$taxid} if exists $self->taxIDsToLineage->{$taxid};
+	
+	my @nodes = ();
 	if ($taxon){
 		my $tree_functions = Bio::Tree::Tree->new( -verbose => -1);
 		@nodes = $tree_functions->get_lineage_nodes($taxon);
-	}
-	if ($#nodes == -1){		
-		my $errorCounter=0;
-		my $error=1;
-		while($error && $errorCounter < 10){
-			$errorCounter++;
-			$error=0;
-			try{
-				my $factory = Bio::DB::EUtilities->new(-eutil => 'efetch', -email => 'mymail@foo.bar', -db => 'taxonomy', -id => $taxid  , -verbose => -1);
+		# push @nodes, $taxid;
+	} else { # try to reach web api
+		my ($error, $try, $tries) = (1, 0, 5);
+		while($error && (++$try) < $tries){
+			$error = 0;
+			try{			
+				my $factory = Bio::DB::EUtilities->new(
+					-eutil => 'efetch', 
+					-email => 'mymail@foo.bar', 
+					-db => 'taxonomy', 
+					-id => $taxid,
+					-verbose => -1
+				);
 				my $res = $factory->get_Response->content;
+				# parse xml return into hash
 				my $data = XMLin($res);
-				do {push @nodes, $_->{TaxId} for @{$data->{Taxon}->{LineageEx}->{Taxon}} } if ref $data;
+				if (ref $data){
+					for (@{$data->{Taxon}->{LineageEx}->{Taxon}}){
+						push @nodes, $_->{TaxId};
+						my $name = $self->flatname($_->{ScientificName});
+						my $id = $_->{TaxId};
+						$self->taxidToName->{$id} = $name;
+						$self->nameToTaxid->{$name} = $id;
+					}
+				}
 			} catch {
-				$error=1;
+				$error = 1;
 			};
 		}
+		# push @nodes, $taxid;
 	}
+	push @{$self->taxIDsToLineage->{$taxid}}, @nodes if $#nodes > -1;
 
 	return \@nodes;
 }
 
 sub getIDfromName {
 	my ($self,$query) = @_;
-	my $id;
 
 	return 0 unless $query;		
-
-	if ($query=~/^\d+$/){
-		my $taxon = $self->ncbi->get_taxon(-taxonid => $query);		
-		return $taxon ? $query : 0;
-	}
-
 	return $self->nameToTaxid->{$query} if exists $self->nameToTaxid->{$query};
-	
-	my ($grep) = grep {/$query/} keys %{$self->nameToTaxid};							
-	return $self->nameToTaxid->{$grep} if $grep;
 
-	for($self->ncbi->get_taxonids($query)){	
-		my $nodes = &getLineageNodes($self, $_);
-		next if $#{$nodes}<1;
-		$id = $_;
-		last if $id;
+	my $taxon;
+	if ($query=~/^\d+$/){
+		$taxon = $self->ncbi->get_taxon(-taxonid => $query);
+	} else {
+		$taxon = $self->ncbi->get_taxon(-name => $query);
 	}
 
-	unless ($id){		
-		my $errorCounter=0;
-		my $error=1;
-		while($error && $errorCounter < 10){
-			$errorCounter++;
-			$error=0;
-			try{				
-				my $factory = Bio::DB::EUtilities->new(-eutil => 'esearch', -db => 'taxonomy', -email => 'mymail@foo.bar', -term  => $query , -verbose => -1);
-												
-				for($factory->get_ids){		
-					my $nodes = &getLineageNodes($self, $_);					
-					next if $#{$nodes}<1;
-					$id = $_;
-					last if $id;
-				}												
-			} catch {					
-				$error=1;
+	my $taxid;
+	if ($taxon){
+		$taxid = $taxon->id;
+		my $name = $self->flatname($taxon->scientific_name);
+		$self->taxidToName->{$taxid} = $name;
+		$self->nameToTaxid->{$name} = $taxid;
+	} else {
+		my ($try, $error, $tries) = (0, 1, 5);
+		while ($error && (++$try) < $tries){
+			$error = 0;
+			try { # try to reach web api
+				my $factory = Bio::DB::EUtilities->new(
+					-eutil => 'esearch', 
+					-db => 'taxonomy', 
+					-email => 'mymail@foo.bar', 
+					-term => $query, 
+					-verbose => -1
+				);
+				($taxid) = $factory->get_ids;
+			} catch {
+				$error = 1;
 			};
-		} 
-	}	
+		}
+	}
 
-	return defined $id && $id=~/^\d+$/ ? $id : 0;
+	return $taxid;
 }
 
 sub getNameFromID {
-	my ($self, $taxid) = @_;	
+	my ($self,$taxid) = @_;	
+	
+	return $self->taxidToName->{$taxid} if exists $self->taxidToName->{$taxid};
 
-	my $taxon = $self->ncbi->get_taxon(-taxonid => $taxid);	
 	my $name;
+	my $taxon = $self->ncbi->get_taxon(-taxonid => $taxid);
 	if ($taxon) {		
 		$name = $taxon->scientific_name;
 	} else {
-		my $errorCounter=0;
-		my $error=1;		
-		while($error && $errorCounter < 10){
-			$errorCounter++;
-			$error=0;
-			try{
-				my $factory = Bio::DB::EUtilities->new(-eutil => 'esummary', -email => 'mymail@foo.bar', -db => 'taxonomy', -id => $taxid  , -verbose => -1);	
+		my ($try, $error, $tries) = (0, 1, 5);
+		while($error && (++$try) < $tries){
+			$error = 0;
+			try { # try to reach web api
+				my $factory = Bio::DB::EUtilities->new(
+					-eutil => 'esummary', 
+					-email => 'mymail@foo.bar', 
+					-db => 'taxonomy', 
+					-id => $taxid, 
+					-verbose => -1
+				);
 				($name) = $factory->next_DocSum->get_contents_by_name('ScientificName');
-			} catch {					
-				$error=1;
+			} catch {
+				$error = 1;
 			};
-		} 		
+		}
 	}
+
 	if ($name){
-		$name=~s/\s+/_/g;
-		$name=~s/\.\./\./g;
-		$name=~ s/[^a-zA-Z0-9_]*//g;		
-		$name=ucfirst($name);
+		$name = $self->flatname($name);
+		$self->taxidToName->{$taxid} = $name;
+		$self->nameToTaxid->{$name} = $taxid;
 		return $name;
 	} else {
-		return 0;
-	}		
-					
+		return 0
+	}
 }
 
 sub getIDfromAccession {
@@ -238,37 +287,54 @@ sub getIDfromAccession {
 	
 	return $self->rfamToTaxid->{$acc} if exists $self->rfamToTaxid->{$acc};
 
-	my $error=1;
-	my $errorCounter=0;
-	my $taxid;
-	while($error && $errorCounter < 10){
-		$errorCounter++;
-		$error=0;
-		try{					
-			my $factory = Bio::DB::EUtilities->new(-eutil => 'esearch', -email => 'mymail@foo.bar', -db => 'nuccore', -term => $acc  , -verbose => -1);
+	my ($taxid, $name);
+	my ($try, $error, $tries) = (0, 1, 5);
+	while ($error && (++$try) < $tries){
+		$error = 0;
+		try {
+			my $factory = Bio::DB::EUtilities->new(
+				-eutil => 'esearch', 
+				-email => 'mymail@foo.bar', 
+				-db => 'nuccore', 
+				-term => $acc, 
+				-verbose => -1
+			);
 			my @uids = $factory->get_ids;
-			$factory->reset_parameters(-eutil => 'esummary', -email => 'mymail@foo.bar', -db => 'nuccore', -id => \@uids);	
-			($taxid) = $factory->next_DocSum->get_contents_by_name('TaxId');												
-		} catch {					
-			$error=1;
+			$factory->reset_parameters(
+				-eutil => 'esummary', 
+				-email => 'mymail@foo.bar', 
+				-db => 'nuccore', 
+				-id => \@uids
+			);
+			($taxid) = $factory->next_DocSum->get_contents_by_name('TaxId');
+		} catch {
+			$error = 1;
 		};
 	}
-	
-	return defined $taxid && $taxid=~/^\d+$/ ? $taxid : 0;
+
+	if ($taxid){
+		$self->rfamToTaxid->{$acc} = $taxid;
+		return $taxid;
+	} else {
+		return 0
+	}
 }
 
 sub findRelatedSpecies {
 	my ($self) = @_;
 
-	$self->speciesID(&getIDfromName($self , $self->parameter->species));
-	$self->rankID(&getIDfromName($self , $self->parameter->rank));
-
-	if ($self->rankID){
-		push @{$self->rankIDlineage} , $_->id for @{&getLineageNodes($self,$self->rankID)};
-		push @{$self->rankIDlineage} , $self->rankID;
-		$self->relatedRankIDsToLineage(&findRelatedIDs($self,$self->rankID)) if $self->rankID;
+	if ($self->parameter->has_species){
+		$self->speciesID($self->getIDfromName($self->parameter->species));
+		$self->relatedSpeciesIDsToLineage($self->findRelatedIDs($self->speciesID)) if $self->speciesID;
 	}
-	$self->relatedSpeciesIDsToLineage(&findRelatedIDs($self,$self->speciesID)) if $self->speciesID;
+	if ($self->parameter->has_rank){
+		$self->rankID($self->getIDfromName($self->parameter->rank));
+		if ($self->rankID){
+			push @{$self->rankIDlineage} , $_->id for @{$self->getLineageNodes($self->rankID)};
+			push @{$self->rankIDlineage} , $self->rankID;
+			$self->relatedRankIDsToLineage($self->findRelatedIDs($self->rankID));
+		}
+	}
 }
 
 sub findRelatedIDs {
@@ -286,7 +352,7 @@ sub findRelatedIDs {
 
 	#store all children of the query taxon as related taxons with its lineages
 	for my $t ($taxon,$self->ncbi->get_all_Descendents($taxon)){
-		my $nodes = &getLineageNodes($self,$t);		
+		my $nodes = $self->getLineageNodes($t);		
 		$_ = $_->id for @{$nodes};
 		$relatedIDsToLineage->{$t->id} = $nodes;
 	}
@@ -361,7 +427,7 @@ sub findRelatedIDs {
 			next unless $taxon;		
 			for my $t ($taxon , $self->ncbi->get_all_Descendents($taxon)){
 				next if exists $relatedIDsToLineage->{$t->id};
-				my $nodes = &getLineageNodes($self,$t);		
+				my $nodes = $self->getLineageNodes($t);		
 				$_ = $_->id for @{$nodes};
 				$relatedIDsToLineage->{$t->id} = $nodes;
 			}		
@@ -388,8 +454,8 @@ sub sort_stk {
 		$stk->remove_seq($_);
 	}
 	try{									
-		my @sort = sort { &lineageNodesToString($self, &getLineageNodes($self, $self->nameToTaxid->{(split(/\./,$a->id))[0]}))
-			cmp &lineageNodesToString($self, &getLineageNodes($self, $self->nameToTaxid->{(split(/\./,$b->id))[0]}))
+		my @sort = sort { $self->lineageNodesToString($self->getLineageNodes($self->nameToTaxid->{(split(/\./,$a->id))[0]}))
+			cmp $self->lineageNodesToString($self->getLineageNodes($self->nameToTaxid->{(split(/\./,$b->id))[0]}))
 		} @tosort;
 		$stk->add_seq($_) for @sort;
 	} catch {

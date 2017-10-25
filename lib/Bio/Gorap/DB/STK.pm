@@ -363,7 +363,7 @@ sub calculate_threshold {
 #gorap post stk filters
 #gets stk as Bio::SimpleAlign, HashRef of Bio::SeqFeatures and threshold as float
 sub filter_stk {
-	my ($self, $id, $stk, $features, $threshold, $nonTaxThreshold, $taxdb, $gffdb) = @_;	
+	my ($self, $id, $stk, $features, $threshold, $nonTaxThreshold, $taxdb, $gffdb) = @_;
 	
 	$stk = $taxdb->sort_stk($stk) if $taxdb && $self->parameter->sort;
 	
@@ -383,13 +383,13 @@ sub filter_stk {
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;		
 	}
 
-	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold);
+	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold, $self->parameter->cfg->types);
 	push @update , @{$up} if $up;
 	return @update if scalar keys %{$features} == 0;
 	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;		
 
 	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features);	
+		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features, $self->parameter->cfg->types);	
 		push @update , @{$up} if $up;
 		return @update if scalar keys %{$features} == 0;
 		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
@@ -397,7 +397,7 @@ sub filter_stk {
 	
 	if ($self->parameter->cfg->userfilter){			
 		unless ($self->parameter->nofilter){
-			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->constrains, $self->parameter->cfg->cs, $self->parameter->cfg->stk);
+			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->constrains, $self->parameter->cfg->cs, $self->parameter->cfg->stk, $self->parameter->cfg->types);
 			push @update , @{$up} if $up;
 			return @update if scalar keys %{$features} == 0;
 			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;

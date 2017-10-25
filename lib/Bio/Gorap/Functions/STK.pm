@@ -7,6 +7,58 @@ use Switch;
 use List::Util qw(min max);
 use File::Spec::Functions;
 
+sub get_min_score {
+	#open given covariance model and extract minimum of gathering-, trusted- and noise cutoff
+	my ($self,$stk) = @_;
+	open STK , '<'.$stk or die $!;
+	my $score = 999999;
+	while(<STK>){
+		chomp;
+		if ($_=~/^#=GF\s+(GA|TC|NC)\s+(.+)/){
+			$score = $2 < $score ? $2 : $score;
+		}
+	}
+	close STK;
+	return $score == 999999 ? 0 : $score;
+}
+
+sub get_rf_rna {
+	my ($self,$stk) = @_;
+
+	my $rna='';
+	my $rf='';
+	open STK , '<'.$stk or die $!;
+	while(<STK>){
+		chomp;
+		if ($_=~/^#=GF\s+AC\s+(.+)/){
+			$rf=$1;
+		}
+		if ($_=~/^#=GF\s+ID\s+(.+)/){
+			$rna=$1;
+		}
+	}
+	close STK;
+	$rna=~s/\s+/_/g;
+	return $rf.'_'.$rna;
+}
+
+sub get_rna_types {
+	my ($self,$stk) = @_;
+
+	my $types = '';
+	open STK , '<'.$stk or die $!;
+	while(<STK>){
+		chomp;
+		if ($_=~/^#=GF\s+TP\s+(.+);/){
+			$types = $1;
+			$types =~ s/;\s+/:/g;
+		}
+	}
+	close STK;
+
+	return $types;
+}
+
 sub length_filter {
 	my ($self, $stk, $features, $seedcs) = @_;
 
@@ -28,22 +80,26 @@ sub length_filter {
 }
 
 sub score_filter {
-	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold) = @_;
+	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold, $rna_types) = @_;
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my $write;
 	my @update;	
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	
 	my $cdsno = 0;
-	if ($type=~/_SNOR[ND\d]/ || $type=~/_Afu/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
+	if ($rna_types=~/CD-box/){
 		$cdsno = 1;
-	# } elsif ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/){
-	# 	$cdsno = 0;
-	} elsif ($type=~/_sn\d/ || $type=~/_sno[A-Z]/){
-		my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
-		$cdsno =1 if $cs=~/CUGA.{0,12}$/i;
+	} else {
+		my $type = $features->{(keys %{$features})[0]}->primary_tag;
+		if ($type=~/_ceN/ || $type=~/_DdR/ || $type=~/CD\d+$/ || $type=~/_SNOR[ND\d]/ || $type=~/_Afu/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
+			$cdsno = 1;
+		# } elsif ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/){
+		# 	$cdsno = 0;
+		} elsif ($type=~/_sn\d/ || $type=~/_sno[A-Z]/){
+			my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
+			$cdsno =1 if $cs=~/UGA.{0,12}$/i;
+		}
 	}
 	
 	if ( ! $nofilter && $userfilter && $cdsno){
@@ -63,7 +119,7 @@ sub score_filter {
 	}	
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
-		if ($type=~/_sn/i){
+		if ($cdsno){
 			for (keys %{$features}){
 				my $f = $features->{$_};
 				next if $f->score eq '.';
@@ -143,10 +199,10 @@ sub score_filter {
 }
 
 sub structure_filter(){
-	my ($self, $stk, $features, $minstructures) = @_;
+	my ($self, $stk, $features, $rna_types, $minstructures) = @_;
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
+	
 	my @update;
 	my $write;
 
@@ -264,20 +320,26 @@ sub structure_filter(){
 	}
 	my $aca=join("",@cs[$aca[0]..$aca[-1]]);
 	$aca=~s/[\W_]//g;
-	if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/UGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
-		$hacasno = 1;
-		my ($hp,$i,$bracket) = (0,0,0); 
-		for(@ss){ #count hairpins and get ananna locus between both hairpins
-			$i++; 
-			unless($_=~/(\(|\))/){
-				push @anna, $i-1 if $hp==1 && $bracket==0;
-			} else {
-				$bracket = $_ eq "(" ? $bracket+1 : $bracket-1; 
-				$hp++ if $bracket==1 && $_ eq "(";
-			}
+	if ($rna_types=~/HACA-box/){
+		$hacasno=1;
+	} else {
+		my $type = $features->{(keys %{$features})[0]}->primary_tag;
+		if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/UGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
+			$hacasno = 1;
 		}
-		$hacasno = 0 unless $hp == 2;
 	}
+	my ($hp,$i,$bracket) = (0,0,0); 
+	for(@ss){ #count hairpins and get ananna locus between both hairpins
+		$i++; 
+		unless($_=~/(\(|\))/){
+			push @anna, $i-1 if $hp==1 && $bracket==0;
+		} else {
+			$bracket = $_ eq "(" ? $bracket+1 : $bracket-1; 
+			$hp++ if $bracket==1 && $_ eq "(";
+		}
+	}
+	$hacasno = 0 unless $hp == 2;
+
 	$minstructures = ($#areas +1)/2 unless $minstructures;
 	for (keys %{$features}){
 		my $f = $features->{$_};
@@ -367,7 +429,7 @@ sub sequence_filter {
 }
 
 sub user_filter {
-	my ($self, $stk, $features, $constrains, $cs, $seedstk) = @_;	
+	my ($self, $stk, $features, $constrains, $cs, $seedstk, $rna_types) = @_;	
 	$cs=~s/\W/-/g;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 
@@ -433,7 +495,6 @@ sub user_filter {
 	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]])."\n";
 	# }	
 
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	my $cdsno = 0;
 	my @aca;
 	my $i=0;
@@ -444,7 +505,12 @@ sub user_filter {
 		}
 		last if $i==12;
 	}
-	$cdsno = 1 if $type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && join("",@aca)=~/UGA.{0,12}$/i);
+	if ($rna_types){
+		$cdsno = 1 if $rna_types=~/CD-box/;
+	} else {
+		my $type = $features->{(keys %{$features})[0]}->primary_tag;
+		$cdsno = 1 if $type=~/_ceN/ || $type=~/_DdR/ || $type=~/CD\d+$/ || $type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && join("",@aca)=~/UGA.{0,12}$/i);
+	}
 
 
 	for my $k (keys %{$features}){				

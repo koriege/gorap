@@ -5,6 +5,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Bio::Gorap::CFG;
 use Bio::Gorap::Update;
+use Bio::Gorap::Gorap;
 use File::Spec::Functions;
 use Switch;
 use File::Basename;
@@ -23,7 +24,7 @@ has 'label' => (
 has 'mem' => (
 	is => 'ro',
 	isa => 'Int',
-	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem()/1024/1024 * 0.95)) }
+	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem()/1024/1024 * 0.9)) }
 );
 
 has 'pwd' => (
@@ -46,7 +47,7 @@ has 'cfg' => (
 has 'genomes' => (
 	is => 'rw',
 	isa => 'ArrayRef',
-	default => sub { [catfile($ENV{GORAP},'example','ecoli.fa')] }
+	default => sub { [catfile($ENV{GORAP},'gorap','example','ecoli.fa')] }
 );
 
 has 'threads' => (
@@ -64,16 +65,7 @@ has 'abbreviations' => (
 has 'tmp' => (
 	is => 'rw',
 	isa => 'Str',
-	default => sub { 
-		if ($ENV{TMPDIR}){
-			return $ENV{TMPDIR};
-		} elsif (-e catdir(rootdir,'tmp')){
-			return catdir(rootdir,'tmp');
-		} else {
-			make_path(catdir($ENV{GORAP},'tmp'));
-			return catdir($ENV{GORAP},'tmp');
-		}
-	}
+	default => catdir($ENV{GORAP},'tmp')
 );
 
 has commandline => (
@@ -162,7 +154,6 @@ has 'querystring' => (
 	default => ''
 );
 
-
 has 'denovolength' => (
 	is => 'rw',
 	isa => 'Int',
@@ -206,7 +197,8 @@ sub BUILD {
 		'q|queries=s' => \my $queries,
 		'a|abbreviations=s' => \my $abbreviations,
 		'r|rank=s' => \my $rank,
-		's|species=s' => \my $species,		
+		's|species=s' => \my $species,
+		'v|version' => \my $version,
 		'og|outgroups=s' => \my $outgroups,
 		'oga|outgroupabbreviations=s' => \my $ogabbreviations,
 		'b|bams=s' => \my $bams,	
@@ -234,47 +226,61 @@ sub BUILD {
 
 	&read_parameter($self,$file) if $file && $file ne 'x';
 
-	unless (! $self->commandline){
+	if ($self->commandline){
 		if($update){
 			#downloading and parsing latest databases
 			switch (lc $update) {
 				case 'ncbi' {
 					print "Updating NCBI Taxonomy\n";
-					Bio::Gorap::Update->dl_ncbi();
+					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
+						parameter => $self
+					);
+					Bio::Gorap::Update->dl_ncbi($self,$taxdb);
 					exit;
 				}
 				case 'silva' {
 					print "Updating Silva tree\n";
-					Bio::Gorap::Update->dl_silva($self);
+					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
+						parameter => $self
+					);
+					Bio::Gorap::Update->dl_silva($self,$taxdb);
 					exit;
 				}
 				case 'rfam' {
+					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
+						parameter => $self
+					);
 					print "Updating Rfam database\n";
-					Bio::Gorap::Update->dl_rfam($self);
+					Bio::Gorap::Update->dl_rfam($self,$taxdb);
 					print "Updating configuration files\n";
 					Bio::Gorap::Update->create_cfgs($self);
 					exit;
 				}
 				case 'cfg' {
 					print "Updating configuration files\n";
-					Bio::Gorap::Update->create_cfgs($self);
+					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
+						parameter => $self
+					);
+					Bio::Gorap::Update->create_cfgs($self,$taxdb);
 					exit;
 				}
 				else {
 					print "Updating all databases\n";																	
-					Bio::Gorap::Update->dl_ncbi();
 					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
 						parameter => $self
 					);
+					Bio::Gorap::Update->dl_ncbi($self,$taxdb);
 					Bio::Gorap::Update->dl_silva($self,$taxdb);
 					Bio::Gorap::Update->dl_rfam($self,$taxdb);	
 					Bio::Gorap::Update->create_cfgs($self,$taxdb);											
 					exit;
 				}
 			}
-		}					
-		pod2usage(-exitval => 0, -verbose => 2) if $file eq 'x' && $help;
-		pod2usage(-exitval => 1, -verbose => 0, -message => "-i requiered: define input sequences\n") if $file eq 'x' && ! $genomes && ! $example;
+		}
+
+		pod2usage(-exitval => 0, -verbose => 0, -message => "Version:\n    ".Bio::Gorap::Gorap->VERSION) if $version;
+		pod2usage(-exitval => 0, -verbose => -1, -message => "Version:\n    ".Bio::Gorap::Gorap->VERSION) if $file eq 'x' && $help;
+		pod2usage(-exitval => 1, -verbose => 0, -message => "Option i requiered. Use option h to get help\n") if $file eq 'x' && ! $genomes && ! $example;
 	}
 
 	if ($label){
@@ -291,7 +297,7 @@ sub BUILD {
 		my @g;
 		for (split(/\s*,\s*/,$genomes)){
 			for (glob $_){
-				pod2usage(-exitval => 1, -verbose => 0, -message => "-i error: file does not exists") unless -e $_;
+				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option i. File does not exists") unless -e $_;
 				push @g , $_;
 			}
 		}		
@@ -318,7 +324,7 @@ sub BUILD {
 		$self->kingdoms({});
 		for (split(/\s*,\s*/,$kingdoms)) {
 			my $s = lc $_;
-			pod2usage(-exitval => 1, -verbose => 0, -message => "-k error: check kingdom definition") unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
+			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option k. Unknown kingdom definition") unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
 			$self->kingdoms->{$s}=1
 		}
 	}		
@@ -335,7 +341,7 @@ sub BUILD {
 			$c++;
 			next unless $_;
 			for (split(/\s*:\s*/,$_)) {
-				pod2usage(-exitval => 1, -verbose => 0, -message => "-b error: file does not exists") unless -e $_;
+				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option b. File does not exists") unless -e $_;
 				push @{$bams[$c]} , $_;
 			}
 		}		
@@ -348,7 +354,7 @@ sub BUILD {
 			$c++;
 			next unless $_;
 			for (split(/\s*:\s*/,$_)) {
-				pod2usage(-exitval => 1, -verbose => 0, -message => "-g error: file does not exists") unless -e $_;
+				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option g. File does not exists") unless -e $_;
 				push @{$gffs[$c]} , $_;
 			}
 		}		
@@ -438,21 +444,21 @@ sub set_queries {
 		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
 			for ($1..$2){
-				my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}
 			
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
 			my $nr1 = $1;
-			my @q = glob(catfile($ENV{GORAP},'config','*.cfg'));
+			my @q = glob(catfile($ENV{GORAP},'gorap','config','*.cfg'));
 			basename($q[$#q])=~/R?F?0*(\d+)/;
 			my $nr2=$1;			
 			for ($nr1..$nr2){
-				my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}										
 		} elsif ($_=~/R?F?0*(\d+)/){
-			my ($q) = glob(catfile($ENV{GORAP},'config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
+			my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 			push @queries , $q if $q;
 		} 
 	}
@@ -465,7 +471,7 @@ sub _set_queries {
 	my ($self) = @_;
 
 	my @queries;
-	push @queries , glob(catfile($ENV{GORAP},'config','*.cfg'));
+	push @queries , glob(catfile($ENV{GORAP},'gorap','config','*.cfg'));
 
 	return \@queries;
 }
@@ -484,7 +490,7 @@ sub read_parameter {
 	my $c=1;
 	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){		
 		for (@g){
-			pod2usage(-exitval => 1, -verbose => 0, -message => "input genome error: file does not exists") unless -e $_;
+			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option i. File does not exists") unless -e $_;
 			push @genomes , $_;
 			push @{$assignment->{'genome'.$c}} , $#genomes;
 			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);			
@@ -502,7 +508,7 @@ sub read_parameter {
 	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
 		for (@g){
-			pod2usage(-exitval => 1, -verbose => 0, -message => "addons genome error: file does not exists") unless -e $_;
+			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option og: File does not exists") unless -e $_;
 			push @ogenomes , $_;
 			my $abbr = $cfg->GetParameterTrailingComment('addons', 'genome'.$c);
 			unless ($abbr) {
@@ -518,7 +524,7 @@ sub read_parameter {
 	}
 	my $v = $cfg->val('query','kingdom');
 	if ($v){
-		my %h = map { if ($_ =~ /^(bac|arc|euk|fungi|virus)$/) { $_ => 1 } else { pod2usage(-exitval => 1, -verbose => 0, -message => "kingdom error: check kingdom definition")} } split /\n/ , $cfg->val('query','kingdom');
+		my %h = map { if ($_ =~ /^(bac|arc|euk|fungi|virus)$/) { $_ => 1 } else { pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option k. Unknown kingdom definition")} } split /\n/ , $cfg->val('query','kingdom');
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
 	$v = $cfg->val('query','rfam');	
@@ -551,7 +557,7 @@ sub read_parameter {
 	$c=1;	
 	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){
 		for (@g){
-			pod2usage(-exitval => 1, -verbose => 0, -message => "addons bam error: file does not exists") unless -e $_;
+			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option b. File does not exists") unless -e $_;
 		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){			
 			push @{$bams[$_]} , @g;
@@ -563,7 +569,7 @@ sub read_parameter {
 	$c=1;	
 	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){
 		for (@g){
-			pod2usage(-exitval => 1, -verbose => 0, -message => "addons gff error: file does not exists") unless -e $_;
+			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option g. File does not exists") unless -e $_;
 		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
 			push @{$gffs[$_]} , @g;	
