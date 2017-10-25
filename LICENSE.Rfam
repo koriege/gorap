@@ -1,0 +1,10 @@
+Rfam version 13.0 was produced at the European Bioinformatics Institute. 
+Rfam is based on a sequence database called Rfamseq. The new genome-centric version of Rfam
+is built from a collection of reference genomes, which are provided by Uniprot proteomes.  
+
+Rfam is freely available under the Creative Commons Zero ("CC0")
+licence. (http://creativecommons.org/publicdomain/zero/1.0/)
+
+Rfam is powered by the Infernal package written by Eric Nawrockie at
+the Howard Hughes Janelia Farm Research Campus
+(http://www.hhmi.org/janelia/labs.html).
