@@ -49,7 +49,8 @@ my $set_db_abbr;
 my @oheader;
 my $doubleEntry;
 sub _set_db {
-	my ($self) = @_;	
+	my ($self) = @_;
+	return if $self->parameter->skip_comp;
 
 	$self->db(Bio::Index::Fasta->new(-filename => catfile($self->parameter->tmp,$self->parameter->pid.'.faidx'), -write_flag => 1 , -verbose => -1));
 	
@@ -67,7 +68,7 @@ sub _set_db {
 		}			
 		@oheader=();
 	}	
-	$self->chunks(&chunk($self,$self->nheaders,$self->parameter->threads)) if $self->do_chunks && ! $self->parameter->skip_comp;	
+	$self->chunks($self->chunk($self->nheaders,$self->parameter->threads)) if $self->do_chunks;
 }
 
 sub add_fasta {

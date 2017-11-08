@@ -52,6 +52,47 @@ sub trnascanse_parser {
 	return (${$s}[0] , 'GORAPtrnascanse' , $rfrna , min(${$s}[2],${$s}[3]) , max(${$s}[2],${$s}[3]) , ${$s}[8] , ${$s}[2] < ${$s}[3] ? '+' : '-' , '.', 'Note='.${$s}[4].'_'.${$s}[5]);
 }
 
+sub barrnap_parser {
+	my ($kingdom,$s) = @_;	
+	my $rfrna;
+	if ($kingdom eq 'bac'){
+		if (${$s}[8]=~/^Name=16S/){
+			$rfrna = 'RF00177_SSU_rRNA_bacteria';
+		} elsif (${$s}[8]=~/^Name=23S/){
+			$rfrna = 'RF02541_LSU_rRNA_bacteria';
+		} else {
+			$rfrna = 'RF00001_5S_rRNA';
+		}		
+	} elsif ($kingdom eq 'arc') {
+		if (${$s}[8]=~/^Name=16S/){
+			$rfrna = 'RF01959_SSU_rRNA_archaea';
+		} elsif (${$s}[8]=~/^Name=23S/){
+			$rfrna = 'RF02540_LSU_rRNA_archaea';
+		} else {
+			$rfrna = 'RF00001_5S_rRNA';
+		}
+	} elsif ($kingdom eq 'fungi') {
+		if (${$s}[8]=~/^Name=18S/){
+			$rfrna = 'RF02542_SSU_rRNA_microsporidia';
+			#$rfrna = 'RF01960_SSU_rRNA_eukarya';
+		} elsif (${$s}[8]=~/^Name=28S/){
+			$rfrna = 'RF02543_LSU_rRNA_eukarya';
+		} else {
+			$rfrna = 'RF00001_5S_rRNA';
+		}
+	} else {
+		if (${$s}[8]=~/^Name=18S/){
+			$rfrna = 'RF01960_SSU_rRNA_eukarya';
+		} elsif (${$s}[8]=~/^Name=28S/){
+			$rfrna = 'RF02543_LSU_rRNA_eukarya';
+		} else {
+			$rfrna = 'RF00001_5S_rRNA';
+		}
+	}
+	
+	return (${$s}[0] , 'GORAPbarrnap' , $rfrna , ${$s}[3] , ${$s}[4] , ${$s}[5] , ${$s}[6] , '.');
+}
+
 #gorap specific RNAmmer tabular output parser for Bio::DB::SeqFeature objects
 sub rnammer_parser {	
 	my ($kingdom,$s) = @_;	

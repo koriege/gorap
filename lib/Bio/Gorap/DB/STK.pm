@@ -46,8 +46,8 @@ sub _set_db {
 	print "Reading STK files from ".$self->parameter->output."\n" if $self->parameter->verbose;
 	
 	for (glob catfile($self->parameter->output,'alignments','*.stk')){
-		#use gorap specific access ids: the rfam id and rna name				
-		&add_stk($self,substr(basename($_),0,-4),$_);
+		#use gorap specific access ids: the rfam id and rna name
+		$self->add_stk(substr(basename($_),0,-4),$_);
 	}
 }
 
@@ -72,7 +72,7 @@ sub store {
 		for my $k (keys %{$self->db}){
 			my $stk = $self->db->{$k};
 			$stk = $self->taxonomy->sort_stk($stk) if $self->has_taxonomy && $self->parameter->sort;
-			&remove_gap_columns_and_write($self,$stk,$self->idToPath->{$k});
+			$self->remove_gap_columns_and_write($stk,$self->idToPath->{$k});
 		}	
 	}
 }
@@ -85,7 +85,7 @@ sub store_stk {
 }
 
 sub remove_gap_columns_and_write {
-	my ($self , $stk, $file) = @_;		
+	my ($self, $stk, $file) = @_;		
 	my $tmpstk = $stk;	
 	
 	my ($ss , $sc) = Bio::Gorap::Functions::STK->get_ss_cs_from_object($stk);
@@ -151,27 +151,19 @@ sub align {
 	print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};	
 	close FA;
 
-	my ($cmd, $success, $error_code, $full_buf, $stdout_buf, $stderr_buf);	
+	my ($cmd1, $cmd2, $success, $error_code, $full_buf, $stdout_buf, $stderr_buf);	
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
 
-	if (exists $self->db->{$id}){		
-		#save before merging files, to apply deletions of Bio::Gorap::ToolI after reading in
-		&store($self,$id);
 
-		#align against gorap cfg default or given cm
-		if ($cm){			
-			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile";			
-		} else {					
-			$cmd = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";			
-		}
+	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";
+	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile" if $cm;
+	($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 
-		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );		
-		
-		#try to merge both alignments, which is oly possible, if both were created by the same cm
-		#if it fails, all sequences are extracted as fasta to align them in total		
-		$cmd = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";				
-		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
-		unless ($success){
+	if (exists $self->db->{$id}){
+		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";
+		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
+
+		unless($success){
 			open FA , '>'.$fastafile or die $!;
 			for ($self->db->{$id}->each_seq){				
 				my $s = $_->seq; 
@@ -181,42 +173,30 @@ sub align {
 			}			
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FA;
-			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";		
 
-			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );			
+			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 		}
-	} else { 		
-		#if no alignment is present, the seed alignment the cm is build from, is added to the alignment process
-		if ($self->parameter->cfg->stk){			
-			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads --mapali ".$self->parameter->cfg->stk." -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
-			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
-		} 		
-				
-		if (! $success || ! $self->parameter->cfg->stk) {			
-			$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.fa');
-			open FA , '>'.$tmpfile or die $!;
-			if ($self->parameter->cfg->fasta){
-				open FAI , '<'.$self->parameter->cfg->fasta or die $!;
-				while(<FAI>){
-					if($_=~/^>(.+?)\s+(.+?)\s*$/){
-						print FA '>'.($2 ? $2 : $1)."\n";					
-					} else {
-						print FA $_;
-					}				
-				}
-				close FAI;
-			}
-			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};			
-			close FA;
-			$cmd = $cm ? "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $tmpfile" : "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $tmpfile";			
+	} else {
+		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->parameter->cfg->stk." $tmpfile";
+		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
 
-			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );			
+		if (! $success && $self->parameter->cfg->fasta){
+			open F , '<'.$self->parameter->cfg->fasta or die $!;
+			open FA , '>'.$fastafile or die $!;
+			print FA $_ while (<F>);
+			close F;
+			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
+			close FA;
+
+			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );			
 		}
 	}
-	
+
 	unlink $tmpfile;
 
-	&add_stk($self,$id,$stkfile);
+	die unless $success;
+
+	$self->add_stk($id,$stkfile);
 
 	return ($scorefile , $self->db->{$id});
 }
@@ -244,8 +224,7 @@ sub calculate_threshold {
 
 				my ($scorefile,$taxstk);
 				if ($#{$inSpecies} > -1 ){
-					($scorefile,$taxstk) = &align(
-						$self,
+					($scorefile,$taxstk) = $self->align(
 						$self->parameter->cfg->rf_rna.'.tax',
 						$inSpecies,
 						$cpus,
@@ -253,8 +232,7 @@ sub calculate_threshold {
 						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')					
 					);
 				}elsif($#{$inRank} > -1){
-					($scorefile,$taxstk) = &align(
-						$self,
+					($scorefile,$taxstk) = $self->align(
 						$self->parameter->cfg->rf_rna.'.tax',
 						$inRank,
 						$cpus,
@@ -380,19 +358,19 @@ sub filter_stk {
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->length_filter($stk, $features, $self->parameter->cfg->cs);
 		push @update , @{$up} if $up;
 		return @update if scalar keys %{$features} == 0;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;		
+		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;		
 	}
 
 	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold, $self->parameter->cfg->types);
 	push @update , @{$up} if $up;
 	return @update if scalar keys %{$features} == 0;
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;		
+	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;		
 
 	if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->structure_filter($stk, $features, $self->parameter->cfg->types);	
 		push @update , @{$up} if $up;
 		return @update if scalar keys %{$features} == 0;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
+		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.S.stk'));# if $write;
 	}
 	
 	if ($self->parameter->cfg->userfilter){			
@@ -400,14 +378,14 @@ sub filter_stk {
 			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->user_filter($stk, $features, $self->parameter->cfg->constrains, $self->parameter->cfg->cs, $self->parameter->cfg->stk, $self->parameter->cfg->types);
 			push @update , @{$up} if $up;
 			return @update if scalar keys %{$features} == 0;
-			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
+			$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
 		}				
 	} else {			
 		if ( ! $self->parameter->nofilter && ! $self->parameter->nobutkingsnofilter){
 			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->sequence_filter($stk, $features);	
 			push @update , @{$up} if $up;
 			return @update if scalar keys %{$features} == 0;
-			$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
+			$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.P.stk'));# if $write;
 		}
 	}	
 
@@ -415,15 +393,15 @@ sub filter_stk {
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->copy_filter($stk, $features, $self->parameter->cfg->pseudogenes);	
 		push @update , @{$up} if $up;
 		return @update if scalar keys %{$features} == 0;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.C.stk'));# if $write;
+		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.C.stk'));# if $write;
 
 		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->overlap_filter($stk, $features, $gffdb);	
 		push @update , @{$up} if $up;
 		return @update if scalar keys %{$features} == 0;
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
+		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
 	}	
 
-	$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);			
+	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);			
 
 	return @update;	
 }
@@ -440,8 +418,8 @@ sub rm_seq_from_stk {
 			my $seq = $stk->get_seq_by_id($_->seq_id);
 			$stk->remove_seq($seq) if $seq;
 		}
-		$stk = &remove_gap_columns_and_write($self,$stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
-		&store_stk($self,$stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
+		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$type.'.'.$flag.'.stk'));
+		$self->store_stk($stk,catfile($self->parameter->output,'alignments',$type.'.stk'));
 	}
 	
 }

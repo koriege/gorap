@@ -3,7 +3,7 @@
 use v5.10;
 use strict;
 use warnings;
-use sigtrap qw(handler SIGABORT normal-signals);
+use sigtrap qw(handler safety_store normal-signals);
 
 use File::Spec::Functions;
 use Cwd qw(abs_path);
@@ -188,7 +188,7 @@ if ($parameter->refresh){
 	exit 0;
 }
 
-if ($parameter->taxonomy){ say "hier";
+if ($parameter->taxonomy){
 	$taxdb = Bio::Gorap::DB::Taxonomy->new(
 		parameter => $parameter
 	);
@@ -197,24 +197,15 @@ if ($parameter->taxonomy){ say "hier";
 		parameter => $parameter,
 		taxonomy => $taxdb
 	);
-} else { say "da";
+} else {
 	$stkdb = Bio::Gorap::DB::STK->new(
 		parameter => $parameter
 	);
 }
-exit;
 
-my $fastadb;
-unless ($parameter->skip_comp){
- 	$fastadb = Bio::Gorap::DB::Fasta->new(
-		parameter => $parameter
-	);
-} #else {
-# 	$fastadb = Bio::Gorap::DB::Fasta->new(
-# 		parameter => $parameter,
-# 		do_chunks => 0
-# 	);
-# }
+my $fastadb = Bio::Gorap::DB::Fasta->new(
+	parameter => $parameter
+);
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
@@ -254,7 +245,7 @@ unless ($parameter->skip_comp){
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 }
 
-if ($parameter->has_outgroups && `which mafft` && `which raxml`){
+if ($parameter->has_outgroups){
 
 	print "Preparing phylogeny reconstruction\n" if $parameter->verbose;
 	my @newQ;	
@@ -443,19 +434,16 @@ sub run {
 		if($next && ! $parameter->nofilter){			
 			#print "- skipped due to kingdom restriction\n";
 			next;
-		}		
+		}
 		
 		#reverse sort to process infernal before blast
-		my $thcalc=0;
 		my ($threshold,$nonTaxThreshold);
 		for my $tool (reverse sort @{$parameter->cfg->tools}){
 			$tool = 'infernal' if $parameter->nofilter;
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
 			next if $tool eq 'blast' && $parameter->noblast;			
-			$thcalc++ if $tool eq 'infernal' || $tool eq 'blast';
 			$tool = ucfirst $tool;
-			#print '- by '.$tool."\n";
 
 			#dynamically initialize toolname dependent modules
 			my $toolparser = lc $tool.'_parser';
@@ -472,10 +460,10 @@ sub run {
 					require $f;
 				} else {
 					print $_;
-					&SIGABORT($_);
+					&safety_store($_);
 				}
 			};
-			$class->import;		
+			$class->import;
 			
 			#create an instance with related parser for change tool output into gff3 
 			#with gorap attributes to store in gff database		
@@ -494,16 +482,17 @@ sub run {
 			$thrListener->push_obj($obj);
 
 			#run software, use parser, store new gff3 entries 
-			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $thcalc == 1;			
+			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $tool eq 'infernal';
 			last if $threshold && $threshold == 999999;
 
 			$obj->calc_features;
 			last if $parameter->nofilter;
 		}				
 		next if $threshold && $threshold == 999999;
-		next if $parameter->cfg->rf_rna=~/SU_rRNA/;		
+		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
-		next if $#{$sequences} == -1;		
+
+		next if $#{$sequences} == -1;
 		#print "align\n";
 		if ($parameter->cfg->cm){
 			my ($scorefile,$stk);
@@ -513,9 +502,9 @@ sub run {
 					$parameter->cfg->rf_rna,
 					$sequences,
 					($parameter->threads - $thrListener->get_workload)
-				);		
+				);
 			} catch {
-				&SIGABORT($_);
+				&safety_store($_);
 			};
 			$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
@@ -526,7 +515,7 @@ sub run {
 
 			next if $#{$features} == -1;
 			#print "bgjob\n";
-			if ($thcalc){				
+			if ($threshold){				
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
 			} else {				
 				$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
@@ -659,7 +648,8 @@ sub get_phylo_features {
 	return ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features);
 }
 
-sub SIGABORT {	
+sub safety_store {
+	say ":ERROR: Safety store in progress";
 	# $thrListener->stop if $thrListener;
 	# print "\n".'Safety store in progress..'."\n";
 	# $gffdb->store_overlaps if $gffdb;

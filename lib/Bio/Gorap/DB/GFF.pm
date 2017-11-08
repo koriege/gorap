@@ -159,7 +159,7 @@ sub get_sequences {
 	my @sequences;	
 	for my $abbr (@{$abbreviations}){
 		push @sequences , Bio::Seq->new( -display_id => $_->seq_id , -seq => ($_->get_tag_values('seq'))[0] , -verbose => -1) for $self->db->{$abbr}->features(-primary_tag => $type);
-	}		
+	}
 	return \@sequences;
 }
 

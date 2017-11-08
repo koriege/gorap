@@ -17,13 +17,11 @@ sub calc_features {
 		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
 		return if $#f > -1;
 
-		for my $rfrna ( qw(RF00177_SSU_rRNA_bacteria RF01959_SSU_rRNA_archaea RF02540_LSU_rRNA_archaea RF02543_LSU_rRNA_eukarya RF01960_SSU_rRNA_eukarya RF02541_LSU_rRNA_bacteria RF00001_5S_rRNA RF02542_SSU_rRNA_microsporidia) ){
-			for my $f ($self->gffdb->db->{$abbr}->features(-primary_tag => $rfrna , -attributes => {source => $self->tool})){
-				$self->gffdb->db->{$abbr}->delete($f);
-				if (exists $self->stkdb->db->{$rfrna}){								
-					$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);								
-				}
-			}				
+		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => $self->tool});
+		for (@f){
+			my $rfrna = $_->primary_tag;
+			$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);
+			$self->gffdb->db->{$abbr}->delete($f);
 		}
 	}
 		
@@ -62,12 +60,13 @@ sub calc_features {
 				$pipe->autoflush(1);
 				
 				my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
-				for (@{$self->parameter->cfg->cmd}){
+				my @cmd = @{$self->parameter->cfg->cmd}; 
+				for (@cmd){
 					$_ =~ s/\$genome/$genome/;
 					$_ =~ s/\$kingdom/$kingdom/;
 					$_ =~ s/\$output/$tmpfile/;
 				}
-				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @cmd), verbose => 0 );
 				open F ,'<'.$tmpfile or exit;
 				while( <F> ) {		
 					chomp $_;

@@ -129,7 +129,10 @@ sub _set {
 	}
 
 	$self->bitscore_cm(Bio::Gorap::Functions::STK->get_min_score($self->stk));
-	$self->types(Bio::Gorap::Functions::STK->get_rna_types($self->stk));
+
+	my $types = Bio::Gorap::Functions::STK->get_rna_types($self->stk);
+	$types=~s/:*CD-box// if $self->rf_rna =~ /_U[0-9](1|2|atac|_|$)/;
+	$self->types($types);
 
 	$v = $cfg->val('query','pseudogenes');
 	$self->pseudogenes($v) if $v && $v=~/^\d+$/;

@@ -77,30 +77,32 @@ sub dl_rfam {
 	unlink $wgetpath;
 
 	open CM , '<'.$extractpath or die $!;
-	my @prevlines=('','');
-	my $cmstart=0;
-	while(<CM>){	
-		my $line = $_;		
-		if ($line=~/^ACC\s+(.+)/){
-			my $rf = $1;
-			if ($prevlines[0] ne ''){
-				close CMOUT;			
-			}				
-			my $rna = (split(/\s+/,$prevlines[1]))[1];
-
+	my @tmp;
+	my ($rf, $rna);
+	while(<CM>){
+		push @tmp, $_;
+		if ($_=~/^INFERNAL/){
+			next unless $rf;
 			rmtree($_) for glob catdir($ENV{GORAP},'gorap','data','rfam',$rf.'*');
 			$outpath=catdir($ENV{GORAP},'gorap','data','rfam',$rf.'_'.$rna);
 			make_path($outpath);
 			open CMOUT , '>'.catfile($outpath, $rf.'_'.$rna.'.cm') or die $!;
-			print CMOUT $prevlines[0];
-			print CMOUT $prevlines[1];
-			print CMOUT $line;			 	
-		} else {
-			$cmstart=0 if $line=~/^INFERNAL/;
-			$cmstart < 2 ? $prevlines[$cmstart++]=$line : print CMOUT $line; 		
+			pop @tmp;
+			print CMOUT $_ for @tmp;
+			close CMOUT;
+			@tmp=();
+			push @tmp, $_;
+		} elsif ($_=~/NAME\s+(.+)/){
+			$rna = $1;
+		} elsif ($_=~/ACC\s+(.+)/){
+			$rf = $1;
 		}
 	}
-	close CM;
+	rmtree($_) for glob catdir($ENV{GORAP},'gorap','data','rfam',$rf.'*');
+	$outpath=catdir($ENV{GORAP},'gorap','data','rfam',$rf.'_'.$rna);
+	make_path($outpath);
+	open CMOUT , '>'.catfile($outpath, $rf.'_'.$rna.'.cm') or die $!;
+	print CMOUT $_ for @tmp;
 	close CMOUT;
 	unlink $extractpath;
 
@@ -486,11 +488,15 @@ sub get_cmd(){
 	my $options;
     switch ($rna_type) {
 		case /rRNA/	{
-			$options = "tool=rnammer\n";
-			$options .= "parameter=-m ssu,lsu,tsu\n";
-			$options .= 'parameter=-S $kingdom'."\n";
-			$options .= 'parameter=-gff $output'."\n";
-			$options .= 'parameter=$genome'."\n";
+			$options = "tool=barrnap\n";
+			$options .= "parameter=--threads $cpus\n";
+			$options .= "parameter=--kingdom $kingdom\n";
+			$options .= "parameter=$genome\n";
+			# $options = "tool=rnammer\n";
+			# $options .= "parameter=-m ssu,lsu,tsu\n";
+			# $options .= 'parameter=-S $kingdom'."\n";
+			# $options .= 'parameter=-gff $output'."\n";
+			# $options .= 'parameter=$genome'."\n";
 		}
 		case /tRNA/ {
 			$options = "tool=tRNAscan-SE\n";
