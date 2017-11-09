@@ -21,8 +21,14 @@ has ['rf' , 'rna' , 'rf_rna' , 'query_dir' , 'fasta' , 'stk' , 'cm', 'types'] =>
 
 has 'cmd' => (
 	is => 'rw',
-	isa => 'ArrayRef',
-	default => sub { [] }
+	isa => 'HashRef',
+	lazy => 1,
+	default => sub { 
+		my $self = shift;
+		return { infernal => 'cmsearch --noali --cpu $cpus '.$self->cm.' $genome',
+			blast => 'blastn -num_threads $cpus -query '.$self->fasta.' -db $genome -task dc-megablast -word_size 11 -template_type optimal -template_length 16 -evalue '.$self->evalue.' -window_size 50 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"'
+		}
+	}
 );
 
 has 'tools' => (
@@ -93,11 +99,16 @@ sub _set {
 
 	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
 	if ($v){		
-		$self->tools([split /\n/ , $v]);
+		$self->tools([reverse sort split /\n/ , $v]); #infernal before blast
 		$v = $cfg->val('cmd','parameter');
 		if ($v){
-			my @parameter = (${$self->tools}[-1] , split(/\n/ , $v));	
-			$self->cmd(\@parameter);
+			my $cmd;
+			my $i = $#{$self->tools};
+			for (split(/\n/ , $v)){
+				$cmd->{${$self->tools}[$i]} = ${$self->tools}[$i]." ".$_;
+				$i--;
+			}
+			$self->cmd($cmd);
 		}
 	}
 

@@ -180,7 +180,8 @@ compile_gorap() {
 		makeclean && \
 		rm Makefile.old && \
 		ln -sfn $GORAP/gorap/bin $GORAP/bin/gorap && \
-		tar -xzf data-13.tar.gz -C $GORAP/gorap
+		tar -xzf data-13.tar.gz -C $GORAP/gorap && \
+		$GORAP/bin/gorap/Gorap.pl -update ncbi
 	} || return 1
 	for i in $(find $GORAP/gorap -type f -name 'SimpleAlign.pm'); do
 		sed -i '/contains no residues/d' $i

@@ -92,7 +92,7 @@ BEGIN {
 
 use File::Basename;
 use File::Copy qw(copy);
-use File::Path qw(make_path);
+use File::Path qw(make_path rmtree);
 use List::Util qw(any);
 use Try::Tiny;
 use Hash::Merge qw(merge);
@@ -134,9 +134,6 @@ my $stkdb;
 if ($parameter->refresh){
 	print "Updating GFF and FASTA files from Stockholm alignments\n";
 
-	my $gffdb = Bio::Gorap::DB::GFF->new(
-		parameter => $parameter
-	); 
 	if ($parameter->taxonomy){
 		$taxdb = Bio::Gorap::DB::Taxonomy->new(
 			parameter => $parameter
@@ -150,6 +147,10 @@ if ($parameter->refresh){
 			parameter => $parameter
 		);
 	}
+
+	my $gffdb = Bio::Gorap::DB::GFF->new(
+		parameter => $parameter
+	);
 
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
@@ -165,10 +166,7 @@ if ($parameter->refresh){
 				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
 			}		
 		}	
-		if ( ! $hold && exists $stkdb->db->{$type}){ #&& $parameter->force){
-			unlink $stkdb->idToPath->{$type};
-			# delete $stkdb->db->{$type};
-		}
+		unlink $stkdb->idToPath->{$type} if ! $hold && exists $stkdb->db->{$type};
 	}
 	print "Storing changes\n";
 	$stkdb->store;
@@ -177,8 +175,7 @@ if ($parameter->refresh){
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 	print "\nResults stored with label: ".$parameter->label."\n";
 
-	unlink $_ for glob catfile($parameter->tmp,'*');
-	system("rm -rf ".$parameter->tmp);
+	rmtree($parameter->tmp);
 
 	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 	$year = $year + 1900;
@@ -187,6 +184,10 @@ if ($parameter->refresh){
 
 	exit 0;
 }
+
+my $fastadb = Bio::Gorap::DB::Fasta->new(
+	parameter => $parameter
+);
 
 if ($parameter->taxonomy){
 	$taxdb = Bio::Gorap::DB::Taxonomy->new(
@@ -202,10 +203,6 @@ if ($parameter->taxonomy){
 		parameter => $parameter
 	);
 }
-
-my $fastadb = Bio::Gorap::DB::Fasta->new(
-	parameter => $parameter
-);
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
@@ -400,13 +397,10 @@ if ($parameter->has_outgroups){
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}				
 	}
-} else {
-	print "Phylogeny reconstruction aborted!\nRAxML and/or Mafft is not installed\n" if $parameter->has_outgroups;
 }
 
 #remove temp files
-unlink $_ for glob catfile($parameter->tmp,'*');
-system("rm -rf ".$parameter->tmp);
+rmtree($parameter->tmp);
 
 $stkdb->store if $parameter->skip_comp && $parameter->sort;
 print "\nResults stored with label ".$parameter->label."\n";
@@ -422,29 +416,29 @@ sub run {
 	my $c=0;
 	for my $cfg (@{$parameter->queries}){		
 		#parse the query related cfg file and store it into parameter object
-		$parameter->set_cfg($cfg);		
+		$parameter->set_cfg($cfg);
 		$c++;
-		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf."\n" if $parameter->verbose;
-
+		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf if $parameter->verbose;
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
 		for (keys %{$parameter->kingdoms}){
 			$next=0 if exists $parameter->cfg->kingdoms->{$_};	
 		}
 		if($next && ! $parameter->nofilter){			
-			#print "- skipped due to kingdom restriction\n";
+			print " - skipped due to kingdom restriction" if $parameter->verbose;
 			next;
 		}
+		say "" if $parameter->verbose;
 		
-		#reverse sort to process infernal before blast
 		my ($threshold,$nonTaxThreshold);
-		for my $tool (reverse sort @{$parameter->cfg->tools}){
-			$tool = 'infernal' if $parameter->nofilter;
+		for my $tool (@{$parameter->cfg->tools}){
+			my $cmd = $parameter->cfg->cmd->{$tool};
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
-			next if $tool eq 'blast' && $parameter->noblast;			
 			$tool = ucfirst $tool;
-
+			$tool = 'Infernal' if $parameter->nofilter;
+			next if $tool eq 'Blast' && $parameter->noblast;			
+			
 			#dynamically initialize toolname dependent modules
 			my $toolparser = lc $tool.'_parser';
 			my $f = catfile('Bio','Gorap','Tool',$tool.'.pm');	
@@ -459,7 +453,6 @@ sub run {
 					$class = 'Bio::Gorap::Tool::Default';				
 					require $f;
 				} else {
-					print $_;
 					&safety_store($_);
 				}
 			};
@@ -475,28 +468,26 @@ sub run {
 				fastadb => $fastadb,
 				stkdb => $stkdb,
 				bamdb => $bamdb,
-				tool => $tool
+				tool => $tool,
+				cmd => $cmd
 			);
-			
-			#waits for resources
 			$thrListener->push_obj($obj);
 
-			#run software, use parser, store new gff3 entries 
-			($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold(($parameter->threads - $thrListener->get_workload)) if $tool eq 'infernal';
-			last if $threshold && $threshold == 999999;
+			if ($tool eq 'Infernal' || $tool eq 'Blast'){
+				($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold($parameter->threads - $thrListener->get_workload);
+				last if $threshold && $threshold == 999999;
+			}
 
 			$obj->calc_features;
-			last if $parameter->nofilter;
 		}				
 		next if $threshold && $threshold == 999999;
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
-
 		next if $#{$sequences} == -1;
+
 		#print "align\n";
 		if ($parameter->cfg->cm){
 			my ($scorefile,$stk);
-
 			try{
 				($scorefile,$stk) = $stkdb->align(
 					$parameter->cfg->rf_rna,
@@ -510,15 +501,12 @@ sub run {
 
 			#start of time consuming single threaded background job with a subroutine reference,
 			#which returns an array of String, parsable by pipe_parser
-			#print "getfeatures\n";
-			my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
-
-			next if $#{$features} == -1;
-			#print "bgjob\n";
-			if ($threshold){				
+			if ($threshold){
+				my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
+				next if $#{$features} == -1;		
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
-			} else {				
-				$stkdb->store_stk($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+			} else {
+				$stkdb->remove_gap_columns_and_write($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
 			}
 		}		
 		#store annotations already in the database in case of errors		
@@ -539,7 +527,8 @@ sub run {
 		fastadb => $fastadb,
 		stkdb => $stkdb,
 		bamdb => $bamdb,
-		tool => 'de_novo'
+		tool => 'de_novo',
+		cmd => ''
 	))->calc_features;
 }
 
@@ -649,12 +638,12 @@ sub get_phylo_features {
 }
 
 sub safety_store {
+	my ($e) = @_;
+	say $_;
 	say ":ERROR: Safety store in progress";
-	# $thrListener->stop if $thrListener;
-	# print "\n".'Safety store in progress..'."\n";
+	$thrListener->stop if $thrListener;
 	# $gffdb->store_overlaps if $gffdb;
-	# unlink $_ for glob catfile($parameter->tmp,'*');
-	# system("rm -rf ".$parameter->tmp);
+	# rmtree($parameter->tmp);
 	exit 1;
 }
 

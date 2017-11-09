@@ -63,11 +63,27 @@ sub add_stk {
 	$self->db->{$id}->set_displayname_flat;
 }
 
+sub write_stk {
+	my ($self,$stk,$file) = @_;
+
+	my $out = '';
+	open my $READER, '>', \$out;
+	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
+	close $READER;
+	
+	open STK , '>'.$file or die $!;
+	for (split /\n/ , $out){
+		next if $_=~/^\s*#=GS/; 
+		print STK $_."\n";
+	}
+	close STK;
+}
+
 sub store {
 	my ($self,$id) = @_;
 	
 	if ($id){
-		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$self->idToPath->{$id}, -verbose => -1))->write_aln($self->db->{$id});		
+		$self->write_stk($self->db->{$id},$self->idToPath->{$id});
 	} else {
 		for my $k (keys %{$self->db}){
 			my $stk = $self->db->{$k};
@@ -81,7 +97,7 @@ sub store_stk {
 	my ($self,$stk, $file, $taxdb) = @_;
 
 	$stk = $taxdb->sort_stk($stk) if $taxdb && $self->parameter->sort;
-	(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$file, -verbose => -1))->write_aln($stk);	
+	$self->write_stk($stk,$file);
 }
 
 sub remove_gap_columns_and_write {
@@ -122,14 +138,17 @@ sub remove_gap_columns_and_write {
 		push @lines, '//';
 		
 		open STK , '>'.$file or die $!;
-		print STK $_."\n" for @lines;
+		for (@lines){
+			next if $_=~/^\s*#=GS/; 
+			print STK $_."\n";
+		}
 		close STK;
 
 		my $retaln = (Bio::AlignIO->new(-file => $file, -format => 'stockholm'))->next_aln;
 		$retaln->set_displayname_flat;
 		return $retaln;
 	} else {
-		(Bio::AlignIO->new(-format => 'stockholm', -file => '>'.$file, -verbose => -1))->write_aln($stk);
+		$self->write_stk($stk,$file);
 		return $stk;
 	}
 		
@@ -142,7 +161,8 @@ sub align {
 	my ($self,$id,$sequences,$threads,$cm,$scorefile) = @_;
 
 	$scorefile = catfile($self->parameter->output,'meta',$id.'.scores') unless $scorefile;
-	my $tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.stk');
+	my $tmpfile1 = catfile($self->parameter->tmp,$self->parameter->pid.'.1.stk');
+	my $tmpfile2 = catfile($self->parameter->tmp,$self->parameter->pid.'.2.stk');
 	my $stkfile = catfile($self->parameter->output,'meta',$id.'.stk');
 	my $fastafile = catfile($self->parameter->output,'meta',$id.'.fa');	
 
@@ -155,14 +175,15 @@ sub align {
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
 
 
-	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile ".$self->parameter->cfg->cm." $fastafile";
-	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile $cm $fastafile" if $cm;
+	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 ".$self->parameter->cfg->cm." $fastafile";
+	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 $cm $fastafile" if $cm;
 	($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 
 	if (exists $self->db->{$id}){
-		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->idToPath->{$id}." $tmpfile";
+		$self->store_stk($self->db->{$id},$tmpfile2);
+		
+		$cmd2="esl-alimerge --rna -o $stkfile $tmpfile2 $tmpfile1";
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
-
 		unless($success){
 			open FA , '>'.$fastafile or die $!;
 			for ($self->db->{$id}->each_seq){				
@@ -177,7 +198,7 @@ sub align {
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 		}
 	} else {
-		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->parameter->cfg->stk." $tmpfile";
+		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->parameter->cfg->stk." $tmpfile1";
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
 
 		if (! $success && $self->parameter->cfg->fasta){
@@ -192,13 +213,14 @@ sub align {
 		}
 	}
 
-	unlink $tmpfile;
+	unlink $tmpfile1;
+	unlink $tmpfile2;
 
 	die unless $success;
 
 	$self->add_stk($id,$stkfile);
 
-	return ($scorefile , $self->db->{$id});
+	return ($scorefile, $self->db->{$id});
 }
 
 sub calculate_threshold {
@@ -401,7 +423,7 @@ sub filter_stk {
 		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
 	}	
 
-	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);			
+	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);
 
 	return @update;	
 }

@@ -31,8 +31,6 @@ sub calc_features {
 	push @kingdoms , 'bac' if exists $self->parameter->kingdoms->{'bac'};
 	push @kingdoms , 'euk' if exists $self->parameter->kingdoms->{'fungi'} || exists $self->parameter->kingdoms->{'euk'};
 
-	splice @{$self->parameter->cfg->cmd}, 1, 0, '-T '.$self->parameter->tmp;
-
 	my $select = IO::Select->new();
 	my $thrs={};
 	my @out;
@@ -60,13 +58,15 @@ sub calc_features {
 				$pipe->autoflush(1);
 				
 				my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
-				my @cmd = @{$self->parameter->cfg->cmd}; 
-				for (@cmd){
-					$_ =~ s/\$genome/$genome/;
-					$_ =~ s/\$kingdom/$kingdom/;
-					$_ =~ s/\$output/$tmpfile/;
-				}
-				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @cmd), verbose => 0 );
+
+				my $cmd = $self->cmd;
+				$cmd =~ s/\$genome/$genome/;
+				$cmd =~ s/\$cpus/$threads/;
+				$cmd =~ s/\$kingdom/$kingdom/;
+				$cmd =~ s/\$output/$tmpfile/;
+				$cmd .= ' -T'.$self->parameter->tmp;
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
+
 				open F ,'<'.$tmpfile or exit;
 				while( <F> ) {		
 					chomp $_;
@@ -105,13 +105,6 @@ sub calc_features {
 		my ($abbr,@orig) = split /\./ , $gff3entry[0];
 		$uid->{$abbr.'.'.$gff3entry[2]}++;
 		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
-		
-		# due to overlapping chunks check for already annotated genes
-		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
-		if ($#{$existingFeatures} > -1){
-			$uid->{$abbr.'.'.$gff3entry[2]}--;	
-			next;
-		}
 		
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);

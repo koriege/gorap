@@ -12,24 +12,6 @@ use Symbol qw(gensym);
 sub calc_features {
 	my ($self) = @_;
 
-	#calculations and software calls
-	#results are fetched and stored in DB structure
-	for (0..$#{$self->parameter->genomes}){				
-		my $abbr = ${$self->parameter->abbreviations}[$_];
-		#skip redundand calculations
-		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
-		return if $#f > -1;
-	
-		for my $rfrna ( qw(RF00005_tRNA RF01852_tRNA-Sec) ){
-			for my $f ($self->gffdb->db->{$abbr}->features(-primary_tag => $rfrna , -attributes => {source => $self->tool})){
-				$self->gffdb->db->{$abbr}->delete($f);
-				if (exists $self->stkdb->db->{$rfrna}){
-					$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);								
-				}
-			}				
-		}
-	}
-
 	my @kingdoms;
 	push @kingdoms , 'A' if exists $self->parameter->kingdoms->{'arc'};
 	push @kingdoms , 'B' if exists $self->parameter->kingdoms->{'bac'};
@@ -59,15 +41,16 @@ sub calc_features {
 			} else {
 				$pipe->writer();
 				$pipe->autoflush(1);
-				for (@{$self->parameter->cfg->cmd}){
-					$_ =~ s/\$genome/$genome/;
-					if ($kingdom){
-						$_ =~ s/\$kingdom/$kingdom/;
-					} else {
-						$_ =~ s/-\$kingdom//;
-					}
-				}								
-				my $pid = open3(gensym, \*READER, File::Spec->devnull , join ' ' , @{$self->parameter->cfg->cmd});				
+
+				my $cmd = $self->cmd;
+				$cmd =~ s/\$genome/$genome/;
+				if ($kingdom){
+					$cmd =~ s/\$kingdom/$kingdom/;
+				} else {
+					$cmd =~ s/-\$kingdom//;
+				}
+				my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
+
 				while( <READER> ) {						
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
@@ -83,7 +66,6 @@ sub calc_features {
 		}
 	}
 	for (keys %{$thrs} ) {
-		
 		my $pid = wait;
 		delete $thrs->{$pid};
 		while( my @responses = $select->can_read(0) ){
@@ -96,8 +78,7 @@ sub calc_features {
 	}
 	
 	my $uid;	
-	for (@out){		
-		
+	for (@out){
 		my @l = split /\s+/, $_;
 		next if $#l<8;		
 				
@@ -107,14 +88,7 @@ sub calc_features {
 
 		my ($abbr,@orig) = split /\./ , $gff3entry[0];
 		$uid->{$abbr.'.'.$gff3entry[2]}++;
-		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));		
-		
-		# due to overlapping chunks check for already annotated genes
-		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
-		if ($#{$existingFeatures} > -1){
-			$uid->{$abbr.'.'.$gff3entry[2]}--;	
-			next;
-		}
+		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
 		
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);		
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);	

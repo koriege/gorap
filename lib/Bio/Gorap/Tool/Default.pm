@@ -16,25 +16,23 @@ sub calc_features {
 	
 	#calculations and software calls
 	#results are fetched and stored in DB structure
-	if (any {/\$cpus/} @{$self->parameter->cfg->cmd}){		
+	if (grep {/\$cpus/} $self->cmd){
 		for (0..$#{$self->parameter->genomes}){		
 			my $genome = ${$self->parameter->genomes}[$_];
 			my $abbr = ${$self->parameter->abbreviations}[$_];
 			my $uid = 0;				
 			my $tmpfile;
-			my @cmd = @{$self->parameter->cfg->cmd};
 			my $threads = $self->threads;
-			for (@cmd){
-				$_ =~ s/\$genome/$genome/;
-				$_ =~ s/\$cpus/$threads/;	
-				if ($_ =~ /\$output/){
-					$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.tmp');
-					$_ =~ s/\$output/$tmpfile/;
-				} 
+			my $cmd = $self->cmd;
+			$cmd =~ s/\$genome/$genome/;
+			$cmd =~ s/\$cpus/$threads/;	
+			if ($cmd =~ /\$output/){
+				$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.tmp');
+				$cmd =~ s/\$output/$tmpfile/;
 			}
 
 			if ($tmpfile){
-				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @cmd) , verbose => 0 );
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd , verbose => 0 );
 				open F , '<'.$tmpfile or next;
 				while (<F>){
 					chomp $_;
@@ -49,7 +47,7 @@ sub calc_features {
 				}
 				close F;
 			} else {
-				my $pid = open3(gensym, \*READER, File::Spec->devnull , join ' ' , @cmd);				
+				my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);				
 				while( <READER> ) {		
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
@@ -88,17 +86,17 @@ sub calc_features {
 			} else {
 				$pipe->writer();
 				$pipe->autoflush(1);
-				my $tmpfile;				
-				for (@{$self->parameter->cfg->cmd}){
-					$_ =~ s/\$genome/$genome/;
-					if ($_ =~ /\$output/){
-						$tmpfile = catfile($self->parameter->tmp,$$.'.tmp');
-						$_ =~ s/\$output/$tmpfile/;
-					} 
-				}		
+				my $tmpfile;
+				my $cmd = $self->cmd;
+				$cmd =~ s/\$genome/$genome/;
+				$cmd =~ s/\$cpus/$threads/;	
+				if ($cmd =~ /\$output/){
+					$tmpfile = catfile($self->parameter->tmp,$self->parameter->pid.'.tmp');
+					$cmd =~ s/\$output/$tmpfile/;
+				}	
 				
 				if ($tmpfile){
-					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}) , verbose => 0 );
+					my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd) , verbose => 0 );
 					open F , '<'.$tmpfile or exit;
 					while (<F>){
 						chomp $_;
@@ -111,7 +109,7 @@ sub calc_features {
 					close F;
 					unlink $tmpfile;
 				} else {
-					my $pid = open3(gensym, \*READER, File::Spec->devnull , join(' ' , @{$self->parameter->cfg->cmd}));
+					my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
 					while( <READER> ) {		
 						chomp $_;
 						$_ =~ s/^\s+|\s+$//g;

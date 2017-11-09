@@ -65,7 +65,10 @@ has 'abbreviations' => (
 has 'tmp' => (
 	is => 'rw',
 	isa => 'Str',
-	default => catdir($ENV{GORAP},'tmp')
+	default => sub { my $self = shift; 
+		make_path(catdir($ENV{GORAP},'tmp'));
+		return catdir($ENV{GORAP},'tmp');
+	}
 );
 
 has commandline => (
@@ -380,7 +383,10 @@ sub BUILD {
 	$self->denovoheigth($denovoheigth) if $denovoheigth;
 	$self->denovolength($denovolength) if $denovolength;
 	$self->noblast(1) if $noblast;
-	$self->nofilter(1) if $nofilter;
+	if ($nofilter) {
+		$self->nofilter(1);
+		$self->noblast(1);
+	}
 	$self->nobutkingsnofilter(1) if $nobutkingsnofilter;
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
@@ -414,7 +420,7 @@ sub set_genomes {
 			my @abbr = split /\./ , $abbr;
 			pop @abbr if $#abbr > 0;
 			$abbr = join '' , @abbr;				
-			$abbr=~s/\W//g;				
+			$abbr=~s/\W//g;
 			push @{$self->abbreviations} , $abbr;
 		}
 	}

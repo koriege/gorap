@@ -672,8 +672,8 @@ sub get_ss_cs_from_file {
 
 sub get_ss_cs_from_object {
 	my ($self,$stk,$tmpfile) = @_;
-	my $out;
-	
+
+	my $out='';
 	open my $READER, '>', \$out;
 	(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($stk);
 	close $READER;

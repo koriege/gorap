@@ -8,23 +8,6 @@ use IO::Pipe;
 
 sub calc_features {
 	my ($self) = @_;
-	#calculations and software calls
-	#results are fetched and stored in DB structure
-	for (0..$#{$self->parameter->genomes}){		
-		my $abbr = ${$self->parameter->abbreviations}[$_];
-		#skip redundand calculations
-		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
-		return if $#f > -1;
-
-		for my $rfrna ( qw(RF00009_RNaseP_nuc RF00010_RNaseP_bact_a RF00011_RNaseP_bact_b RF00373_RNaseP_arch) ){
-			for my $f ($self->gffdb->db->{$abbr}->features(-primary_tag => $rfrna , -attributes => {source => $self->tool})){
-				$self->gffdb->db->{$abbr}->delete($f);
-				if (exists $self->stkdb->db->{$rfrna}){								
-					$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);								
-				}
-			}				
-		}		
-	}
 
 	my @kingdoms;
 
@@ -59,16 +42,13 @@ sub calc_features {
 				$pipe->autoflush(1);
 				my $tmpfile=catfile($self->parameter->tmp,$$);
 
-				for (@{$self->parameter->cfg->cmd}){
-					$_ =~ s/\$genome/$genome/;
-					$_ =~ s/\$kingdom/$kingdom/;
-					$_ =~ s/\$output/$tmpfile/;
-				}
+				my $cmd = $self->cmd;
+				$cmd =~ s/\$genome/$genome/;
+				$cmd =~ s/\$kingdom/$kingdom/;
+				$cmd =~ s/\$output/$tmpfile/;
 
-				my @paths = ( glob(catdir($ENV{GORAP},'infernal-1.0','bin')) , reverse glob(catdir($ENV{GORAP},'rnabob-*','bin')) );
-				local $ENV{PATH} = join(':',(@paths,reverse split/:/,$ENV{PATH}));
-
-				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => join(' ' , @{$self->parameter->cfg->cmd}), verbose => 0 );
+				local $ENV{PATH} = catdir($ENV{GORAP},'bin','infernal1').':'.$ENV{PATH};
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
 
 				open F , '<'.$tmpfile.'_rnpB.ss' or exit;
 				my @l;
@@ -112,12 +92,6 @@ sub calc_features {
 		$uid->{$abbr.'.'.$gff3entry[2]}++;
 		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
 		
-		# due to overlapping chunks check for already annotated genes
-		my $existingFeatures = $self->gffdb->get_overlapping_features(\@gff3entry);
-		if ($#{$existingFeatures} > -1){
-			$uid->{$abbr.'.'.$gff3entry[2]}--;	
-			next;
-		}		
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);	
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}

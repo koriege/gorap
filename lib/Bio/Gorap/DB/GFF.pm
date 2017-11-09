@@ -142,7 +142,7 @@ sub update_score_by_file {
 		$_ =~ s/^\s+|\s+$//g;
 		next if $_=~/^#/;
 		my @l = split /\s+/ , $_;
-		&update_score($self,join(' ',($l[1],$rf_rna,$l[6])));
+		$self->update_score(join(' ',($l[1],$rf_rna,$l[6])));
 	}
 	close S;		
 }
@@ -302,16 +302,11 @@ sub get_user_overlaps {
 sub _set_db {
 	my ($self) = @_;
 
-	my @abbr;
-	push @abbr , basename($_) for glob catfile($self->parameter->output,'annotations','*.final.gff');	
-	$_=~s/\.final\.gff// for @abbr;
-
-	for ( @{$self->parameter->abbreviations},@abbr ){		
-		$self->db->{$_} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 );
-		$self->db->{$_}->init_database([1]);
+	for my $abbr (@{$self->parameter->abbreviations}){
+		$self->db->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 );
+		$self->db->{$abbr}->init_database([1]);
+		$self->_read($abbr);
 	}		
-
-	&_read;
 
 	return unless $self->parameter->has_gffs;
 	if ($self->parameter->verbose){
@@ -324,7 +319,7 @@ sub _set_db {
 		for my $f (@{${$self->parameter->gffs}[$_]}){
 			$self->userdb->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 ) unless $self->userdb->{$abbr};			
 			open GFF, '<'.$f or die $!;
-			&add_user_entry($self,$_,$abbr,(++$idc)) while <GFF>;
+			$self->add_user_entry($_,$abbr,(++$idc)) while <GFF>;
 			close GFF;
 		}		
 	}
@@ -420,19 +415,18 @@ sub add_seq {
 	$feature->update;
 }
 
-#gorap way to fill database with existing data in defined output directory
+#gorap way to fill gff database with existing data in defined output directory
 sub _read {
-	my ($self) = @_;
+	my ($self,$abbr) = @_;
 
-	my @fastas = glob catfile($self->parameter->output,'annotations','*.fa');
-	if ($self->parameter->verbose && $#fastas > -1 ){
-		print "Reading previous annotations from ".$self->parameter->output." : ";
-		print "!!!do not kill GORAP here!!!\n";
-	}	
+	print "Reading previous annotations from ".$self->parameter->output."\n" if $self->parameter->verbose;
 
+	my @fastas = (catfile($self->parameter->output,'annotations',$abbr.'.fa'), catfile($self->parameter->output,'annotations',$abbr.'.final.fa'));
+	my @gffs = (catfile($self->parameter->output,'annotations',$abbr.'.gff'),catfile($self->parameter->output,'annotations',$abbr.'.final.gff'));
+
+	my $headerMapSeq={};
 	for my $file (@fastas){
-		next if $file=~/orig/ || $file=~/external/;
-		my $headerMapSeq={};		
+		next unless -e $file;
 		open FA , '<'.$file or die $!;
 		my $seqid;
 		my $seq;
@@ -440,35 +434,35 @@ sub _read {
 			chomp $_;
 			if ($_=~/^>\s*(\S+)/){		
 				#temp store of sequences
-				#id consists of abbreviation.original.type.tool.copy									
-				$headerMapSeq->{$seqid}=$seq if $seqid;				
+				$headerMapSeq->{$seqid}=$seq if $seqid;
 				$seqid = $1;
-				$seq = '';									
+				$seq = '';
 			} else {
 				$seq .= $_;
 			}
 		}
-		close FA;		
-		unlink $file unless $self->parameter->skip_comp;
+		close FA;
 		$headerMapSeq->{$seqid}=$seq if $seqid;
+	}
 
-		$file=~s/\.fa$/\.gff/;
-
+	for my $file (@gffs){
+		next unless -e $file;
 		open GFF , '<'.$file or die $!;
 		while(<GFF>){	
 			chomp $_;
 			my @l = split /\s+/ , $_;		
 			next unless $l[1];
 			#build header like for fasta: abbreviation.original.type.tool.copy out of abbreviation.original.copy
-			my @id = split /\./ , $l[0];										
-			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-			my $id = join '.' , ($abbr,$orig,$l[2],$l[1],$copy);				
+			my @id = split /\./ , $l[0];
+			my $abbr = shift @id;
+			my $copy = pop @id;
+			my $orig = join '.',@id;
+			my $id = join '.' , ($abbr,$orig,$l[2],$l[1],$copy);
 			$l[1] =~ s/\W//g;
 			$l[1] = lc $l[1];
-			&add_gff3_entry($self,\@l, exists $headerMapSeq->{$id} ? $headerMapSeq->{$id} : '');			
+			$self->add_gff3_entry(\@l,$headerMapSeq->{$id});
 		}
-		close GFF;			
-		unlink $file unless $self->parameter->skip_comp;
+		close GFF;
 	}
 }
 
