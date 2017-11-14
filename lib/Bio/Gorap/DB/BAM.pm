@@ -9,7 +9,7 @@ has 'parameter' => (
 	is => 'ro',
 	isa => 'Bio::Gorap::Parameter',
 	required => 1 ,
-	trigger => \&_set_db 
+	trigger => \&_set_db
 );
 
 has 'db' => (
@@ -34,7 +34,7 @@ sub _set_db {
 		my $abbr = ${$self->parameter->abbreviations}[$_];
 		$sizes->{$abbr}=0;
 		for my $f (@{${$self->parameter->bams}[$_]}){
-			
+
 			my $c = 0;
 			my $map = {};
 			my $next;
@@ -54,18 +54,18 @@ sub _set_db {
 	$self->sizes($sizes);
 }
 
-sub rpkm {	
+sub rpkm {
 	my ($self,$abbr,$id,$start,$stop,$strand) = @_;
 	$strand = $strand=~/(\.|0)/ ? 0 : $strand=~/(\+|1)/ ? 1 : -1;
 
 	my $count = 0;
-	for (0..$#{$self->db->{$abbr}}){		
-		my $bam = ${$self->db->{$abbr}}[$_];		
+	for (0..$#{$self->db->{$abbr}}){
+		my $bam = ${$self->db->{$abbr}}[$_];
 
 		my $readstrand = '+';
 		try {
 			if ($self->parameter->strandspec && $strand != 0){
-				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){					
+				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
 					my @segments = $_->segments;
 					my $rstrand = 1;
 					my $unmapped = 0;
@@ -94,19 +94,19 @@ sub rpkm {
 				}
 			}
 		} catch {
-			
+
 		};
-	}	
+	}
 
 	return ('.','.') unless $count;
 
-	$count /= ($#{$self->db->{$abbr}} + 1);			
+	$count /= ($#{$self->db->{$abbr}} + 1);
 	my $libsize = $self->sizes->{$abbr} / ($#{$self->db->{$abbr}} + 1);
 
 	my $rpkm = $libsize ? ($count / ($libsize/10^6)) / (($stop-$start)/10^3) : 0;
 	my $tpm = $libsize ? ($count / (($stop-$start)/10^3)) / ($libsize/10^6) : 0;
 
-	$tpm = $count/($stop-$start) * 
+	$tpm = $count/($stop-$start) *
 
 	return ($tpm == 0 ? '.' : sprintf("%.10f",$tpm), $rpkm == 0 ? '.' : sprintf("%.10f",$rpkm), $count == 0 ? '.' : $count);
 }

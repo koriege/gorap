@@ -23,16 +23,16 @@ sub calc_features {
 		for my $genome (@{$self->fastadb->chunks}){
 			if (scalar(keys %{$thrs}) >= $self->threads){
 				my $pid = wait();
-				delete $thrs->{$pid};		
+				delete $thrs->{$pid};
 				while( my @responses = $select->can_read(0) ){
-					for my $pipe (@responses){					
-						push @out , $_ while <$pipe>;						
+					for my $pipe (@responses){
+						push @out , $_ while <$pipe>;
 						$select->remove( $pipe->fileno() );
 					}
 				}
 			}
-			
-			my $pipe = IO::Pipe->new();			
+
+			my $pipe = IO::Pipe->new();
 			if (my $pid = fork()) {
 				$pipe->reader();
 				$select->add( $pipe );
@@ -52,10 +52,10 @@ sub calc_features {
 
 				open F , '<'.$tmpfile.'_rnpB.ss' or exit;
 				my @l;
-				while( <F> ) {		
+				while( <F> ) {
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
-					next if $_=~/^#/;			
+					next if $_=~/^#/;
 					next if $_=~/^\s*$/;
 					if ($_=~/^>/){
 						@l = ();
@@ -63,7 +63,9 @@ sub calc_features {
 						next;
 					}
 					next unless $_=~/^Score/;
-					print $pipe join (' ' , (@l,$_,"\n"));
+
+					push @l, $_;
+					print $pipe join(' ',(@l,"\n"));
 				}
 				close F;
 				unlink $tmpfile.'_rnpB.ss';
@@ -76,23 +78,20 @@ sub calc_features {
 		delete $thrs->{$pid};
 		while( my @responses = $select->can_read(0) ){
 			for my $pipe (@responses){
-				push @out , $_ while <$pipe>;						
+				push @out , $_ while <$pipe>;
 				$select->remove( $pipe->fileno() );
 			}
 		}
 	}
 
 	my $uid;
-	for (@out){	
+	for (@out){
 		my @l = split /\s+/, $_;
 		my @gff3entry = &{$self->tool_parser}(\@l);
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
-		
-		my ($abbr,@orig) = split /\./ , $gff3entry[0];
-		$uid->{$abbr.'.'.$gff3entry[2]}++;
-		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
-		
-		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);	
+		$gff3entry[0] .= '.'.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
+
+		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}
 }

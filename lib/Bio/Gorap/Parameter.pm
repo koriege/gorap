@@ -1,6 +1,6 @@
 package Bio::Gorap::Parameter;
 
-use Moose; 
+use Moose;
 use Getopt::Long;
 use Pod::Usage;
 use Bio::Gorap::CFG;
@@ -52,7 +52,7 @@ has 'genomes' => (
 
 has 'threads' => (
 	is => 'rw',
-	isa => 'Int',		
+	isa => 'Int',
 	default => 1
 );
 
@@ -65,7 +65,7 @@ has 'abbreviations' => (
 has 'tmp' => (
 	is => 'rw',
 	isa => 'Str',
-	default => sub { my $self = shift; 
+	default => sub { my $self = shift;
 		make_path(catdir($ENV{GORAP},'tmp'));
 		return catdir($ENV{GORAP},'tmp');
 	}
@@ -85,32 +85,32 @@ has ['taxonomy', 'verbose', 'check_overlaps'] => (
 
 has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'strandspec', 'notax', 'refresh'] => (
 	is => 'rw',
-	isa => 'Bool',		
+	isa => 'Bool',
 	default => 0
 );
 
 has 'kingdoms' => (
 	is => 'rw',
-	isa => 'HashRef',		
+	isa => 'HashRef',
 	default => sub { {bac => 1 , arc => 1 , euk => 1 , fungi => 1 , virus => 1} }
 );
 
 has 'queries' => (
 	is => 'rw',
-	isa => 'ArrayRef',		
+	isa => 'ArrayRef',
 	builder => '_set_queries'
 );
 
 has 'output' => (
 	is => 'rw',
-	isa => 'Str',		
+	isa => 'Str',
 	lazy => 1,
-	default => sub { my $self = shift; 
+	default => sub { my $self = shift;
 		make_path(catdir($self->pwd,'gorap_out','alignments'));
 		make_path(catdir($self->pwd,'gorap_out','annotations'));
 		make_path(catdir($self->pwd,'gorap_out','meta'));
 		make_path(catdir($self->pwd,'gorap_out','html'));
-		return catdir($self->pwd,'gorap_out'); 
+		return catdir($self->pwd,'gorap_out');
 	},
 	trigger => \&_make_paths
 );
@@ -124,7 +124,7 @@ has 'rank' => (
 has 'species' => (
 	is => 'rw',
 	isa => 'Str',
-	predicate => 'has_species'		    
+	predicate => 'has_species'
 );
 
 has 'bams' => (
@@ -192,11 +192,11 @@ sub BUILD {
 	my $file='x';
 
 	(Getopt::Long::Parser->new)->getoptions (
-		'l|label=s' => \my $label, 
-		'i|fastas=s' => \my $genomes, 
-		'o|output=s' => \my $output, 
+		'l|label=s' => \my $label,
+		'i|fastas=s' => \my $genomes,
+		'o|output=s' => \my $output,
 		'c|cpu=i' => \my $threads,
-		'k|kingdom=s' => \my $kingdoms, 
+		'k|kingdom=s' => \my $kingdoms,
 		'q|queries=s' => \my $queries,
 		'a|abbreviations=s' => \my $abbreviations,
 		'r|rank=s' => \my $rank,
@@ -204,7 +204,7 @@ sub BUILD {
 		'v|version' => \my $version,
 		'og|outgroups=s' => \my $outgroups,
 		'oga|outgroupabbreviations=s' => \my $ogabbreviations,
-		'b|bams=s' => \my $bams,	
+		'b|bams=s' => \my $bams,
 		'g|gffs=s' => \my $gffs,
 		'update|update=s' => \my $update,
  		'file|file:s' => \$file,
@@ -221,7 +221,7 @@ sub BUILD {
 		'minl|minlength=i' => \my $denovolength,
 		'minh|minheigth=i' => \my $denovoheigth,
 		'nobutkingsnofi|nobutkingsnofi' => \my $nobutkingsnofilter, #hidden dev option
-		'nofi|nofilter' => \my $nofilter, 
+		'nofi|nofilter' => \my $nofilter,
 		'strand|strandspecific' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
@@ -268,14 +268,14 @@ sub BUILD {
 					exit;
 				}
 				else {
-					print "Updating all databases\n";																	
+					print "Updating all databases\n";
 					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
 						parameter => $self
 					);
 					Bio::Gorap::Update->dl_ncbi($self,$taxdb);
 					Bio::Gorap::Update->dl_silva($self,$taxdb);
-					Bio::Gorap::Update->dl_rfam($self,$taxdb);	
-					Bio::Gorap::Update->create_cfgs($self,$taxdb);											
+					Bio::Gorap::Update->dl_rfam($self,$taxdb);
+					Bio::Gorap::Update->create_cfgs($self,$taxdb);
 					exit;
 				}
 			}
@@ -303,13 +303,13 @@ sub BUILD {
 				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option i. File does not exists") unless -e $_;
 				push @g , $_;
 			}
-		}		
+		}
 		&set_genomes($self, \@g ,[split(/\s*,\s*/,$abbreviations ? $abbreviations : "")]);
 	}
 
-	my @ogg;		
-	do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;	
-	if ($ogabbreviations){			
+	my @ogg;
+	do { push @ogg , glob $_ for split(/\s*,\s*/,$outgroups); $self->outgroups(\@ogg) } if $outgroups;
+	if ($ogabbreviations){
 		$self->ogabbreviations([split(/\s*,\s*/,$ogabbreviations)]);
 	} elsif ($outgroups) {
 		my @ogabbre;
@@ -317,12 +317,12 @@ sub BUILD {
 			my $abbr = basename($_);
 			my @abbr = split /\./ , $abbr;
 			pop @abbr if $#abbr > 0;
-			$abbr = join '' , @abbr;				
-			$abbr=~s/\W//g;				
+			$abbr = join '' , @abbr;
+			$abbr=~s/\W//g;
 			push @ogabbre , $abbr;
 		}
 		$self->ogabbreviations(\@ogabbre);
-	}		
+	}
 	if($kingdoms){
 		$self->kingdoms({});
 		for (split(/\s*,\s*/,$kingdoms)) {
@@ -330,13 +330,13 @@ sub BUILD {
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option k. Unknown kingdom definition") unless $s =~ /^(bac|arc|euk|fungi|virus)$/;
 			$self->kingdoms->{$s}=1
 		}
-	}		
-			
+	}
+
 	if (defined $queries){
 		$self->querystring($queries);
 		&set_queries($self,[split(/\s*,\s*/,$queries)]);
 	}
-	
+
 	if ($bams){
 		my @bams;
 		my $c=-1;
@@ -347,9 +347,9 @@ sub BUILD {
 				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option b. File does not exists") unless -e $_;
 				push @{$bams[$c]} , $_;
 			}
-		}		
+		}
 		$self->bams(\@bams);
-	}		
+	}
 	if ($gffs){
 		my @gffs;
 		my $c=-1;
@@ -360,17 +360,17 @@ sub BUILD {
 				pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option g. File does not exists") unless -e $_;
 				push @{$gffs[$c]} , $_;
 			}
-		}		
+		}
 		$self->gffs(\@gffs);
 	}
 	if ($output){
 	    try {
-			make_path(catdir(rootdir, $output)); 
+			make_path(catdir(rootdir, $output));
 			$self->output($output);
 	    } catch {
 			$self->output(catdir($self->pwd, $output));
 	    };
-		
+
 	}
 	$self->rank($rank) if $rank;
 	$self->species($species) if $species;
@@ -391,14 +391,14 @@ sub BUILD {
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
 	$self->strandspec(1) if $strandspec;
-		
+
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
 }
 
 sub _make_paths {
 	my ($self) = @_;
-	
+
 	make_path(catdir($self->output,'alignments'));
 	make_path(catdir($self->output,'annotations'));
 	make_path(catdir($self->output,'meta'));
@@ -412,14 +412,14 @@ sub set_genomes {
 	undef @{$self->abbreviations};
 	$self->genomes($genomes);
 
-	if ($#{$abbreviations}>-1){		
+	if ($#{$abbreviations}>-1){
 		$self->abbreviations($abbreviations);
 	} else {
 		for(@{$self->genomes}){
 			my $abbr = basename($_);
 			my @abbr = split /\./ , $abbr;
 			pop @abbr if $#abbr > 0;
-			$abbr = join '' , @abbr;				
+			$abbr = join '' , @abbr;
 			$abbr=~s/\W//g;
 			push @{$self->abbreviations} , $abbr;
 		}
@@ -428,8 +428,8 @@ sub set_genomes {
 
 #store parsed rfam query related gorap configuration file of interest
 sub set_cfg {
-	my ($self,$cfg) = @_;	
-	
+	my ($self,$cfg) = @_;
+
 	$self->cfg(Bio::Gorap::CFG->new(
 		cfg => $cfg
 	));
@@ -453,20 +453,20 @@ sub set_queries {
 				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}
-			
+
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
 			my $nr1 = $1;
 			my @q = glob(catfile($ENV{GORAP},'gorap','config','*.cfg'));
 			basename($q[$#q])=~/R?F?0*(\d+)/;
-			my $nr2=$1;			
+			my $nr2=$1;
 			for ($nr1..$nr2){
 				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
-			}										
+			}
 		} elsif ($_=~/R?F?0*(\d+)/){
 			my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 			push @queries , $q if $q;
-		} 
+		}
 	}
 
 	@queries = uniq @queries;
@@ -490,27 +490,27 @@ sub read_parameter {
 	my @genomes;
 	my @abbreviations;
 	my @ogenomes;
-	my @ogabbreviations;	
+	my @ogabbreviations;
 	my $assignment;
 
 	my $c=1;
-	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){		
+	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){
 		for (@g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option i. File does not exists") unless -e $_;
 			push @genomes , $_;
 			push @{$assignment->{'genome'.$c}} , $#genomes;
-			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);			
+			my $abbr = $cfg->GetParameterTrailingComment('input', 'genome'.$c);
 			unless ($abbr) {
 				$abbr = basename($_);
 				my @abbr = split /\./ , $abbr;
 				pop @abbr if $#abbr > 0;
 				$abbr = join '' , @abbr;
 				$abbr=~s/\W//g;
-			}			
+			}
 			push @abbreviations , $abbr;
-		}		
+		}
 		$c++;
-	}	
+	}
 	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
 		for (@g){
@@ -533,7 +533,7 @@ sub read_parameter {
 		my %h = map { if ($_ =~ /^(bac|arc|euk|fungi|virus)$/) { $_ => 1 } else { pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option k. Unknown kingdom definition")} } split /\n/ , $cfg->val('query','kingdom');
 		$self->kingdoms(\%h) if scalar keys %h > 0;
 	}
-	$v = $cfg->val('query','rfam');	
+	$v = $cfg->val('query','rfam');
 	if (defined $v){
 		&set_queries($self,[split /\n/ , $cfg->val('query','rfam')]);
 		$self->querystring(join(",",split(/\n/ , $cfg->val('query','rfam'))));
@@ -555,33 +555,33 @@ sub read_parameter {
 	$self->abbreviations(\@abbreviations) if $#abbreviations > -1;
 	$self->outgroups(\@ogenomes) if $#ogenomes > -1;
 	$self->ogabbreviations(\@ogabbreviations) if $#ogabbreviations > -1;
-	
+
 	my @bams;
 	my @gffs;
 	$#bams=$#genomes;
 	$#gffs=$#genomes;
-	$c=1;	
+	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){
 		for (@g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option b. File does not exists") unless -e $_;
 		}
-		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){			
+		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){
 			push @{$bams[$_]} , @g;
 		}
 		$c++;
 	}
 	$self->bams(\@bams) if $c > 1;
 	$self->strandspec(1) if $cfg->val('addons','strandspecific');
-	$c=1;	
+	$c=1;
 	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){
 		for (@g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option g. File does not exists") unless -e $_;
 		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
-			push @{$gffs[$_]} , @g;	
-		}		
+			push @{$gffs[$_]} , @g;
+		}
 		$c++;
-	}	
+	}
 	$self->gffs(\@gffs) if $c > 1;
 	$v = $cfg->val('addons','label');
 	if ($v){

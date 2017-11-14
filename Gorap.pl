@@ -22,7 +22,7 @@ BEGIN {
 		$ENV{PERL5LIB} = join(":",
 			glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
 			glob(catdir($ENV{GORAP},"gorap","*","perl5")),
-			$ENV{PERL5LIB} 
+			$ENV{PERL5LIB}
 		);
 	} else {
 		$ENV{PERL5LIB} = join(":",
@@ -30,8 +30,8 @@ BEGIN {
 			glob(catdir($ENV{GORAP},"gorap","*","perl5"))
 		);
 	}
-	
-	unshift(@INC, 
+
+	unshift(@INC,
 		glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
 		glob(catdir($ENV{GORAP},"gorap","*","perl5"))
 	);
@@ -164,8 +164,8 @@ if ($parameter->refresh){
 				$gffdb->update_filter($f->seq_id,$type,'!');
 			} else {
 				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
-			}		
-		}	
+			}
+		}
 		unlink $stkdb->idToPath->{$type} if ! $hold && exists $stkdb->db->{$type};
 	}
 	print "Storing changes\n";
@@ -208,18 +208,18 @@ my $bamdb = Bio::Gorap::DB::BAM->new(
 	parameter => $parameter
 );
 
-#gorap gff3 storage database initialization without loss of existing data in output directory 
+#gorap gff3 storage database initialization without loss of existing data in output directory
 my $gffdb = Bio::Gorap::DB::GFF->new(
 	parameter => $parameter,
 	bamdb => $bamdb
-); 
+);
 
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
 #fetched during background calculations
 my $thrListener = Bio::Gorap::ThrListener->new(
-	threads => $parameter->threads,		
-	storage => $gffdb, 
+	threads => $parameter->threads,
+	storage => $gffdb,
 	#gorap background jobs filter and mark specific entries
 	storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 );
@@ -245,21 +245,21 @@ unless ($parameter->skip_comp){
 if ($parameter->has_outgroups){
 
 	print "Preparing phylogeny reconstruction\n" if $parameter->verbose;
-	my @newQ;	
+	my @newQ;
 	my @oldqueries = @{$parameter->queries};
 	my @oldgenomes = @{$parameter->genomes};
 	my @oldabbres = @{$parameter->abbreviations};
 
 	$parameter->set_queries();
-	for my $cfg (@{$parameter->queries}){		
+	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
 		push @newQ , $parameter->cfg->rf if $#{$gffdb->get_all_features($parameter->cfg->rf_rna , '!')} > -1;
-	}	
+	}
 
 	if ($#newQ > -1){
 		my $outdir = catdir($parameter->output,'phylogeny-'.$parameter->label);
 		make_path($outdir);
-		unlink $_ for glob catfile($outdir,'RAxML_*');			
+		unlink $_ for glob catfile($outdir,'RAxML_*');
 
 		my @newgenomes = @{$parameter->outgroups};
 		my @newabbres = @{$parameter->ogabbreviations};
@@ -268,7 +268,7 @@ if ($parameter->has_outgroups){
 		$parameter->set_queries(\@newQ);
 
 		$gffdb->add_db($_) for @{$parameter->ogabbreviations};
-		
+
 		unless ($parameter->skip_comp){
 
 			print "\nAnnotation of outgroups for phylogeny reconstruction\n" if $parameter->verbose;
@@ -277,12 +277,12 @@ if ($parameter->has_outgroups){
 				parameter => $parameter
 			);
 			$thrListener = Bio::Gorap::ThrListener->new(
-				threads => $parameter->threads,		
-				storage => $gffdb, 
+				threads => $parameter->threads,
+				storage => $gffdb,
 				#gorap background jobs filter and mark specific entries
 				storage_saver => \&Bio::Gorap::DB::GFF::update_filter
-			);			
-			&run();	
+			);
+			&run();
 			#stops the thread listener and waits for remaining background jobs to be finished
 			$thrListener->stop;
 			my ($type_map_features) = $gffdb->get_filtered_features('O');
@@ -292,7 +292,7 @@ if ($parameter->has_outgroups){
 			#store final annotation results
 			$gffdb->store_overlaps;
 		}
-	
+
 		my @allabbres = (@oldabbres,@{$parameter->ogabbreviations});
 		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features) = &get_phylo_features(\@allabbres,$outdir);
 
@@ -302,7 +302,7 @@ if ($parameter->has_outgroups){
 		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 
 		if ( (any { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$speciesSSU > 3){
-			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;	
+			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;
 			for my $k (keys %$speciesSSU ){
 				print FA '>'.$k."\n";
 				$speciesSSU->{$k}=~s/(\W|_)/-/g;
@@ -314,48 +314,48 @@ if ($parameter->has_outgroups){
 			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}));
 
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));	
+			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));
 			copy catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'), catfile($outdir,'SSU.mafft.tree');
 			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'));
 			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'SSU.mafft.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-		}	
+		}
 
 		if ( (any { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$coreFeatures > 3){
-			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;	
+			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;
 			for my $k (keys %$coreFeatures ){
 				print FA '>'.$k."\n";
-				$coreFeatures->{$k}=~s/(\W|_)/-/g;				
-				print FA $_."\n" for unpack("(a80)*",$coreFeatures->{$k});				
+				$coreFeatures->{$k}=~s/(\W|_)/-/g;
+				print FA $_."\n" for unpack("(a80)*",$coreFeatures->{$k});
 			}
 			close FA;
 			open FA , '>'.catfile($outdir,'coreRNome.stkfa') or die $!;
 			for my $k (keys %$stkCoreFeatures ){
 				print FA '>'.$k."\n";
-				$stkCoreFeatures->{$k}=~s/(\W|_)/-/g;				
-				print FA $_."\n" for unpack("(a80)*",$stkCoreFeatures->{$k});				
-			}			
+				$stkCoreFeatures->{$k}=~s/(\W|_)/-/g;
+				print FA $_."\n" for unpack("(a80)*",$stkCoreFeatures->{$k});
+			}
 			close FA;
 
 			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
 			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
 			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
-			
+
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));	
+			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));
 			copy catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'), catfile($outdir,'coreRNome.mafft.tree');
 			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'));
 			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.mafft.pdf');
 
 			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));	
+			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));
 			copy catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'), catfile($outdir,'coreRNome.stk.tree');
 			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'));
 			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.stk.pdf');
 
-			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);	
-		} 
+			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
+		}
 
 		if ( (any { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stkFeatures > 3){
 			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;
@@ -365,17 +365,17 @@ if ($parameter->has_outgroups){
 				print FA $_."\n" for unpack("(a80)*",$stkFeatures->{$k});
 			}
 			close FA;
-			
+
 			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}));
-			
+
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));	
+			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));
 			copy catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
 			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'));
 			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'RNome.stk.pdf');
-			
+
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-		}	
+		}
 
 		if ( (any { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stk50Features > 3){
 			open FA , '>'.catfile($outdir,'core50RNome.stkfa') or die $!;
@@ -385,17 +385,17 @@ if ($parameter->has_outgroups){
 				print FA $_."\n" for unpack("(a80)*",$stk50Features->{$k});
 			}
 			close FA;
-			
+
 			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}));
-			
+
 			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
-			$obj->print(-file => catfile($outdir,'core50RNome.stk.eps'));	
+			$obj->print(-file => catfile($outdir,'core50RNome.stk.eps'));
 			copy catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'), catfile($outdir,'core50RNome.stk.tree');
 			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'));
 			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'core50RNome.stk.pdf');
-			
+
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-		}				
+		}
 	}
 }
 
@@ -414,7 +414,7 @@ sub run {
 	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
 
 	my $c=0;
-	for my $cfg (@{$parameter->queries}){		
+	for my $cfg (@{$parameter->queries}){
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);
 		$c++;
@@ -422,14 +422,14 @@ sub run {
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
 		for (keys %{$parameter->kingdoms}){
-			$next=0 if exists $parameter->cfg->kingdoms->{$_};	
+			$next=0 if exists $parameter->cfg->kingdoms->{$_};
 		}
-		if($next && ! $parameter->nofilter){			
+		if($next && ! $parameter->nofilter){
 			print " - skipped due to kingdom restriction" if $parameter->verbose;
 			next;
 		}
 		say "" if $parameter->verbose;
-		
+
 		my ($threshold,$nonTaxThreshold);
 		for my $tool (@{$parameter->cfg->tools}){
 			my $cmd = $parameter->cfg->cmd->{$tool};
@@ -437,11 +437,11 @@ sub run {
 			$tool = lc $tool;
 			$tool = ucfirst $tool;
 			$tool = 'Infernal' if $parameter->nofilter;
-			next if $tool eq 'Blast' && $parameter->noblast;			
-			
+			next if $tool eq 'Blast' && $parameter->noblast;
+
 			#dynamically initialize toolname dependent modules
 			my $toolparser = lc $tool.'_parser';
-			my $f = catfile('Bio','Gorap','Tool',$tool.'.pm');	
+			my $f = catfile('Bio','Gorap','Tool',$tool.'.pm');
 			my $class = 'Bio::Gorap::Tool::'.$tool;
 			try {
 		    	require $f;
@@ -450,16 +450,16 @@ sub run {
 					print 'Unknown tool '.$tool.': using Default.pm'."\n";
 					$toolparser = 'gff3_parser';
 					$f = catfile('Bio','Gorap','Tool','Default.pm');
-					$class = 'Bio::Gorap::Tool::Default';				
+					$class = 'Bio::Gorap::Tool::Default';
 					require $f;
 				} else {
 					&safety_store($_);
 				}
 			};
 			$class->import;
-			
-			#create an instance with related parser for change tool output into gff3 
-			#with gorap attributes to store in gff database		
+
+			#create an instance with related parser for change tool output into gff3
+			#with gorap attributes to store in gff database
 			my $obj = $class->new(
 				threads => $parameter->threads - $thrListener->get_workload +1,
 				parameter => $parameter,
@@ -479,7 +479,7 @@ sub run {
 			}
 
 			$obj->calc_features;
-		}				
+		}
 		next if $threshold && $threshold == 999999;
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
@@ -502,23 +502,23 @@ sub run {
 			#start of time consuming single threaded background job with a subroutine reference,
 			#which returns an array of String, parsable by pipe_parser
 			if ($threshold){
-				my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);	
-				next if $#{$features} == -1;		
+				my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);
+				next if $#{$features} == -1;
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
 			} else {
 				$stkdb->remove_gap_columns_and_write($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
 			}
-		}		
-		#store annotations already in the database in case of errors		
+		}
+		#store annotations already in the database in case of errors
 		while($#{$thrListener->finished}>-1){
 			$gffdb->store(shift @{$thrListener->finished});
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-		}				
-		
-	}		
-	
+		}
+
+	}
+
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
-	
+
 	(Bio::Gorap::Tool::Piles->new(
 		threads => $parameter->threads - $thrListener->get_workload,
 		parameter => $parameter,
@@ -533,17 +533,17 @@ sub run {
 }
 
 sub get_phylo_features {
-	my ($abbres,$outdir) = @_;	
+	my ($abbres,$outdir) = @_;
 
-	my ($speciesSSU,$coreFeatures,$stkFeatures,$stk50Features,$stkCoreFeatures,);	
+	my ($speciesSSU,$coreFeatures,$stkFeatures,$stk50Features,$stkCoreFeatures,);
 	my ($ssuToAbbr,$coreToAbbr,$core50ToAbbr,$rnomeToAbbr);
 
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
 
-		my $featureScore;	
-		if ($cfg=~/_SSU_/){			
-			for my $f ( @{$gffdb->get_features($parameter->cfg->rf_rna , $abbres, '!')}){				
+		my $featureScore;
+		if ($cfg=~/_SSU_/){
+			for my $f ( @{$gffdb->get_features($parameter->cfg->rf_rna , $abbres, '!')}){
 				my @id = split /\./ , $f->seq_id;
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
 				$ssuToAbbr->{$abbr} = 1;
@@ -555,17 +555,17 @@ sub get_phylo_features {
 					} elsif ($f->score == $featureScore->{$abbr} && length($s) > length($speciesSSU->{ $abbr })){
 						$speciesSSU->{ $abbr } = $s;
 						$featureScore->{$abbr} = $f->score;
-					}					
+					}
 				} else {
 					$speciesSSU->{ $abbr } = ($f->get_tag_values('seq'))[0];
-					$featureScore->{$abbr} = $f->score;					
+					$featureScore->{$abbr} = $f->score;
 				}
 			}
 		}
 
 		next if $cfg=~/_tRNA/ || $cfg=~/_rRNA/ || $cfg=~/CRISPR/;
 
-		my $speciesFeature;	
+		my $speciesFeature;
 		my $speciesSTKseq;
 		$featureScore={};
 
@@ -582,17 +582,17 @@ sub get_phylo_features {
 				$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
 				$featureScore->{$abbr} = $_->score;
 				$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq if exists $stkdb->db->{$parameter->cfg->rf_rna};
-			}	
+			}
 		}
 
-		next if scalar keys %$speciesFeature == 0;		
-		
+		next if scalar keys %$speciesFeature == 0;
+
 		my $l = length($speciesSTKseq->{(keys %$speciesSTKseq)[0]});
-		for(@$abbres){			
+		for(@$abbres){
 			if(exists $speciesSTKseq->{$_}){
 				$rnomeToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 				$stkFeatures->{$_} .= $speciesSTKseq->{$_};
-			} else {				
+			} else {
 				$stkFeatures->{$_} .= join('',('?') x $l);
 			}
 		}
@@ -603,33 +603,33 @@ sub get_phylo_features {
 			if(exists $speciesSTKseq->{$_}){
 				$core50ToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
 				$stk50Features->{$_} .= $speciesSTKseq->{$_};
-			} else {				
+			} else {
 				$stk50Features->{$_} .= join('',('?') x $l);
 			}
 		}
 
-		next if scalar keys %$speciesFeature < ($#{$abbres} + 1);		
+		next if scalar keys %$speciesFeature < ($#{$abbres} + 1);
 
 		for(@$abbres){
 			$coreToAbbr->{$_}->{$parameter->cfg->rf_rna} = 1;
-			$coreFeatures->{$_} .= $speciesFeature->{$_};			
+			$coreFeatures->{$_} .= $speciesFeature->{$_};
 			$stkCoreFeatures->{$_} .= $speciesSTKseq->{$_};
 		}
 	}
 
-	open TXT , '>'.catfile($outdir,'INFO_SSU.txt') or die $!;	
+	open TXT , '>'.catfile($outdir,'INFO_SSU.txt') or die $!;
 	print TXT "SSU\n";
 	print TXT $_."\n" for sort keys %$ssuToAbbr;
 	close TXT;
-	open TXT , '>'.catfile($outdir,'INFO_RNome.txt') or die $!;	
+	open TXT , '>'.catfile($outdir,'INFO_RNome.txt') or die $!;
 	print TXT "RNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$rnomeToAbbr->{$_}})."\n" for sort keys %$rnomeToAbbr;
 	close TXT;
-	open TXT , '>'.catfile($outdir,'INFO_coreRNome.txt') or die $!;	
+	open TXT , '>'.catfile($outdir,'INFO_coreRNome.txt') or die $!;
 	print TXT "coreRNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$coreToAbbr->{$_}})."\n" for sort keys %$coreToAbbr;
 	close TXT;
-	open TXT , '>'.catfile($outdir,'INFO_core50RNome.txt') or die $!;	
+	open TXT , '>'.catfile($outdir,'INFO_core50RNome.txt') or die $!;
 	print TXT "core50RNome\n";
 	print TXT $_."\t".join("\t",sort keys %{$core50ToAbbr->{$_}})."\n" for sort keys %$core50ToAbbr;
 	close TXT;
@@ -639,7 +639,7 @@ sub get_phylo_features {
 
 sub safety_store {
 	my ($e) = @_;
-	say $_;
+	say $e;
 	say ":ERROR: Safety store in progress";
 	$thrListener->stop if $thrListener;
 	# $gffdb->store_overlaps if $gffdb;
@@ -658,15 +658,15 @@ GORAP - Genomewide ncRNA Annotation Pipeline
 =head1 SYNOPSIS
 
 Gorap.pl [OPTION]...
-  
+
 example: Gorap.pl -a sa,sb -i s1.fa,s2.fa -g s1.gff,s2.gff -c 4 -k bac -q 1:20,169,1852: -r 123 -s 'species name' -sort
 
 =head1 DESCRIPTION
 
-B<GORAP> will read given input sequences and screen them for all non-coding RNAs present in the Rfam database with 
-generalized or specialized software by use of developed filtering strategies. Furthermore the pipeline is able to 
+B<GORAP> will read given input sequences and screen them for all non-coding RNAs present in the Rfam database with
+generalized or specialized software by use of developed filtering strategies. Furthermore the pipeline is able to
 reconstruct phylogenetic trees and perform de novo predictions as well as TPM/FPKM calculations from RNA-Seq experiments.
-Screening options are defined in RNA family configuration files at $GORAP/config/*.cfg, setting up software and 
+Screening options are defined in RNA family configuration files at $GORAP/config/*.cfg, setting up software and
 parameters, queries, covariance models, thresholds and sequence constrains. These files can be easily amended and completed by own queries.
 
 =head1 OPTIONS
@@ -687,22 +687,22 @@ updates internal used databases (Rfam, NCBI, Silva)	!!! check your edited config
 
 =item B<-file>, B<--file>=FILE
 
-run GORAP with a parameter file - see provided example for detailed information. 
+run GORAP with a parameter file - see provided example for detailed information.
 note: command line parameters priorize parameter file settings
 
 =item B<-l>, B<--label>=STRING
 
 a label for this RUN - useful to find it in the HTML output and for an output refesh
 note: see -refresh
-	
+
 =item B<-i>, B<--fastas>=FILE,...
 
-(required) 
+(required)
 paths of comma separated FASTA files
-		
-=item B<-a>, B<--abbreviations>=STRING,...	
 
-(default: build from FASTA file names) 
+=item B<-a>, B<--abbreviations>=STRING,...
+
+(default: build from FASTA file names)
 list of comma separated abbreviations as unique identifiers.
 note: in equal order and list size to -i (otherwise use parameter file)
 
@@ -714,23 +714,23 @@ list of comma separated, single Rfam ids (e.g. RF00001) or numbers (e.g. 1) and 
 
 list of comma separated kingdoms to screen for kingdom specific ncRNAs (default: all)
 
-=item B<-r>, B<--rank>=[INT/STRING]	
+=item B<-r>, B<--rank>=[INT/STRING]
 
 NCBI taxonomy matching id or scientific name of rank/genus/... for given sequences.	please use quotas if using names e.g. 'Bacillus subtilis group'
-	
+
 =item B<-s>, B<--species>=[INT/STRING]
 
 NCBI taxonomy matching scientific name or taxonomy id of given species. please use quotas if using names e.g. 'Bacillus subtilis'
 
 =item B<-o>, B<--output>=PATH
 
-(default: <working directory>/gorap_out) 
+(default: <working directory>/gorap_out)
 output directory
 
 =item B<-c>, B<--cpu>=INT
 
-(default: 1) 
-number of threads to use 
+(default: 1)
+number of threads to use
 
 =item B<-t>, B<--tmp>=PATH
 
@@ -738,15 +738,15 @@ number of threads to use
 set the temporary directory - will be removed after successful GORAP run
 
 =item B<-sort>, B<--sort>
-	
+
 enable resulting alignments to be sorted in taxonomic order
 
 =item B<-notax>, B<--notaxonomy>
-	
+
 disables taxonomic sorting and filters based on given rank/species information useful to skip time consuming initializations for testing purposes
 
 =item B<-nofi>, B<--nofilter>
-	
+
 disables GORAP specific sequence and structure filter
 
 =back
@@ -782,7 +782,7 @@ note2: separate multiple BAMs related to one input FASTA by colons
 e.g. s1g1.gff:s1g2.gff,s2.gff
 
 =item B<-noc>, B<--nooverlapcheck>
-	
+
 disables deletion of predictions even if they overlap with a given GFF3 file
 
 =item B<-b>, B<--bams>=FILE,...
@@ -797,13 +797,13 @@ e.g. s1g1.bam:s1g2.bam,s2.bam
 mapping data (BAM files) resulted from strand specific library preparation
 
 =item B<-notpm>, B<--notpm>
-	
+
 disables TPM/FPKM calculation
 
 =item B<-minl>, B<--minlength>=INT
 
 (default: 50)
-minimum length for de novo gene prediction 
+minimum length for de novo gene prediction
 
 =item B<-minh>, B<--minheigth>=INT
 

@@ -2,7 +2,7 @@ package Bio::Gorap::Tool::Barrnap;
 
 use Moose; with 'Bio::Gorap::ToolI';
 use IO::Select;
-use IO::Pipe;	
+use IO::Pipe;
 use IPC::Open3;
 use File::Spec::Functions;
 use Symbol qw(gensym);
@@ -29,7 +29,7 @@ sub calc_features {
 			$cmd =~ s/\$cpus/$threads/;
 			$cmd =~ s/\$kingdom/$kingdom/;
 			my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
-			
+
 			while( <READER> ) {
 				chomp $_;
 				$_ =~ s/^\s+|\s+$//g;
@@ -37,8 +37,9 @@ sub calc_features {
 				next if $_=~/^\s*$/;
 				my @l = split /\s+/ , $_;
 				my @gff3entry = &{$self->tool_parser}($kingdom,\@l);
-				$uid->{$abbr.'.'.$gff3entry[2]}++;
-				$gff3entry[0] = join('.',($abbr,$gff3entry[0],$uid->{$abbr.'.'.$gff3entry[2]}));
+				my @chr = ($abbr,$gff3entry[0],$gff3entry[2]);
+				$chr[-1] = ++$uid->{join('.',@chr)};
+				$gff3entry[0] = join('.',@chr);
 				$self->gffdb->add_gff3_entry(\@gff3entry,$self->fastadb->get_gff3seq(\@gff3entry));
 			}
 			waitpid($pid, 0);

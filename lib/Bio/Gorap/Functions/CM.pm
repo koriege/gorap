@@ -11,7 +11,7 @@ sub compute {
 	my $pid = open3(gensym, \*READER, File::Spec->devnull , "cmbuild -F $cm $stk");
 	waitpid($pid, 0);
 	$pid = open3(gensym, \*READER, File::Spec->devnull , "cmcalibrate --cpu $cpus $cm");
-	waitpid($pid, 0);	
+	waitpid($pid, 0);
 }
 
 1;

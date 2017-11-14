@@ -21,14 +21,14 @@ has 'storage' => (
 has 'threads' => (
 	is => 'rw',
     isa => 'Int',
-	default => 1,	
+	default => 1,
 );
 
 has 'select' => (
 	is => 'ro',
     isa => 'IO::Select',
     init_arg => undef,
-	default => sub { IO::Select->new }	
+	default => sub { IO::Select->new }
 );
 
 has 'storage_saver' => (
@@ -55,42 +55,42 @@ sub stop {
 	my ($self) = @_;
 
 	for (keys %{$self->thrList}){
-		waitpid($_,0);	
-		delete $self->thrList->{$_};					
+		waitpid($_,0);
+		delete $self->thrList->{$_};
 		&_read($self);
-	}	
+	}
 }
 
 #check for resources and extends an object by inter process communication
 sub push_obj {
-	my ($self,$obj) = @_;	
+	my ($self,$obj) = @_;
 
 	for (keys %{$self->thrList}){
-		waitpid($_, &WNOHANG);		
-		if (WIFEXITED($?)){			
-			delete $self->thrList->{$_};	
-			push @{$self->finished} , &_read($self);							
-		} 
+		waitpid($_, &WNOHANG);
+		if (WIFEXITED($?)){
+			delete $self->thrList->{$_};
+			push @{$self->finished} , &_read($self);
+		}
 	}
 
 	while($self->get_workload >= $self->threads/2){
 		sleep(0.1);
 		my ($key) = keys %{$self->thrList};
-		waitpid($key,0);	
-		delete $self->thrList->{$key};			
+		waitpid($key,0);
+		delete $self->thrList->{$key};
 		push @{$self->finished} , &_read($self);
-	}	
+	}
 }
 
 #prints final results from IPC into a datastructure by code referenced subroutine
-sub _read {	
+sub _read {
 	my ($self) = @_;
 	my $type;
 	while( my @responses = $self->select->can_read(0) ){
-		for my $pipe (@responses){			
-			while(<$pipe>){	
-				$type = &{$self->storage_saver}($self->storage,split(/\s+/,$_));				
-			}			
+		for my $pipe (@responses){
+			while(<$pipe>){
+				$type = &{$self->storage_saver}($self->storage,split(/\s+/,$_));
+			}
 			$self->select->remove($pipe->fileno);
 		}
 	}
@@ -104,16 +104,16 @@ sub calc_background {
 
 	my $pipe = IO::Pipe->new;
 	#start single threaded filter calculations
-	my $pid = fork();			
+	my $pid = fork();
 	unless ($pid) {
 		$pipe->writer();
-    	$pipe->autoflush(1);	    	
+    	$pipe->autoflush(1);
     	#background calculation starts here
-    	#returned array of strings of given subroutine is written to IO::Pipe    	
+    	#returned array of strings of given subroutine is written to IO::Pipe
     	for (&$sub){
-    		chomp $_; 		
+    		chomp $_;
     		print $pipe $_."\n";
-    	}    	
+    	}
 		exit;
 	} else {
 		$pipe->reader();

@@ -23,7 +23,7 @@ has 'cmd' => (
 	is => 'rw',
 	isa => 'HashRef',
 	lazy => 1,
-	default => sub { 
+	default => sub {
 		my $self = shift;
 		return { infernal => 'cmsearch --noali --cpu $cpus '.$self->cm.' $genome',
 			blast => 'blastn -num_threads $cpus -query '.$self->fasta.' -db $genome -task dc-megablast -word_size 11 -template_type optimal -template_length 16 -evalue '.$self->evalue.' -window_size 50 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"'
@@ -84,10 +84,10 @@ has 'userfilter' => (
 );
 
 sub _set {
-	my ($self) = @_;	
-	
+	my ($self) = @_;
+
 	my $cfg = Config::IniFiles->new( -file => $self->cfg , -nomultiline => 1, -handle_trailing_comment => 1);
-	
+
 	$self->rf($cfg->val('family','id')) or die 'Check your parameter file '.$self->cfg;
 	$self->rna($cfg->val('family','name')) or die 'Check your parameter file '.$self->cfg;
 	$self->rf_rna($self->rf.'_'.$self->rna);
@@ -98,7 +98,7 @@ sub _set {
 	$self->query_dir($querydir);
 
 	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
-	if ($v){		
+	if ($v){
 		$self->tools([reverse sort split /\n/ , $v]); #infernal before blast
 		$v = $cfg->val('cmd','parameter');
 		if ($v){
@@ -114,7 +114,7 @@ sub _set {
 
 	$v = $cfg->val('thresholds','evalue');
 	$self->evalue($v) if $v;
-	$v = $cfg->val('thresholds','bitscore');	
+	$v = $cfg->val('thresholds','bitscore');
 	$self->bitscore($v) if $v;
 
 	$v = $cfg->val('query','fasta');
@@ -142,8 +142,25 @@ sub _set {
 	$self->bitscore_cm(Bio::Gorap::Functions::STK->get_min_score($self->stk));
 
 	my $types = Bio::Gorap::Functions::STK->get_rna_types($self->stk);
-	$types=~s/:*CD-box// if $self->rf_rna =~ /_U[0-9](1|2|atac|_|$)/;
-	$self->types($types);
+	if ($types){
+		$types=~s/:*CD-box// if $self->rf_rna =~ /_U[0-9](1|2|atac|_|$)/;
+		$self->types($types);
+	} else {
+		$types = 'rRNA' if $self->rf_rna =~/_rRNA/ && $self->rf_rna!~/RF00002/;
+		$types = 'tRNA' if $self->rf_rna =~/\d_tRNA/;
+		$types = 'RNaseP' if $self->rf_rna=~/RNaseP/;
+		$types = 'CRISPR' if $self->rf_rna=~/CRISPR/;
+		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file($self->stk);
+		my $cdsnorna = 0;
+		if ($self->rf_rna=~/_Afu/ || $self->rf_rna=~/_ceN/ || $self->rf_rna=~/_DdR/ || $self->rf_rna=~/CD\d+$/ || 
+			$self->rf_rna=~/_sno_/ || $self->rf_rna=~/_SNOR/ || $self->rf_rna=~/_sno[A-Z]/ || 
+			$self->rf_rna=~/_sn\d/ || $self->rf_rna =~/_sn?o?s?n?o?[A-WYZ]+[a-z]?\d/){
+			#not -.+- -> e.g. v-snoRNA-1 is viral:
+			$types = 'CD-box';
+		}
+		$types = 'HACA-box' if $self->rf_rna=~/_snopsi/ || $self->rf_rna=~/_SNOR[A\d]/ || (($self->rf_rna=~/_sn\d/ || $self->rf_rna=~/_sno[A-Z]/) && $cs!~/UGA.{0,12}$/i && $cs=~/A[^G]A.{2,8}$/i);
+	}
+
 
 	$v = $cfg->val('query','pseudogenes');
 	$self->pseudogenes($v) if $v && $v=~/^\d+$/;
@@ -159,9 +176,9 @@ sub _set {
 	$self->cs($v) if $v;
 	$v = $cfg->val('constrains','constrain');
 	if ($v){
-		$self->userfilter(1);		
+		$self->userfilter(1);
 		for (split/\n/ , $v){
-			while ($_=~/\|(\.*\d+\.*)\|/g){					
+			while ($_=~/\|(\.*\d+\.*)\|/g){
 				my ($sta,$sto) = ($-[0]+1,$+[0]-1);
 				$1=~/(\d+)/;
 				push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta),$_];

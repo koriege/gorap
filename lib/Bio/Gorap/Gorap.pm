@@ -1,25 +1,25 @@
 package Bio::Gorap::Gorap;
 
-use version; our $VERSION = "2.3.1";
+use version; our $VERSION = "2.3.2";
 
 1;
 
 =head1 NAME
 
-Bio::Gorap - A Perl distribution for genome wide ncRNA annotation based on various software 
+Bio::Gorap - A Perl distribution for genome wide ncRNA annotation based on various software
 wrappers, NCBI taxonomy functions and Stockholm alignment file manipulation.
 
 head1 DESCRIPTION
 
-Bio::Gorap is a distribution of Perl modules to build and extend a scripted main 
-pipeline to efficiently annotate non-coding RNAs in genomic sequences. It screens for 
-user defined or whole database provided queries and is highly configurable. It deals with 
-different software, databases (NCBI, Rfam, Silva, mirBASe), offers an artificial evaluation 
+Bio::Gorap is a distribution of Perl modules to build and extend a scripted main
+pipeline to efficiently annotate non-coding RNAs in genomic sequences. It screens for
+user defined or whole database provided queries and is highly configurable. It deals with
+different software, databases (NCBI, Rfam, Silva, mirBASe), offers an artificial evaluation
 study, HTML based visualization of results and can be easily extended by new annotation tools.
 
 The following modules are part of the Bio::Gorap package.
 
-=over 
+=over
 
 =item L<Bio::Gorap::DB::Fasta>: Routines for storing, splitting with overlap and accessing genomic
 sequences implemented via a Moose to L<Bio::DB::Fasta>.

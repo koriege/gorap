@@ -4,7 +4,7 @@ use Moose::Role; requires qw(calc_features);
 
 has 'threads' => (
 	is => 'ro',
-	isa => 'Int',	
+	isa => 'Int',
 	default => 1
 );
 

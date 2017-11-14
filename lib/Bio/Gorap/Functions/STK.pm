@@ -65,13 +65,13 @@ sub length_filter {
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my $write;
-	my @update;	
+	my @update;
 	for (keys %{$features}){
 		my $f = $features->{$_};
 		if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 40 && ($f->stop - $f->start < length($seedcs)/2.5)){
 			delete $features->{$_};
 			$write = 1;
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));			
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 			push @update , $f->seq_id.' '.$f->primary_tag.' L';
 		}
 	}
@@ -85,25 +85,12 @@ sub score_filter {
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my $write;
-	my @update;	
-	
-	my $cdsno = 0;
-	if ($rna_types=~/CD-box/){
-		$cdsno = 1;
-	} else {
-		my $type = $features->{(keys %{$features})[0]}->primary_tag;
-		if ($type=~/_ceN/ || $type=~/_DdR/ || $type=~/CD\d+$/ || $type=~/_SNOR[ND\d]/ || $type=~/_Afu/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/){
-			$cdsno = 1;
-		# } elsif ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/){
-		# 	$cdsno = 0;
-		} elsif ($type=~/_sn\d/ || $type=~/_sno[A-Z]/){
-			my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
-			$cdsno =1 if $cs=~/UGA.{0,12}$/i;
-		}
-	}
-	
+	my @update;
+
+	my $cdsno = $rna_types=~/CD-box/ ? 1 : 0;
+
 	if ( ! $nofilter && $userfilter && $cdsno){
-		for (keys %{$features}){		
+		for (keys %{$features}){
 			my $f = $features->{$_};
 			next if $f->score eq '.';
 
@@ -116,7 +103,7 @@ sub score_filter {
 		}
 
 		return ($stk , $features, \@update , $write);
-	}	
+	}
 
 	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
 		if ($cdsno){
@@ -126,69 +113,69 @@ sub score_filter {
 
 				my @id = split /\./ , $f->seq_id;
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-				
+
 				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
 					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
 					if ($score < min($nonTaxThreshold,$threshold)){
 						delete $features->{$_};
 						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
 				} else {
 					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
 						delete $features->{$_};
 						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
-				}			
+				}
 			}
-		} else {	
+		} else {
 			for (keys %{$features}){
 				my $f = $features->{$_};
 				next if $f->score eq '.';
 
 				my @id = split /\./ , $f->seq_id;
 				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-				
+
 				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
 					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
 					if ($score < $threshold){
 						delete $features->{$_};
 						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
 				} else {
 					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
 						delete $features->{$_};
 						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 						push @update , $f->seq_id.' '.$f->primary_tag.' B';
 					}
-				}			
+				}
 			}
 		}
 
-	} else { 
+	} else {
 		for (keys %{$features}){
 			my $f = $features->{$_};
-			next if $f->score eq '.';			
-			
+			next if $f->score eq '.';
+
 			if ($f->source =~ /infernal/ || $f->source =~ /blast/){
 				my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
 				if ($score < $threshold){
 					delete $features->{$_};
 					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
 			} else {
 				if ($f->score < 8 || $f->score < $threshold){
 					delete $features->{$_};
 					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 					push @update , $f->seq_id.' '.$f->primary_tag.' B';
 				}
 			}
@@ -198,35 +185,35 @@ sub score_filter {
 	return ($stk , $features, \@update , $write);
 }
 
-sub structure_filter(){
+sub structure_filter {
 	my ($self, $stk, $features, $rna_types, $minstructures) = @_;
 
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	
+
 	my @update;
 	my $write;
 
 	my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
-	$ss=~y/\{\<\[\}\>\]/\(\(\(\)\)\)/;	
+	$ss=~y/\{\<\[\}\>\]/\(\(\(\)\)\)/;
 	my @ss = split // , $ss;
 	my @cs = split // , $cs;
 
 	my @open;
-	my @close;	
+	my @close;
 	my $x = 0;
 	for (my $i=0 ; $i <= $#ss ; $i++){
-		if ($ss[$i] eq '('){		
+		if ($ss[$i] eq '('){
 			push @open , $i;
-			$x = 0;		
-		}elsif($ss[$i] eq ')'){		
+			$x = 0;
+		}elsif($ss[$i] eq ')'){
 			$#close = $#open;
-			if ($close[-1*(1+$x)]){			
+			if ($close[-1*(1+$x)]){
 				$x++ while $close[-1*(1+$x)];
 				$close[-1*(1+$x)] = $i;
-			} else {				
+			} else {
 				$close[-1*(1+$x)] = $i;
-				$x++;			
-			}		
+				$x++;
+			}
 		}
 	}
 	my %c2o = map {$close[$_] => $open[$_]} (0..$#open);
@@ -241,12 +228,12 @@ sub structure_filter(){
 		if ($ss[$_] eq $bracket){
 			push @{$stack[-1]} , {$ss[$_] => $_};
 		} else {
-			$bracket = $bracket eq ')' ? '(' : ')';		
+			$bracket = $bracket eq ')' ? '(' : ')';
 			$#stack++;
 			push @{$stack[-1]} , {$ss[$_] => $_};
 		}
 	}
-	# for (@stack){	
+	# for (@stack){
 	# 	for (@$_){
 	# 		($bracket) = keys %$_;
 	# 		print $bracket.$_->{$bracket};
@@ -257,7 +244,7 @@ sub structure_filter(){
 	for (my $i = 1; $i<=$#stack; $i+=2){
 		my $j = $i - 1;
 		$j-=2 while $#{$stack[$j]} == -1;
-		#area open	
+		#area open
 		($bracket) = keys %{$stack[$i][0]};
 		$o = $stack[$i][0]->{$bracket};
 		while(my $h = shift @{$stack[$i]}){
@@ -269,72 +256,61 @@ sub structure_filter(){
 				#area open
 				($bracket) = keys %$h;
 				$o = $h->{$bracket};
-				pop @{$stack[$j]};			
+				pop @{$stack[$j]};
 			} else {
 				pop @{$stack[$j]};
 				($bracket) = keys %$h;
 				$c = $h->{$bracket};
 			}
-		}	
+		}
 		#area close
 		push @areas , ([$o,$c],[$c2o{$c},$c2o{$o}]);
 		# say "$o-$c $c2o{$c}-$c2o{$o}";
 	}
-	# for (sort {$$a[0] <=> $$b[0]} @areas){	
+	# for (sort {$$a[0] <=> $$b[0]} @areas){
 	# 	say $$_[0].' '.$$_[1];
 	# }
 
 	return ($stk , $features, \@update , $write) if $#areas == -1;
-	
+
 	my ($annastart,$annastop,$ssPresentCount);
-	for (sort {$$a[0] <=> $$b[0]} @areas){		
+	for (sort {$$a[0] <=> $$b[0]} @areas){
 		my ($sta, $sto) = ($$_[0],$$_[1]);
-		
+
 		$annastop = $sta if ! $annastop && $sta > $#ss/2 && $#areas > 0;
 		$annastart = $sto+2 unless $annastop;
-				
+
 		my $tmpStk = $stk->slice($sta+1, $sto+1);
 
-		for (keys %{$features}){		
+		for (keys %{$features}){
 			my $f = $features->{$_};
 			my $seqo = $tmpStk->get_seq_by_id($f->seq_id);
 			if ($seqo){
-				my $ncc = $seqo->seq;				
+				my $ncc = $seqo->seq;
 				$ncc=~s/\W//g;
-				my $minl = $sto - $sta + 1 > 4 ? 1 : 0;				
+				my $minl = $sto - $sta + 1 > 4 ? 1 : 0;
 				$ssPresentCount->{$f->seq_id}++ if length $ncc > $minl;
-			}			
+			}
 		}
 	}
 
-	my $hacasno = 0;
+	my $hacasno = $rna_types=~/HACA-box/ ? 1 : 0;
 	my @aca;
-	my @anna;
-	my $i=$#cs;
 	for(reverse @cs){
 		if ($_=~/[a-zA-Z]/){
-			unshift @aca, $i;
+			unshift @aca, $_;
+			$i++;
 		}
-		$i--;
-		last if $#aca==11;
+		last if $i==12;
 	}
-	my $aca=join("",@cs[$aca[0]..$aca[-1]]);
-	$aca=~s/[\W_]//g;
-	if ($rna_types=~/HACA-box/){
-		$hacasno=1;
-	} else {
-		my $type = $features->{(keys %{$features})[0]}->primary_tag;
-		if ($type=~/_snopsi/ || $type=~/_SNOR[A\d]/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && $aca!~/UGA.{0,12}$/i && $aca=~/a[^g]a.{2,8}$/i)){
-			$hacasno = 1;
-		}
-	}
-	my ($hp,$i,$bracket) = (0,0,0); 
+	my @anna;
+	my ($hp,$i,$bracket) = (0,0,0);
 	for(@ss){ #count hairpins and get ananna locus between both hairpins
-		$i++; 
+		$i++;
 		unless($_=~/(\(|\))/){
 			push @anna, $i-1 if $hp==1 && $bracket==0;
 		} else {
-			$bracket = $_ eq "(" ? $bracket+1 : $bracket-1; 
+			$bracket = $_ eq "(" ? $bracket+1 : $bracket-1;
 			$hp++ if $bracket==1 && $_ eq "(";
 		}
 	}
@@ -345,10 +321,10 @@ sub structure_filter(){
 		my $f = $features->{$_};
 		if ($#areas == 1){
 			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < 1){
-				delete $features->{$_};	
-				$write = 1;			
-				$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-				push @update , $f->seq_id.' '.$f->primary_tag.' S';		
+				delete $features->{$_};
+				$write = 1;
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+				push @update , $f->seq_id.' '.$f->primary_tag.' S';
 			}
 		} else {
 			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < $minstructures){
@@ -358,19 +334,19 @@ sub structure_filter(){
 				push @update , $f->seq_id.' '.$f->primary_tag.' S';
 			} elsif ($hacasno){
 				my $s = ($stk->get_seq_by_id($f->seq_id))->subseq($anna[0],$anna[-1]);
-				my $s2 = ($stk->get_seq_by_id($f->seq_id))->subseq($aca[0],$aca[-1]);
+				my $s2 = ($stk->get_seq_by_id($f->seq_id))->subseq($aca[-11],$aca[-1]);
 				$s=~s/[\W_]//g;
 				$s2=~s/[\W_]//g;
 				unless ( $s=~/a.{1,3}a.{1,4}a/i && $s2=~/a[^g]a.{2,8}$/i){
 					delete $features->{$_};
 					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+					$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 					push @update , $f->seq_id.' '.$f->primary_tag.' S';
-				}				
+				}
 			}
 		}
 	}
-	
+
 	return ($stk , $features, \@update , $write);
 }
 
@@ -379,41 +355,41 @@ sub sequence_filter {
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	
+
 	my @update;
 	my $write;
 
 	my $tmpStk = $stk->select(1, $stk->num_sequences);
 	for (keys %{$features}){
-		my $f = $features->{$_};		
+		my $f = $features->{$_};
 		$tmpStk->remove_seq($tmpStk->get_seq_by_id($f->seq_id));
 	}
 	my @consensus = split //, $tmpStk->consensus_string(95);
 
 	for (keys %{$features}){
-		my $f = $features->{$_};		
-		my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->seq;	
+		my $f = $features->{$_};
+		my @seq = split // , ($stk->get_seq_by_id($f->seq_id))->seq;
 		my $consC=0;
-		my $allCons=scalar(@seq); 
+		my $allCons=scalar(@seq);
 		for my $i (0..$#seq){
 			if($consensus[$i] eq '?'){
 				$allCons--;
-			} else {				
+			} else {
 				if($seq[$i]!~/[acgtuACGTU]/){
 					$allCons--;
 				} else {
-					$consC++ if $seq[$i] eq $consensus[$i];	
-				}				
+					$consC++ if $seq[$i] eq $consensus[$i];
+				}
 			}
-		}		
+		}
 
-		if($allCons>0 && $consC > 9){			
+		if($allCons>0 && $consC > 9){
 			# if (($f->get_tag_values('source'))[0] =~ /infernal/ || ($f->get_tag_values('source'))[0] =~ /blast/){
 			# 	if (max($f->score,($f->get_tag_values('origscore'))[0]) < 30 && ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9))){
 			# 		delete $features->{$_};
 			# 		$write = 1;
 			# 		$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-			# 		push @update , $f->seq_id.' '.$f->primary_tag.' P';	
+			# 		push @update , $f->seq_id.' '.$f->primary_tag.' P';
 			# 	}
 			# } elsif ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
 			if ($consC/$allCons < 0.7 || ($f->primary_tag=~/_mir/i && $consC/$allCons < 0.9)){
@@ -422,21 +398,21 @@ sub sequence_filter {
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 				push @update , $f->seq_id.' '.$f->primary_tag.' P';
 			}
-		}		
+		}
 	}
-	
+
 	return ($stk , $features, \@update , $write);
 }
 
 sub user_filter {
-	my ($self, $stk, $features, $constrains, $cs, $seedstk, $rna_types) = @_;	
+	my ($self, $stk, $features, $constrains, $cs, $seedstk, $rna_types) = @_;
 	$cs=~s/\W/-/g;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 
 	my @update;
 	my $write;
 
-	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);	
+	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);
     my $seq = lc($seedseqo->seq);
 	$seq=~s/\W/-/g;
 
@@ -459,17 +435,17 @@ sub user_filter {
 	}
 
 	# mapping of seed stk seq to new stk seq
-	my @seedseq_pos_in_stk;		
+	my @seedseq_pos_in_stk;
 	my $j=0;
 	for (my $i=0; $i<=$#seedseq; $i++){
 		$c = $i;
-		$i++ while $seedseq[$i]=~/\W/;		
+		$i++ while $seedseq[$i]=~/\W/;
 		#print $seedseq[$i].' '.$stkseedseq[$j]." $i  $j\n";
-		
+
 		if ($seedseq[$i] eq $stkseedseq[$j]){
 			$j++;
-		} else {			
-			$j++ while $seedseq[$i] ne $stkseedseq[$j];	
+		} else {
+			$j++ while $seedseq[$i] ne $stkseedseq[$j];
 			$i--;
 		}
 
@@ -493,27 +469,11 @@ sub user_filter {
 	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
 	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]])."\n";
-	# }	
+	# }
 
-	my $cdsno = 0;
-	my @aca;
-	my $i=0;
-	for(reverse @cs){
-		if ($_=~/[a-zA-Z]/){
-			unshift @aca, $_; 
-			$i++;
-		}
-		last if $i==12;
-	}
-	if ($rna_types){
-		$cdsno = 1 if $rna_types=~/CD-box/;
-	} else {
-		my $type = $features->{(keys %{$features})[0]}->primary_tag;
-		$cdsno = 1 if $type=~/_ceN/ || $type=~/_DdR/ || $type=~/CD\d+$/ || $type=~/_Afu/ || $type=~/_SNOR[ND\d]/ || $type=~/(-|_)sn?o?s?n?o?[A-WYZ]+[a-z]?-?\d/ || (($type=~/_sn\d/ || $type=~/_sno[A-Z]/) && join("",@aca)=~/UGA.{0,12}$/i);
-	}
+	my $cdsno = $rna_types=~/CD-box/ ? 1 : 0;
 
-
-	for my $k (keys %{$features}){				
+	for my $k (keys %{$features}){
 		my $f = $features->{$k};
 		# print $f->seq_id."\n";
 		# print ''.join('',@stkseedseq)."\n";
@@ -522,7 +482,7 @@ sub user_filter {
 		# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
 		# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
 		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1))."\n";
-		# }		
+		# }
 
 		next if $f->score ne '.' && $f->score > 30 && $cdsno;
 
@@ -531,26 +491,26 @@ sub user_filter {
 		my @cu_ga;
 		for my $c (0..$#{$constrains}){
 			my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
-			
+
 			$query = lc($query);
 			$query=~s/\W//g;
-			
+
 			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));
 			my @stkseq = split //, $stkseq;
 			$stkseq=~s/-//g;
-			my ($costs, @alnmap) = &gotoh($query,$stkseq);			
+			my ($costs, @alnmap) = &gotoh($query,$stkseq);
 			if ($costs*-1 > $mm){
 				$hold=0;
 				last;
 			}
-			
+
 			@uga_ug = (defined $alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', defined $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
 			@cu_ga = (defined $alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', defined $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
 		}
 
 		if ($hold && $cdsno && $f->score ne '.' && $f->score < 25 && $#uga_ug>=1 && $#cu_ga>=1){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
-			my $bpmm=0;			
+			my $bpmm=0;
 			switch ($uga_ug[0]){
 				case "a" {
 					$bpmm++ unless $cu_ga[1]=~/[tu]/;
@@ -588,16 +548,16 @@ sub user_filter {
 			if ($hold){
 				$hold=0 if $bpmm > 1;
 				$hold=0 if $uga_ug[0]!~/[ut]/ && $cu_ga[1]!~/[ut]/;
-			}	
-		}	
+			}
+		}
 
 		unless ($hold){
 			# print $features->{$k}->seq_id."\n";
 			delete $features->{$k};
 			$write = 1;
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
-			push @update , $f->seq_id.' '.$f->primary_tag.' P';			
-		}		
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+			push @update , $f->seq_id.' '.$f->primary_tag.' P';
+		}
 	}
 
 	return ($stk , $features, \@update , $write);
@@ -607,7 +567,7 @@ sub copy_filter {
 	my ($self, $stk, $features, $copynumber) = @_;
 
 	my $c=0;
-	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';	
+	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my @update;
 	my $write;
 
@@ -616,9 +576,9 @@ sub copy_filter {
 		for ($copynumber + 1 .. scalar keys %{$features}){
 			my $f = $features->{$featureKeys[$_]};
 			delete $features->{$featureKeys[$_]};
-			$stk->remove_seq($stk->get_seq_by_id($f->seq_id)); 
+			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 			push @update , $f->seq_id.' '.$f->primary_tag.' C';
-		}			
+		}
 	}
 
 	return ($stk , $features, \@update , $write);
@@ -629,23 +589,23 @@ sub overlap_filter {
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-	my $type = $features->{(keys %{$features})[0]}->primary_tag;	
+	my $type = $features->{(keys %{$features})[0]}->primary_tag;
 	my @update;
-	my $write;	
+	my $write;
 
 	for my $i (keys %{$features}){
-		my $f = $features->{$i};		
+		my $f = $features->{$i};
 		my $existingFeatures = $gffdb->get_all_overlapping_features($f);
 		my $exscore = -999999;
 		my @rmfeatures;
 		for my $f2 (@{$existingFeatures}){
 			next if $f2->primary_tag=~/rRNA/ && $type=~/rRNA/;
 			$exscore = max($exscore,  $f2->source=~/blast/ ?  $f2->score : max($f2->score,($f2->get_tag_values('origscore'))[0]) );
-			push @rmfeatures , $f2;			 
-		}	
+			push @rmfeatures , $f2;
+		}
 		if ($exscore < ($f->source=~/blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) ){
-			push @update , $_->seq_id.' '.$_->primary_tag.' O' for @rmfeatures; 
-		} else {			
+			push @update , $_->seq_id.' '.$_->primary_tag.' O' for @rmfeatures;
+		} else {
 			delete $features->{$i};
 			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 			push @update , $f->seq_id.' '.$f->primary_tag.' O';
@@ -680,15 +640,15 @@ sub get_ss_cs_from_object {
 	my @lines = split /\n/ , $out;
 	my $s='';
 	my $c='';
-	for(@lines){		
+	for(@lines){
 		$s.=$1 if $_=~/^#=GC\sSS_cons\s+(.+)/;
 		$c.=$1 if $_=~/^#=GC\sRF\s+(.+)/;
-	} 
+	}
 
 	return ($s,$c);
 }
 
-sub cost(){
+sub cost {
 	my ($q, $s) = @_;
 
 	switch($q){
@@ -729,42 +689,34 @@ sub cost(){
 			return $s=~/[acgtu]/ ? 0 : -1;
 		}
 		else {}
-	}	
+	}
 }
 
 sub gotoh (){
-	my ($q,$s) = @_;	
+	my ($q,$s) = @_;
 
 	my @s = split //, $s;
 	my @q = split //, $q;
 
-	# my $factory = new dpAlign(-match => 0,
- #                   -mismatch => -1,
- #                   -gap => -1,
- #                   -ext => -1,
- #                   -alg => Bio::Tools::dpAlign::DPALIGN_GLOBAL_MILLER_MYERS);
-	# $q = Bio::Seq->new( -display_id => 'my_id', -seq => $q);
-	# $s = Bio::Seq->new( -display_id => 'my_id', -seq => $s);
-	
 	my $go=-1;
 	my $ge=-1;
 
 	my @M;
 	my @H;
 	my @V;
-	
-	for(my $i=0; $i<=scalar(@q); $i++){	
+
+	for(my $i=0; $i<=scalar(@q); $i++){
 		$M[$i][0]=$ge*($i-1)+$go;
 		# $M[$i][0]=0;
-		$H[$i][0]=-inf;			
+		$H[$i][0]=-inf;
 	}
 	for(my $j=0; $j<=scalar(@s); $j++){
 		$M[0][$j]=$ge*($j-1)+$go;
 		# $M[0][$j]=0;
-		$V[0][$j]=-inf;	
+		$V[0][$j]=-inf;
 	}
 	$M[0][0]=0;
-	
+
 	my @maxposi;
 	my @maxposj;
 	my $max=-inf;
@@ -772,9 +724,9 @@ sub gotoh (){
 	for(my $i=1; $i<=scalar(@q); $i++){
 		for(my $j=1; $j<=scalar(@s); $j++){
 			$H[$i][$j]=max($H[$i][$j-1]+$ge,$M[$i][$j-1]+$go);
-			$V[$i][$j]=max($V[$i-1][$j]+$ge,$M[$i-1][$j]+$go);			
-			$M[$i][$j]=max(max($M[$i-1][$j-1]+&cost($q[$i-1],$s[$j-1]),$H[$i][$j]),$V[$i][$j]);						
-		}		
+			$V[$i][$j]=max($V[$i-1][$j]+$ge,$M[$i-1][$j]+$go);
+			$M[$i][$j]=max(max($M[$i-1][$j-1]+&cost($q[$i-1],$s[$j-1]),$H[$i][$j]),$V[$i][$j]);
+		}
 	}
 
 	my $i=scalar(@q);
@@ -782,7 +734,7 @@ sub gotoh (){
 	my $alS='';
 	my $alQ='';
 	my @map;
-	$#map=$#q;	
+	$#map=$#q;
 	while($i > 0 || $j > 0){
 		if (($i > 0 && $j > 0) && $M[$i][$j]==$M[$i-1][$j-1]+&cost($q[$i-1],$s[$j-1])){
 			$map[$i-1]=$j-1;
@@ -790,7 +742,7 @@ sub gotoh (){
 			$alQ=$q[$i-1].$alQ;
 			$i--;
 			$j--;
-		} elsif ($j > 0 && $M[$i][$j]==$M[$i][$j-1]+$go) {			
+		} elsif ($j > 0 && $M[$i][$j]==$M[$i][$j-1]+$go) {
 			$map[$i]=$j-1;
 			$alS=$s[$j-1].$alS;
 			$alQ="-".$alQ;
@@ -811,12 +763,12 @@ sub gotoh (){
 			$alQ=$q[$i-1].$alQ;
 			$i--;
 		}
-		
-	}	
+
+	}
 	# print "$alS\n";
 	# print "$alQ\n";
 	# print @map; print "\n";
-		
+
 	return ($M[scalar(@q)][scalar(@s)],@map);
 }
 

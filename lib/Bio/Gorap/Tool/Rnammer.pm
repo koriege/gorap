@@ -2,7 +2,7 @@ package Bio::Gorap::Tool::Rnammer;
 
 use Moose; with 'Bio::Gorap::ToolI';
 use IO::Select;
-use IO::Pipe;	
+use IO::Pipe;
 use IPC::Cmd qw(run);
 use File::Spec::Functions;
 
@@ -11,7 +11,7 @@ sub calc_features {
 
 	#calculations and software calls
 	#results are fetched and stored in DB structure
-	for (0..$#{$self->parameter->genomes}){		
+	for (0..$#{$self->parameter->genomes}){
 		my $abbr = ${$self->parameter->abbreviations}[$_];
 		#skip redundand calculations
 		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
@@ -24,9 +24,9 @@ sub calc_features {
 			$self->gffdb->db->{$abbr}->delete($f);
 		}
 	}
-		
+
 	my @kingdoms;
-	
+
 	push @kingdoms , 'arc' if exists $self->parameter->kingdoms->{'arc'};
 	push @kingdoms , 'bac' if exists $self->parameter->kingdoms->{'bac'};
 	push @kingdoms , 'euk' if exists $self->parameter->kingdoms->{'fungi'} || exists $self->parameter->kingdoms->{'euk'};
@@ -39,15 +39,15 @@ sub calc_features {
 		for my $genome (@{$self->fastadb->chunks}){
 			if (scalar(keys %{$thrs}) >= $self->threads){
 				my $pid = wait();
-				delete $thrs->{$pid};	
+				delete $thrs->{$pid};
 				while( my @responses = $select->can_read(0) ){
-					for my $pipe (@responses){					
-						push @out , $_ while <$pipe>;						
+					for my $pipe (@responses){
+						push @out , $_ while <$pipe>;
 						$select->remove( $pipe->fileno() );
 					}
 				}
 			}
-			
+
 			my $pipe = IO::Pipe->new();
 			if (my $pid = fork()) {
 				$pipe->reader();
@@ -56,7 +56,7 @@ sub calc_features {
 			} else {
 				$pipe->writer();
 				$pipe->autoflush(1);
-				
+
 				my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
 
 				my $cmd = $self->cmd;
@@ -68,17 +68,17 @@ sub calc_features {
 				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
 
 				open F ,'<'.$tmpfile or exit;
-				while( <F> ) {		
+				while( <F> ) {
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
 					next if $_=~/^#/;
-					next if $_=~/^\s*$/;	
+					next if $_=~/^\s*$/;
 					my @l = split /\s+/ , $_;
-					next if $#l < 8;	
-					print $pipe $_."\t".$kingdom."\n";			
+					next if $#l < 8;
+					print $pipe $_."\t".$kingdom."\n";
 				}
 				close F;
-				unlink $tmpfile;			
+				unlink $tmpfile;
 				exit;
 			}
 		}
@@ -87,11 +87,11 @@ sub calc_features {
 		my $pid = wait();
 		delete $thrs->{$pid};
 		while( my @responses = $select->can_read(0) ){
-			for my $pipe (@responses){					
-				push @out , $_ while <$pipe>;				
+			for my $pipe (@responses){
+				push @out , $_ while <$pipe>;
 				$select->remove( $pipe->fileno() );
 			}
-		}	
+		}
 	}
 
 	my $uid;
@@ -101,11 +101,8 @@ sub calc_features {
 
 		my @gff3entry = &{$self->tool_parser}($kingdom,\@l);
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
+		$gff3entry[0] .= '.'.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
 
-		my ($abbr,@orig) = split /\./ , $gff3entry[0];
-		$uid->{$abbr.'.'.$gff3entry[2]}++;
-		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
-		
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}

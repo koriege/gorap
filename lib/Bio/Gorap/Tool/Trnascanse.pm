@@ -4,7 +4,7 @@ use Moose; with 'Bio::Gorap::ToolI';
 
 use IO::Select;
 use IO::Pipe;
-use POSIX qw(:sys_wait_h);				
+use POSIX qw(:sys_wait_h);
 use IPC::Open3;
 use File::Spec::Functions;
 use Symbol qw(gensym);
@@ -15,8 +15,8 @@ sub calc_features {
 	my @kingdoms;
 	push @kingdoms , 'A' if exists $self->parameter->kingdoms->{'arc'};
 	push @kingdoms , 'B' if exists $self->parameter->kingdoms->{'bac'};
-	push @kingdoms , undef if exists $self->parameter->kingdoms->{'euk'} || exists $self->parameter->kingdoms->{'fungi'};	
-	
+	push @kingdoms , undef if exists $self->parameter->kingdoms->{'euk'} || exists $self->parameter->kingdoms->{'fungi'};
+
 	my $select = IO::Select->new();
 	my $thrs={};
 	my @out;
@@ -24,16 +24,16 @@ sub calc_features {
 		for my $genome (@{$self->fastadb->chunks}){
 			if (scalar(keys %{$thrs}) >= $self->threads){
 				my $pid = wait();
-				delete $thrs->{$pid};		
+				delete $thrs->{$pid};
 				while( my @responses = $select->can_read(0) ){
 					for my $pipe (@responses){
-						push @out , $_ while <$pipe>;						
+						push @out , $_ while <$pipe>;
 						$select->remove( $pipe->fileno() );
 					}
 				}
 			}
-			
-			my $pipe = IO::Pipe->new();			
+
+			my $pipe = IO::Pipe->new();
 			if (my $pid = fork()) {
 				$pipe->reader();
 				$select->add( $pipe );
@@ -51,11 +51,11 @@ sub calc_features {
 				}
 				my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
 
-				while( <READER> ) {						
+				while( <READER> ) {
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
 					next if $_=~/^#/;
-					next if $_=~/^\s*$/;	
+					next if $_=~/^\s*$/;
 					my @l = split /\s+/ , $_;
 					next if $#l < 8;
 					print $pipe $_."\n";
@@ -69,29 +69,25 @@ sub calc_features {
 		my $pid = wait;
 		delete $thrs->{$pid};
 		while( my @responses = $select->can_read(0) ){
-		
-			for my $pipe (@responses){					
-				push @out , $_ while <$pipe>;										
+
+			for my $pipe (@responses){
+				push @out , $_ while <$pipe>;
 				$select->remove( $pipe->fileno() );
 			}
 		}
 	}
-	
-	my $uid;	
+
+	my $uid;
 	for (@out){
 		my @l = split /\s+/, $_;
-		next if $#l<8;		
-				
+		next if $#l<8;
+
 		my @gff3entry = &{$self->tool_parser}(\@l);
-
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
+		$gff3entry[0] .= '.'.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
 
-		my ($abbr,@orig) = split /\./ , $gff3entry[0];
-		$uid->{$abbr.'.'.$gff3entry[2]}++;
-		$gff3entry[0] = join('.',($abbr,@orig,$uid->{$abbr.'.'.$gff3entry[2]}));
-		
-		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);		
-		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);	
+		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
+		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
 	}
 }
 

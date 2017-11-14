@@ -11,9 +11,9 @@ genome4=/my/genome2/g.fa
 out=/my/out
 
 [system]
-#all optional
-threads=4 (default: 1)
-temp=/tmp (default: /tmp or $TMP or gorap_out)
+#all optional, threads default 1, temp default /tmp
+threads=4
+temp=/tmp
 
 [query]
 #all optional

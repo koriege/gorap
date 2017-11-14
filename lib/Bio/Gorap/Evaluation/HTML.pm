@@ -10,21 +10,24 @@ sub create {
 	my $tablehtml=0;
 	open INDEX , '>'.catfile($parameter->output,'index.html') or die $!;
 	open HTML , '>'.catfile($parameter->output,'html',$filename.'.html') or die $!;
-	while (<DATA>){		
+	while (<DATA>){
+		if ($_=~/(.+)(jquery.+?\.js)(.+)/){
+			$_ = $1.catfile($ENV{GORAP},'jquery',$2).$3."\n";
+		}
 		if ($_ =~ /DOCTYPE/){
-			$tablehtml++;			
+			$tablehtml++;
 		}
 		if ($tablehtml==1){
 			if ($_=~/option value/){
 				print INDEX $_;
-				for (glob catfile($parameter->output,'html','*.html')){							
+				for (glob catfile($parameter->output,'html','*.html')){
 					my $file = basename $_;
 					next if $file eq $filename.'.html';
 					print INDEX '<option value="'.catfile('html',$file).'">'.substr($file,0,-5).'</option>'."\n";
-				}	
-				print INDEX '<option value="'.catfile('html',$filename.'.html').'">'.$filename.'</option>'."\n";		
+				}
+				print INDEX '<option value="'.catfile('html',$filename.'.html').'">'.$filename.'</option>'."\n";
 			} else {
-				print INDEX $_;	
+				print INDEX $_;
 			}
 		} else {
 			if ($_=~/Parameter/){
@@ -45,13 +48,13 @@ sub create {
 					print HTML '-nobl ' if $parameter->noblast;
 					print HTML '-noc' unless $parameter->check_overlaps;
 					print HTML "\n";
-				} else {	
+				} else {
 					print HTML "Gorap.pl -i ".join(',\\<br>'."\n",@{$parameter->genomes}).'\\<br>'."\n";
 					print HTML "-a ".join(',',@{$parameter->abbreviations}).'\\<br>'."\n";
 					print HTML "-o ".$parameter->output.'\\<br>'."\n";
 					print HTML '-c '.$parameter->threads.'\\<br>'."\n";
 					print HTML '-k '.join(',',keys %{$parameter->kingdoms}).'\\<br>'."\n";
-					if ($#{$parameter->queries}>-1){				
+					if ($#{$parameter->queries}>-1){
 						print HTML '-q '.$parameter->querystring.'\\<br>'."\n" if $parameter->querystring;
 					} else {
 						print HTML '-q 0\\<br>'."\n";
@@ -61,7 +64,7 @@ sub create {
 					print HTML '-r '.$parameter->rank.'\\<br>'."\n" if $parameter->has_rank;
 					print HTML '-s '.$parameter->species.'\\<br>'."\n" if $parameter->has_species;
 					print HTML '-og '.join('\\<br>'."\n",@{$parameter->outgroups}).'\\<br>'."\n" if $parameter->has_outgroups;
-					print HTML '-oga '.join(',',@{$parameter->ogabbreviations}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;				
+					print HTML '-oga '.join(',',@{$parameter->ogabbreviations}).'\\<br>'."\n" if $#{$parameter->ogabbreviations} > -1;
 					if ($parameter->has_gffs){
 						my $gffs='';
 						$gffs .= join(',\\<br>',@{$_}).',\\<br>' for @{$parameter->{'gffs'}};
@@ -92,17 +95,17 @@ sub create {
 				print HTML '</thead>'."\n";
 				print HTML '<tbody>'."\n";
 				for (0..$#{$parameter->genomes}){
-					print HTML '<tr>'."\n";					
+					print HTML '<tr>'."\n";
 					print HTML '<td>'.${$parameter->abbreviations}[$_].'</td>'."\t";
 					print HTML '<td><a href="'.${$parameter->genomes}[$_].'">'.basename(${$parameter->genomes}[$_]).'</a></td>'."\n";
-					print HTML '</tr>'."\n";	
+					print HTML '</tr>'."\n";
 				}
 				if ($parameter->has_outgroups){
 					for (0..$#{$parameter->outgroups}){
-						print HTML '<tr>'."\n";					
+						print HTML '<tr>'."\n";
 						print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
 						print HTML '<td><a href="'.${$parameter->outgroups}[$_].'">'.basename(${$parameter->outgroups}[$_]).'</a></td>'."\n";
-						print HTML '</tr>'."\n";	
+						print HTML '</tr>'."\n";
 					}
 				}
 				print HTML '</tbody>'."\n";
@@ -117,22 +120,26 @@ sub create {
 				print HTML '</thead>'."\n";
 				print HTML '<tbody>'."\n";
 				for (0..$#{$parameter->genomes}){
-					print HTML '<tr>'."\n";					
+					print HTML '<tr>'."\n";
 					print HTML '<td>'.${$parameter->abbreviations}[$_].'</td>'."\t";
-					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.final.orig.gff">final</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.gff">unreliable</a></td>';
-					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.final.orig.fa">final</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
-					print HTML '</tr>'."\n";	
+					# print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.passed.orig.gff">passed</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.gff">unreliable</a></td>';
+					# print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.passed.orig.fa">passed</a> / <a href="../annotations/'.${$parameter->abbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
+					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.passed.orig.gff">GFF</a></td>';
+					print HTML '<td><a href="../annotations/'.${$parameter->abbreviations}[$_].'.passed.orig.fa">FASTA</a></td>'."\n";
+					print HTML '</tr>'."\n";
 				}
 				if ($parameter->has_outgroups){
 					for (0..$#{$parameter->outgroups}){
-						print HTML '<tr>'."\n";					
+						print HTML '<tr>'."\n";
 						print HTML '<td>'.${$parameter->ogabbreviations}[$_].'</td>'."\t";
-						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.gff">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.gff">unreliable</a></td>';
-						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.final.orig.fa">final</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
-						print HTML '</tr>'."\n";	
+						# print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.passed.orig.gff">passed</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.gff">unreliable</a></td>';
+						# print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.passed.orig.fa">passed</a> / <a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.orig.fa">unreliable</a></td>'."\n";
+						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.passed.orig.gff">passed</a></td>';
+						print HTML '<td><a href="../annotations/'.${$parameter->ogabbreviations}[$_].'.passed.orig.fa">passed</a></td>'."\n";
+						print HTML '</tr>'."\n";
 					}
 				}
-				print HTML '</tbody>'."\n";				
+				print HTML '</tbody>'."\n";
 				print HTML '</table>'."\n";
 			} elsif($_=~/ncRNA alignments/){
 				print HTML $_;
@@ -143,7 +150,7 @@ sub create {
 				for (@{$parameter->abbreviations},@{$parameter->ogabbreviations}){
 					print HTML "\t".'<th>'.$_.'</th>';
 				}
-				print HTML "\n";				
+				print HTML "\n";
 				print HTML '</tr>'."\n";
 				print HTML '</thead>'."\n";
 				print HTML '<tbody>'."\n";
@@ -159,15 +166,12 @@ sub create {
 					print HTML '<tr>'."\n";
 					print HTML '<td>'.join('_',@rna).'</td>'."\t";
 					print HTML '<td>'.$rf.'</td>'."\t";
-					my $path = $stkdb->idToPath->{$rf_rna};
-					print HTML $path ? '<td><a href="../alignments/'.$path.'">STK</a></td>' : '<td>NA</tp>';
-					for (@counts){												
-						print HTML "\t".'<td>'.$_.'</td>';
-					}
+					print HTML -e catfile($parameter->output,'alignments',"$rf_rna.stk") ? '<td><a href="../alignments/'.$rf_rna.'.stk">STK</a></td>' : '<td>NA</tp>';
+					print HTML "\t".'<td>'.$_.'</td>' for @counts;
 					print HTML "\n";
 					print HTML '</tr>'."\n";
-				}				
-				print HTML '</tbody>'."\n";				
+				}
+				print HTML '</tbody>'."\n";
 				print HTML '</table>'."\n";
 			} else {
 				print HTML $_;
@@ -175,10 +179,10 @@ sub create {
 		}
 	}
 	my $outdir=catdir($parameter->output,'phylogeny-'.$parameter->label);
-	if ($parameter->has_outgroups && (-e catfile($outdir,'SSU.mafft.eps') || 
+	if ($parameter->has_outgroups && (-e catfile($outdir,'SSU.mafft.eps') ||
 	-e catfile($outdir,'RNome.stk.eps') ||
 	-e catfile($outdir,'coreRNome.stk.eps') ||
-	-e catfile($outdir,'coreRNome.mafft.eps') )){		
+	-e catfile($outdir,'coreRNome.mafft.eps') )){
 		print HTML '<a name="phylo"></a>'."\n";
 		if (-e catfile($outdir,'SSU.mafft.eps')){
 			print HTML '<div class="staticbox" id="phylo">'."\n";
@@ -187,7 +191,7 @@ sub create {
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.eps">EPS</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.pdf">PDF</a>'."\n";
 			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft.tree">Newick</a>'."\n";
-			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft">Alignment</a><br><br>'."\n";			
+			print HTML '<a href="../phylogeny-'.$parameter->label.'/SSU.mafft">Alignment</a><br><br>'."\n";
 			print HTML '<embed src="../phylogeny-'.$parameter->label.'/SSU.mafft.pdf#view=FitH" width="400" height="400" type="application/pdf">'."\n";
 			print HTML '</div>'."\n";
 		}
@@ -258,7 +262,7 @@ __DATA__
 <head>
 	<title>GORAP</title>
 
-	<style> 
+	<style>
 		button {
 			width: 90px
 		}
@@ -268,13 +272,13 @@ __DATA__
 			text-align:center;
 			padding:1px;
 		}
-		#nav { 
+		#nav {
 			float: left;
 			line-height:30px;
 			background-color:black;
 			color:white;
 			width:100px;
-			padding:5px;	      
+			padding:5px;
 		}
 		html {
 			display: table;
@@ -286,7 +290,7 @@ __DATA__
 		}
 	</style>
 
-	<script src="http://www.rna.uni-jena.de/supplements/src/jquery/jquery-latest.js"></script> 
+	<script src="jquery-latest.js"></script>
 
 	<script>
 		function getDocHeight() {
@@ -307,7 +311,7 @@ __DATA__
 			location.reload();
 			location.href = location.href;
 		}
-		function select() {	
+		function select() {
 			var element = document.getElementById("select");
 			var value = element.options[element.selectedIndex].value;
 			if (value != "select") {
@@ -317,7 +321,7 @@ __DATA__
 			}
 			document.getElementById("frame").onload = function() {
 				var x = document.getElementById("frame");
-				var y = (x.contentDocument || x.contentWindow.document);					
+				var y = (x.contentDocument || x.contentWindow.document);
 				if (y.getElementById("phylo")) {
 					document.getElementById("bphylo").style.display="inline";
 				} else {
@@ -350,7 +354,9 @@ __DATA__
 				document.getElementById("bdb").style.display="inline";
 				document.getElementById("banno").style.display="inline";
 				document.getElementById("baln").style.display="inline";
-				document.getElementById("bphylo").style.display="inline";
+				if (y.getElementById("phylo")) {
+					document.getElementById("bphylo").style.display="inline";
+				}
 			} else {
 				document.getElementById("bparam").style.display="none";
 				document.getElementById("bdb").style.display="none";
@@ -371,7 +377,7 @@ __DATA__
 	</select>
 	<br>
 	<br>
-	<a href="https://github.com/rna-hta-jena/gorap/blob/master/README" style="text-decoration: none; font-size: 12pt; color: rgb(0,255,0)"><b>>>Manual<<</b></a>
+	<a href="https://github.com/koriege/gorap/blob/master/README" style="text-decoration: none; font-size: 12pt; color: rgb(0,255,0)"><b>>>Manual<<</b></a>
 </div>
 
 <div id="nav">
@@ -396,7 +402,7 @@ __DATA__
 <html>
 
 <head>
-	<style> 
+	<style>
 		.staticbox {
 			float: left;
 			margin: 10px;
@@ -456,13 +462,13 @@ __DATA__
 		}
 	</style>
 
-	<script src="http://www.rna.uni-jena.de/supplements/src/jquery/jquery-latest.js"></script> 
-	<script src="http://www.rna.uni-jena.de/supplements/src/jquery/jquery.tablesorter.js"></script>
-    
+	<script src="jquery-latest.js"></script>
+	<script src="jquery.tablesorter.js"></script>
+
     <script>
 		$(document).ready(function() {
 			$("table").tablesorter({
-				sortList: [[1,0]] 
+				sortList: [[1,0]]
 			});
 		});
 	</script>
