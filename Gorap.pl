@@ -97,9 +97,6 @@ use List::Util qw(any);
 use Try::Tiny;
 use Hash::Merge qw(merge);
 
-
-use lib './lib'; #TODO remove this
-
 use Bio::Gorap::Parameter;
 use Bio::Gorap::ThrListener;
 use Bio::Gorap::DB::GFF;
