@@ -21,7 +21,7 @@ Requirements: Linux/Unix or Mac with internet access and installed
 2.1 UPDATE LIBRARY
 2.2 UPDATE DATABASES
 3   RUNNING GORAP
-4	CONFIGURATION FILES
+4   CONFIGURATION FILES
 4.1 ADD CUSTOM TOOLS
 4.2 ADD CUSTOM CONSTRAINS
 4.3 ADD CUSTOM FAMILY
@@ -92,11 +92,11 @@ Hint 3: Command line parameters priorize parameter file settings
 # Run GORAP example using command line parameters
 $GORAP/bin/gorap/Gorap.pl -c 8 -i $GORAP/bin/gorap/example/ecoli.fa -q 13 -a eco -k bac -s 562 -r 543 -b $GORAP/bin/gorap/example/ecoli.bam -g $GORAP/bin/gorap/example/ecoli.gff
 
-# Run GORAP using a parameter file - adapt existing parameter file for your needs
-$GORAP/bin/gorap/Gorap.pl -file parameter.txt
-
 # Screen for a subset of families: ids 1 to 5, 8 and all greater equals 100
 $GORAP/bin/gorap/Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:
+
+# Run GORAP using a parameter file - adapt existing parameter file for your needs
+Gorap.pl -file parameter.txt
 
 # Example of annotation and SSU/RNome phylogeny reconstruction in one step.
 # A given outgroup genome will be screened only for ncRNAs predicted in genome files given by -i
