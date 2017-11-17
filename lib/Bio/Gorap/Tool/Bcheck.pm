@@ -85,14 +85,20 @@ sub calc_features {
 	}
 
 	my $uid;
+	my $types;
 	for (@out){
 		my @l = split /\s+/, $_;
 		my @gff3entry = &{$self->tool_parser}(\@l);
+		$types->{$gff3entry[2]} = 1;
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
-		$gff3entry[0] .= '.'.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
+		$gff3entry[0] .= '.'.$self->tool.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
 
 		my $seq = $self->fastadb->get_gff3seq(\@gff3entry);
 		$self->gffdb->add_gff3_entry(\@gff3entry,$seq);
+	}
+
+	for(keys %$types){
+		$self->gffdb->merge($_,$self->tool); #merge multi kingdoms and overlapping annotations du to genome chunks
 	}
 }
 

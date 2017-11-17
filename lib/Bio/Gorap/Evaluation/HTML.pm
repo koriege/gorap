@@ -46,7 +46,7 @@ sub create {
 					print HTML '-sort ' if $parameter->sort;
 					print HTML '-nofi ' if $parameter->nofilter;
 					print HTML '-nobl ' if $parameter->noblast;
-					print HTML '-noc' unless $parameter->check_overlaps;
+					print HTML '-nodel' unless $parameter->check_overlaps;
 					print HTML "\n";
 				} else {
 					print HTML "Gorap.pl -i ".join(',\\<br>'."\n",@{$parameter->genomes}).'\\<br>'."\n";
@@ -60,7 +60,7 @@ sub create {
 						print HTML '-q 0\\<br>'."\n";
 					}
 					print HTML '-minl '.$parameter->denovolength.'\\<br>'."\n" unless $parameter->denovolength == 50;
-					print HTML '-minh '.$parameter->denovoheigth.'\\<br>'."\n" unless $parameter->denovoheigth == 1000;
+					print HTML '-minh '.$parameter->denovoheight.'\\<br>'."\n" unless $parameter->denovoheight == 1000;
 					print HTML '-r '.$parameter->rank.'\\<br>'."\n" if $parameter->has_rank;
 					print HTML '-s '.$parameter->species.'\\<br>'."\n" if $parameter->has_species;
 					print HTML '-og '.join('\\<br>'."\n",@{$parameter->outgroups}).'\\<br>'."\n" if $parameter->has_outgroups;
@@ -82,7 +82,7 @@ sub create {
 					print HTML '-sort\\<br>'."\n" if $parameter->sort;
 					print HTML '-nofi\\<br>'."\n" if $parameter->nofilter;
 					print HTML '-nobl\\<br>'."\n" if $parameter->noblast;
-					print HTML '-noo\\<br>'."\n" unless $parameter->check_overlaps;
+					print HTML '-nodel\\<br>'."\n" unless $parameter->check_overlaps;
 					print HTML '-t '.$parameter->{'tmp'}.'<br>'."\n";
 				}
 			} elsif ($_=~/Used data/){

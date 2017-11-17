@@ -52,6 +52,8 @@ sub calc_features {
 			$self->gffdb->add_gff3_entry(\@gff3entry,$self->fastadb->get_gff3seq(\@gff3entry));
 		}
 	}
+
+	$self->gffdb->merge($self->parameter->cfg->rf_rna,$self->tool); #merge with infernal results
 }
 
 sub merge_gff {

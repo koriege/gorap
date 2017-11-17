@@ -57,7 +57,7 @@ sub stop {
 	for (keys %{$self->thrList}){
 		waitpid($_,0);
 		delete $self->thrList->{$_};
-		&_read($self);
+		$self->_read();
 	}
 }
 
@@ -69,7 +69,7 @@ sub push_obj {
 		waitpid($_, &WNOHANG);
 		if (WIFEXITED($?)){
 			delete $self->thrList->{$_};
-			push @{$self->finished} , &_read($self);
+			push @{$self->finished} , $self->_read();
 		}
 	}
 
@@ -78,7 +78,7 @@ sub push_obj {
 		my ($key) = keys %{$self->thrList};
 		waitpid($key,0);
 		delete $self->thrList->{$key};
-		push @{$self->finished} , &_read($self);
+		push @{$self->finished} , $self->_read();
 	}
 }
 

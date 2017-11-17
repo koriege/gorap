@@ -12,6 +12,7 @@ sub calc_features {
 
 	return if $self->already_predicted;
 
+	my $types;
 	for (0..$#{$self->parameter->genomes}){
 		my $genome = ${$self->parameter->genomes}[$_];
 		my $abbr = ${$self->parameter->abbreviations}[$_];
@@ -36,14 +37,19 @@ sub calc_features {
 				next if $_=~/^#/;
 				next if $_=~/^\s*$/;
 				my @l = split /\s+/ , $_;
-				my @gff3entry = &{$self->tool_parser}($kingdom,\@l);
+				my @gff3entry = &{$self->tool_parser}($self->tool,$kingdom,\@l);
+				$types->{$gff3entry[2]} = 1;
 				my @chr = ($abbr,$gff3entry[0],$gff3entry[2]);
-				$chr[-1] = ++$uid->{join('.',@chr)};
+				$chr[-1] = $self->tool.(++$uid->{join('.',@chr)});
 				$gff3entry[0] = join('.',@chr);
 				$self->gffdb->add_gff3_entry(\@gff3entry,$self->fastadb->get_gff3seq(\@gff3entry));
 			}
 			waitpid($pid, 0);
 		}
+	}
+
+	for(keys %$types){
+		$self->gffdb->merge($_,$self->tool); #merge multi kingdoms and overlapping annotations du to genome chunks
 	}
 }
 

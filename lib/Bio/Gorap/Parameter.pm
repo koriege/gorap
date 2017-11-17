@@ -83,7 +83,13 @@ has ['taxonomy', 'verbose', 'check_overlaps'] => (
 	default => 1
 );
 
-has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'strandspec', 'notax', 'refresh'] => (
+has 'strandspec' => (
+	is => 'rw',
+	isa => 'Int',
+	default => 0
+);
+
+has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'notax', 'refresh'] => (
 	is => 'rw',
 	isa => 'Bool',
 	default => 0
@@ -163,7 +169,7 @@ has 'denovolength' => (
 	default => 50
 );
 
-has 'denovoheigth' => (
+has 'denovoheight' => (
 	is => 'rw',
 	isa => 'Int',
 	default => 1000
@@ -217,12 +223,12 @@ sub BUILD {
 		'refresh|refresh' => \my $refresh,
 		'skip|skipanno' => \my $skipanno,
 		'example|example' => \my $example,
-		'noc|nooverlapcheck' => \my $nooverlaps,
+		'nodel|nooverlapdeletion' => \my $nooverlaps,
 		'minl|minlength=i' => \my $denovolength,
-		'minh|minheigth=i' => \my $denovoheigth,
+		'minh|minheight=i' => \my $denovoheight,
 		'nobutkingsnofi|nobutkingsnofi' => \my $nobutkingsnofilter, #hidden dev option
 		'nofi|nofilter' => \my $nofilter,
-		'strand|strandspecific' => \my $strandspec,
+		'strand|strandspecific=i' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
 	) or pod2usage(-exitval => 1, -verbose => 0) if $self->commandline;
@@ -235,10 +241,7 @@ sub BUILD {
 			switch (lc $update) {
 				case 'ncbi' {
 					print "Updating NCBI Taxonomy\n";
-					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
-						parameter => $self
-					);
-					Bio::Gorap::Update->dl_ncbi($self,$taxdb);
+					Bio::Gorap::Update->dl_ncbi($self);
 					exit;
 				}
 				case 'silva' {
@@ -269,10 +272,10 @@ sub BUILD {
 				}
 				else {
 					print "Updating all databases\n";
+					Bio::Gorap::Update->dl_ncbi($self);
 					my $taxdb = Bio::Gorap::DB::Taxonomy->new(
 						parameter => $self
 					);
-					Bio::Gorap::Update->dl_ncbi($self,$taxdb);
 					Bio::Gorap::Update->dl_silva($self,$taxdb);
 					Bio::Gorap::Update->dl_rfam($self,$taxdb);
 					Bio::Gorap::Update->create_cfgs($self,$taxdb);
@@ -283,7 +286,7 @@ sub BUILD {
 
 		pod2usage(-exitval => 0, -verbose => 0, -message => "Version:\n    ".Bio::Gorap::Gorap->VERSION) if $version;
 		pod2usage(-exitval => 0, -verbose => -1, -message => "Version:\n    ".Bio::Gorap::Gorap->VERSION) if $file eq 'x' && $help;
-		pod2usage(-exitval => 1, -verbose => 0, -message => "Option i requiered. Use option h to get help\n") if $file eq 'x' && ! $genomes && ! $example;
+		pod2usage(-exitval => 1, -verbose => 0, -message => "Option -i requiered!\n") if $file eq 'x' && ! $genomes && ! $example;
 	}
 
 	if ($label){
@@ -334,7 +337,7 @@ sub BUILD {
 
 	if (defined $queries){
 		$self->querystring($queries);
-		&set_queries($self,[split(/\s*,\s*/,$queries)]);
+		$self->set_queries([split(/\s*,\s*/,$queries)]);
 	}
 
 	if ($bams){
@@ -380,7 +383,7 @@ sub BUILD {
 	$self->taxonomy(0) if (! $sort && $refresh) || $notax || (!($self->has_rank || $self->has_species) && ! $sort) || $#{$self->queries} == -1 || $skipanno;
 	$self->notpm(1) if $notpm;
 	$self->check_overlaps(0) if $nooverlaps;
-	$self->denovoheigth($denovoheigth) if $denovoheigth;
+	$self->denovoheight($denovoheight) if $denovoheight;
 	$self->denovolength($denovolength) if $denovolength;
 	$self->noblast(1) if $noblast;
 	if ($nofilter) {
@@ -390,7 +393,7 @@ sub BUILD {
 	$self->nobutkingsnofilter(1) if $nobutkingsnofilter;
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
-	$self->strandspec(1) if $strandspec;
+	$self->strandspec($strandspec) if $strandspec;
 
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));
@@ -494,8 +497,8 @@ sub read_parameter {
 	my $assignment;
 
 	my $c=1;
-	while( my @g = glob $cfg->val( 'input', 'genome'.$c )){
-		for (@g){
+	while(my $g = $cfg->val( 'input', 'genome'.$c )){
+		for (glob $g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option i. File does not exists") unless -e $_;
 			push @genomes , $_;
 			push @{$assignment->{'genome'.$c}} , $#genomes;
@@ -512,8 +515,8 @@ sub read_parameter {
 		$c++;
 	}
 	$c=1;
-	while( my @g = glob $cfg->val( 'addons', 'genome'.$c )){
-		for (@g){
+	while( my $g = $cfg->val( 'addons', 'genome'.$c )){
+		for (glob $g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option og: File does not exists") unless -e $_;
 			push @ogenomes , $_;
 			my $abbr = $cfg->GetParameterTrailingComment('addons', 'genome'.$c);
@@ -561,24 +564,25 @@ sub read_parameter {
 	$#bams=$#genomes;
 	$#gffs=$#genomes;
 	$c=1;
-	while( my @g = glob $cfg->val( 'addons', 'bam'.$c )){
-		for (@g){
+	while( my $g = $cfg->val( 'addons', 'bam'.$c )){
+		for (glob $g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option b. File does not exists") unless -e $_;
 		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','bam'.$c)}}){
-			push @{$bams[$_]} , @g;
+			push @{$bams[$_]} , glob $g;
 		}
 		$c++;
 	}
 	$self->bams(\@bams) if $c > 1;
-	$self->strandspec(1) if $cfg->val('addons','strandspecific');
+	$v = $cfg->val('addons','strandspecific');
+	$self->strandspec($v) if $v;
 	$c=1;
-	while( my @g = glob $cfg->val( 'addons', 'gff'.$c )){
-		for (@g){
+	while( my $g = $cfg->val( 'addons', 'gff'.$c )){
+		for (glob $g){
 			pod2usage(-exitval => 1, -verbose => 0, -message => ":ERROR: Option g. File does not exists") unless -e $_;
 		}
 		for (@{$assignment->{$cfg->GetParameterTrailingComment('addons','gff'.$c)}}){
-			push @{$gffs[$_]} , @g;
+			push @{$gffs[$_]} , glob $g;
 		}
 		$c++;
 	}

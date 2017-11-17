@@ -102,9 +102,9 @@ sub remove_gap_columns_and_write {
 	my ($self, $stk, $file) = @_;
 	my $tmpstk = $stk;
 
-	my ($ss , $sc) = Bio::Gorap::Functions::STK->get_ss_cs_from_object($stk);
+	my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_object($stk);
 	my @ss = split // , $ss;
-	my @sc = split // , $sc;
+	my @cs = split // , $cs;
 
 	my $del = 0 ;
 	$tmpstk->map_chars('\.','-');
@@ -118,7 +118,7 @@ sub remove_gap_columns_and_write {
 		if($absent == $tmpstk->num_sequences){
 			$del = 1;
 			$tmpstk = $tmpstk->remove_columns([$i,$i]);
-			splice(@sc, $i, 1);
+			splice(@cs, $i, 1);
 			splice(@ss, $i, 1);
 		}
 	}
@@ -126,12 +126,12 @@ sub remove_gap_columns_and_write {
 	$tmpstk->set_displayname_flat;
 
 	if ($del){
-		my $out;
+		my $out = '';
 		open my $READER, '>', \$out;
 		(Bio::AlignIO->new(-format  => 'stockholm', -fh => $READER, -verbose => -1 ))->write_aln($tmpstk);
 		close $READER;
 		my @lines = split /\n/ , $out;
-		$lines[-1] = '#=GC RF '.join('',(' ') x ($tmpstk->maxdisplayname_length()-7)).' '.join('' , @sc);
+		$lines[-1] = '#=GC RF '.join('',(' ') x ($tmpstk->maxdisplayname_length()-7)).' '.join('' , @cs);
 		push @lines , '#=GC SS_cons '.join('',(' ') x ($tmpstk->maxdisplayname_length()-12)).' '.join('' , @ss);
 		push @lines, '//';
 
@@ -156,7 +156,7 @@ sub remove_gap_columns_and_write {
 #covariance model of gorap or a given one. resulting alignments are merged with those
 #read into this hashreferenced database of Bio::Align::Stockholm objects
 sub align {
-	my ($self,$id,$sequences,$threads,$cm,$scorefile) = @_;
+	my ($self,$id,$sequences,$threads,$cm,$scorefile,$skipmerge) = @_;
 
 	$scorefile = catfile($self->parameter->output,'meta',$id.'.scores') unless $scorefile;
 	my $tmpfile1 = catfile($self->parameter->tmp,$self->parameter->pid.'.1.stk');
@@ -172,6 +172,12 @@ sub align {
 	my ($cmd1, $cmd2, $success, $error_code, $full_buf, $stdout_buf, $stderr_buf);
 	#if database was initialized with existing alignment, the new sequences are aligned in single, to merge 2 alignment files afterwards
 
+	if ($skipmerge){
+		$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
+		$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" if $cm;
+		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
+		return $scorefile;
+	}
 
 	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 ".$self->parameter->cfg->cm." $fastafile";
 	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 $cm $fastafile" if $cm;
@@ -182,6 +188,12 @@ sub align {
 
 		$cmd2="esl-alimerge --rna -o $stkfile $tmpfile2 $tmpfile1";
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
+
+		if($success){
+			my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file($stkfile);
+			$success = 0 if ! $ss || ! $cs;
+		}
+
 		unless($success){
 			open FA , '>'.$fastafile or die $!;
 			for ($self->db->{$id}->each_seq){
@@ -193,28 +205,38 @@ sub align {
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FA;
 
+			$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
+			$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" if $cm;
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 		}
-	} else {
+	} else { 
 		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->parameter->cfg->stk." $tmpfile1";
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
 
+		if($success){
+			my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file($stkfile);
+			$success = 0 if ! $ss || ! $cs; #TODO write own RF based merger
+		}
+		
 		if (! $success && $self->parameter->cfg->fasta){
 			open F , '<'.$self->parameter->cfg->fasta or die $!;
 			open FA , '>'.$fastafile or die $!;
-			print FA $_ while (<F>);
+			while (<F>){
+				if($_=~/^>/){
+					print FA '>'.(split/\s+/,$_)[1]."\n"
+				} else {
+					print FA $_ ;
+				}
+			}
 			close F;
 			print FA '>'.$_->display_id."\n".$_->seq."\n" for @{$sequences};
 			close FA;
 
+			$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile ".$self->parameter->cfg->cm." $fastafile";
+			$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" if $cm;
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 		}
 	}
-
-	unlink $tmpfile1;
-	unlink $tmpfile2;
-
-	die unless $success;
 
 	$self->add_stk($id,$stkfile);
 
@@ -242,22 +264,24 @@ sub calculate_threshold {
 					}
 				}
 
-				my ($scorefile,$taxstk);
+				my $scorefile;
 				if ($#{$inSpecies} > -1 ){
-					($scorefile,$taxstk) = $self->align(
+					$scorefile = $self->align(
 						$self->parameter->cfg->rf_rna.'.tax',
 						$inSpecies,
 						$cpus,
 						$self->parameter->cfg->cm,
-						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')
+						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
+						1
 					);
 				}elsif($#{$inRank} > -1){
-					($scorefile,$taxstk) = $self->align(
+					$scorefile = $self->align(
 						$self->parameter->cfg->rf_rna.'.tax',
 						$inRank,
 						$cpus,
 						$self->parameter->cfg->cm,
-						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score')
+						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
+						1
 					);
 				}
 

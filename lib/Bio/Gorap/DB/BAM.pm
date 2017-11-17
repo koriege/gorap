@@ -4,6 +4,8 @@ use Moose;
 use Bio::DB::Sam;
 use List::Util qw(max);
 use Try::Tiny;
+use IO::Select;
+use IO::Pipe;
 
 has 'parameter' => (
 	is => 'ro',
@@ -18,12 +20,6 @@ has 'db' => (
 	default => sub { {} }
 );
 
-has 'sizes' => (
-	is => 'rw',
-    isa => 'HashRef',
-    default => sub { {} }
-);
-
 sub _set_db {
 	my ($self) = @_;
 	return unless $self->parameter->has_bams;
@@ -34,81 +30,162 @@ sub _set_db {
 		my $abbr = ${$self->parameter->abbreviations}[$_];
 		$sizes->{$abbr}=0;
 		for my $f (@{${$self->parameter->bams}[$_]}){
-
-			my $c = 0;
-			my $map = {};
-			my $next;
-			for (`samtools idxstats $f`){ #todo counts all fragments
-				next if $_=~/^\*/;
-				$next = 1 if $_=~/fail/;
-				last if $next;
-				my ($header , $size, $mapped, $unmapped) = split /\s+/ , $_;
-				$c += $mapped;
-				$map->{$header} = $mapped + $unmapped;
+			push @{$self->db->{$abbr}} , Bio::DB::Sam->new(-bam => $f, -autindex => 1, -verbose => -1, -expand_flags => 1);
+			unless (-e $f.'.bai'){
+				print "$f\n" if $self->parameter->verbose;
+				system("samtools index $f");	
 			}
-			next if $next;
-			push @{$self->db->{$abbr}} , Bio::DB::Sam->new(-bam => $f, -autindex => 1, -verbose => -1);
-			$sizes->{$abbr} += $c;
 		}
 	}
-	$self->sizes($sizes);
 }
 
-sub rpkm {
-	my ($self,$abbr,$id,$start,$stop,$strand) = @_;
-	$strand = $strand=~/(\.|0)/ ? 0 : $strand=~/(\+|1)/ ? 1 : -1;
+sub calculate_tpm {
+	my ($self,$features) = @_;
 
-	my $count = 0;
-	for (0..$#{$self->db->{$abbr}}){
-		my $bam = ${$self->db->{$abbr}}[$_];
+	my $select = IO::Select->new();
+	my $thrs={};
+	my @out;
+	my $id2feature;
+	for my $f (@$features){
 
-		my $readstrand = '+';
-		try {
-			if ($self->parameter->strandspec && $strand != 0){
-				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
-					my @segments = $_->segments;
-					my $rstrand = 1;
-					my $unmapped = 0;
-					for (@segments){
-						my @flags = split /\|/ , $_->get_tag_values('FLAGS');
-						for (@flags){
-							$unmapped++ if $_ eq 'UNMAPPED'; #counts read also if only one mate maps
-							$rstrand = -1 if $_ eq 'REVERSED'; #to exclude M_REVERSED
-							# $mates++ if $_=~/FIRST/ || $_=~/SECOND/;
-							# $matemapped = 0 if $_=~/M_UNMAPPED/;
-							# $paired = 1 if $_=~/PAIRED/;
-						}
-					}
-					$count++ if $unmapped < ($#segments +1) && $strand == $rstrand;
-				}
-			} else {
-				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $id, -start => $start, -end => $stop)){
-					my @segments = $_->segments;
-					my $unmapped = 0;
-					for (@segments){
-						for (split /\|/ , $_->get_tag_values('FLAGS')){
-							$unmapped++ if $_ eq 'UNMAPPED';
-						}
-					}
-					$count++ if $unmapped < ($#segments +1);
+		if (scalar(keys %{$thrs}) >= $self->parameter->threads){
+			my $pid = wait();
+			delete $thrs->{$pid};
+			while( my @responses = $select->can_read(0) ){
+				for my $pipe (@responses){
+					push @out , $_ while <$pipe>;
+					$select->remove( $pipe->fileno() );
 				}
 			}
-		} catch {
+		}
+		my $fullid = $f->seq_id;
+		my @id = split /\./,$f->seq_id;
+		my $abbr = shift @id;
+		my $count = pop @id;
+		my $chr = join '.',@id;
+		my $strand = $f->strand;
+		my $start = $f->start;
+		my $stop = $f->stop;
+		my $l = $f->stop - $f->start;
+		my $type = $f->primary_tag;
+		my $source = $f->source;
 
-		};
+		$id2feature->{$f->seq_id.".$type.$source"} = $f;
+
+		my $pipe = IO::Pipe->new();
+		if (my $pid = fork()) {
+			$pipe->reader();
+			$select->add( $pipe );
+			$thrs->{$pid}++;
+		} else {
+			$pipe->writer();
+			$pipe->autoflush(1);
+
+			my $c = 0;
+			for my $bam (@{$self->db->{$abbr}}){
+				$bam->clone;
+				for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $chr, -start => $start, -end => $stop)){
+					my ($mate1,$mate2) = $_->get_SeqFeatures;
+					if ($mate2){ #paired data
+						#1: SE or FR, -1: RF
+						if ($self->parameter->strandspec == 0 || $f->strand == 0){
+							$c++ if ! $_->get_tag_values('UNMAPPED') && ! $mate1->get_tag_values('M_UNMAPPED');
+						} elsif ($self->parameter->strandspec == 1) {
+							$c++ if ! $_->get_tag_values('UNMAPPED') && $mate1->strand == $strand && ! $mate1->get_tag_values('M_UNMAPPED');
+						} else {
+							$c++ if ! $_->get_tag_values('UNMAPPED') && $mate2->strand == $strand && ! $mate1->get_tag_values('M_UNMAPPED');
+						}
+					} else {
+						if ($self->parameter->strandspec == 0 || $f->strand == 0){
+							$c++ if ! $_->get_tag_values('UNMAPPED');
+						} else {
+							$c++ if ! $_->get_tag_values('UNMAPPED') && $mate1->strand == $self->parameter->strandspec;
+						}
+					}
+				}
+			}
+			print $pipe "$fullid.$type.$source"."\t".$c."\t",$c/($l/1000),"\n";
+			exit;
+		}
 	}
 
-	return ('.','.') unless $count;
+	for (keys %{$thrs} ) {
+		my $pid = wait;
+		delete $thrs->{$pid};
+		while( my @responses = $select->can_read(0) ){
+			for my $pipe (@responses){
+				push @out , $_ while <$pipe>;
+				$select->remove( $pipe->fileno() );
+			}
+		}
+	}
 
-	$count /= ($#{$self->db->{$abbr}} + 1);
-	my $libsize = $self->sizes->{$abbr} / ($#{$self->db->{$abbr}} + 1);
+	my $libsize = 0;
+	for (@out){
+		my @l = split /\s+/,$_;
+		$libsize += $l[-2];
+	}
+	$libsize /= 1000000;
 
-	my $rpkm = $libsize ? ($count / ($libsize/10^6)) / (($stop-$start)/10^3) : 0;
-	my $tpm = $libsize ? ($count / (($stop-$start)/10^3)) / ($libsize/10^6) : 0;
+	for (@out){
+		my @l = split /\s+/,$_;
+		my $tpm = pop @l;
+		$tpm /= $libsize;
+		my $reads = pop @l;
+		my $f = $id2feature->{$l[0]};
+		$f->remove_tag('tpm');
+		$f->remove_tag('reads');
+		$f->add_tag_value('tpm',$tpm);
+		$f->add_tag_value('reads',$reads);
+		$f->update;
+	}
+	
+}
 
-	$tpm = $count/($stop-$start) *
+sub calculate_tpm_se {
+	my ($self, $features) = @_;
 
-	return ($tpm == 0 ? '.' : sprintf("%.10f",$tpm), $rpkm == 0 ? '.' : sprintf("%.10f",$rpkm), $count == 0 ? '.' : $count);
+	my $libsize = 0;
+	my @tpms;
+	my @counts;
+	for my $f (@{$features}){
+		my @id = split /\./,$f->seq_id;
+		my $abbr = shift @id;
+		my $count = pop @id;
+		my $chr = join '.',@id;
+		my $c = 0;
+		my $l = $f->stop - $f->start;
+		for my $bam (@{$self->db->{$abbr}}){
+			for ($bam->get_features_by_location(-type => 'read_pair', -seq_id => $chr, -start => $f->start, -end => $f->stop)){
+				my ($mate1,$mate2) = $_->get_SeqFeatures;
+				if ($mate2){ #paired data
+					#1: SE or FR, -1: RF
+					if ($self->parameter->strandspec == 0 || $f->strand == 0){
+						$c++ if ! $_->get_tag_values('UNMAPPED') && ! $mate1->get_tag_values('M_UNMAPPED');
+					} elsif ($self->parameter->strandspec == 1) {
+						$c++ if ! $_->get_tag_values('UNMAPPED') && $mate1->strand == $f->strand && ! $mate1->get_tag_values('M_UNMAPPED');
+					} else {
+						$c++ if ! $_->get_tag_values('UNMAPPED') && $mate2->strand == $f->strand && ! $mate1->get_tag_values('M_UNMAPPED');
+					}
+				} else {
+					if ($self->parameter->strandspec == 0 || $f->strand == 0){
+						$c++ if ! $_->get_tag_values('UNMAPPED');
+					} else {
+						$c++ if ! $_->get_tag_values('UNMAPPED') && $mate1->strand == $self->parameter->strandspec;
+					}
+				}
+			}
+		}
+
+		push @tpms, $c/($l/1000);
+		$libsize += $c;
+		push @counts, $c;
+	}
+
+	$libsize /= 1000000;
+	$_ /= $libsize for @tpms;
+
+	return (\@tpms,\@counts);
 }
 
 1;

@@ -41,7 +41,7 @@ VERSION
 $VERSION
 
 SYNOPSIS
-$(basename $0) -i [all|anno] -g [hg19|mmu38]
+$(basename $0) -i [all|anno]
 
 INSTALLATION OPTIONS
 -i | --install [all|update] : install all tools or upgrade Gorap
@@ -180,10 +180,10 @@ compile_gorap() {
 		makeclean && \
 		rm Makefile.old && \
 		ln -sfn $GORAP/gorap/bin $GORAP/bin/gorap && \
-		tar -xzf data-13.tar.gz -C $GORAP/gorap && \
-		$GORAP/bin/gorap/Gorap.pl -update ncbi
+		tar -xzf data-13.tar.gz -C $GORAP/gorap
 	} || return 1
 	for i in $(find $GORAP/gorap -type f -name 'SimpleAlign.pm'); do
+		chmod 644 $i
 		sed -i '/contains no residues/d' $i
 		sed -i '/Sequence excluded/d' $i
 		sed -i '/Replacing one sequence/d' $i
@@ -206,8 +206,18 @@ compile_update() {
 		rm Makefile.old && \
 		ln -sfn $GORAP/gorap/bin $GORAP/bin/gorap
 	} || return 1
+	for i in $(find $GORAP/gorap -type f -name 'SimpleAlign.pm'); do
+		chmod 644 $i
+		sed -i '/contains no residues/d' $i
+		sed -i '/Sequence excluded/d' $i
+		sed -i '/Replacing one sequence/d' $i
+	done
 
 	return 0
+}
+
+compile_upgrade() {
+	compile_update
 }
 
 compile_java() {

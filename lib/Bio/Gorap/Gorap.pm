@@ -1,47 +1,49 @@
 package Bio::Gorap::Gorap;
 
-use version; our $VERSION = "2.3.2";
+use version; our $VERSION = "2.3.3";
 
 1;
 
 =head1 NAME
 
-Bio::Gorap - A Perl distribution for genome wide ncRNA annotation based on various software
-wrappers, NCBI taxonomy functions and Stockholm alignment file manipulation.
+Bio::Gorap - A Perl distribution for genome wide ncRNA annotations based on various software
+wrappers, taxonomic functions and Stockholm alignment file manipulation.
 
 head1 DESCRIPTION
 
 Bio::Gorap is a distribution of Perl modules to build and extend a scripted main
-pipeline to efficiently annotate non-coding RNAs in genomic sequences. It screens for
-user defined or whole database provided queries and is highly configurable. It deals with
-different software, databases (NCBI, Rfam, Silva, mirBASe), offers an artificial evaluation
-study, HTML based visualization of results and can be easily extended by new annotation tools.
+pipeline Gorap.pl to efficiently annotate non-coding RNAs in genomic sequences.
 
-The following modules are part of the Bio::Gorap package.
+=head1 AUTHOR
 
-=over
-
-=item L<Bio::Gorap::DB::Fasta>: Routines for storing, splitting with overlap and accessing genomic
-sequences implemented via a Moose to L<Bio::DB::Fasta>.
-
-=back
-
-=head1 AUTHORS
-
-=over
-
-=item Konstantin Riege E<lt>konstantin.riege@uni-jena.deE<gt>
-
-=back
+Konstantin Riege, E<lt>konstantin.riege@uni-jena.deE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2015 Konstantin Riege E<lt>konstantin.riege@uni-jena.deE<gt>
+MIT License
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.14.4 or,
-at your option, any later version of Perl 5 you may have available.
+Copyright (c) 2017 Konstantin Riege
 
-This software is distributed without any warranty.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=head1 SEE ALSO
+
+L<www.rna.uni-jena.de>
 
 =cut

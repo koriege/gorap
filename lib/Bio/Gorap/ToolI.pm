@@ -77,7 +77,7 @@ sub BUILD {
 		}
 
 		unless ($self->tool eq "Infernal" || $self->tool eq "Blast"){ # if tool covers multi families and was executed previously, dont execute again
-			my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
+			my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool}); #GORAP needs to be added via ToolParser.pm
 			$self->already_predicted(1) if $#f > -1;
 		}
 	}

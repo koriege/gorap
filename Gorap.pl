@@ -202,7 +202,7 @@ if ($parameter->taxonomy){
 }
 
 my $bamdb = Bio::Gorap::DB::BAM->new(
-	parameter => $parameter
+	parameter => $parameter,
 );
 
 #gorap gff3 storage database initialization without loss of existing data in output directory
@@ -210,6 +210,7 @@ my $gffdb = Bio::Gorap::DB::GFF->new(
 	parameter => $parameter,
 	bamdb => $bamdb
 );
+
 
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
@@ -422,7 +423,7 @@ sub run {
 			$next=0 if exists $parameter->cfg->kingdoms->{$_};
 		}
 		if($next && ! $parameter->nofilter){
-			print " - skipped due to kingdom restriction" if $parameter->verbose;
+			say " - skipped due to kingdom restriction" if $parameter->verbose;
 			next;
 		}
 		say "" if $parameter->verbose;
@@ -474,9 +475,9 @@ sub run {
 				($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold($parameter->threads - $thrListener->get_workload);
 				last if $threshold && $threshold == 999999;
 			}
-
 			$obj->calc_features;
 		}
+
 		next if $threshold && $threshold == 999999;
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
@@ -504,6 +505,7 @@ sub run {
 				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
 			} else {
 				$stkdb->remove_gap_columns_and_write($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
+				$gffdb->store($parameter->cfg->rf_rna);
 			}
 		}
 		#store annotations already in the database in case of errors
@@ -517,16 +519,18 @@ sub run {
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
 
 	(Bio::Gorap::Tool::Piles->new(
-		threads => $parameter->threads - $thrListener->get_workload,
+		threads => $parameter->threads - $thrListener->get_workload +1,
 		parameter => $parameter,
 		tool_parser => \&Bio::Gorap::Functions::ToolParser::gff3_parser,
 		gffdb => $gffdb,
 		fastadb => $fastadb,
 		stkdb => $stkdb,
 		bamdb => $bamdb,
-		tool => 'de_novo',
+		tool => 'denovo',
 		cmd => ''
 	))->calc_features;
+
+
 }
 
 sub get_phylo_features {
@@ -639,7 +643,7 @@ sub safety_store {
 	say $e;
 	say ":ERROR: Safety store in progress";
 	$thrListener->stop if $thrListener;
-	# $gffdb->store_overlaps if $gffdb;
+	$gffdb->store if $gffdb;
 	# rmtree($parameter->tmp);
 	exit 1;
 }
@@ -650,21 +654,23 @@ __END__
 
 =head1 NAME
 
-GORAP - Genomewide ncRNA Annotation Pipeline
+Gorap - Genomewide ncRNA Annotation Pipeline
 
 =head1 SYNOPSIS
 
-Gorap.pl [OPTION]...
+Gorap.pl [OPTIONS]
+
+help: Gorap.pl -h
 
 example: Gorap.pl -a sa,sb -i s1.fa,s2.fa -g s1.gff,s2.gff -c 4 -k bac -q 1:20,169,1852: -r 123 -s 'species name' -sort
 
+
 =head1 DESCRIPTION
 
-B<GORAP> will read given input sequences and screen them for all non-coding RNAs present in the Rfam database with
-generalized or specialized software by use of developed filtering strategies. Furthermore the pipeline is able to
-reconstruct phylogenetic trees and perform de novo predictions as well as TPM/FPKM calculations from RNA-Seq experiments.
-Screening options are defined in RNA family configuration files at $GORAP/config/*.cfg, setting up software and
-parameters, queries, covariance models, thresholds and sequence constrains. These files can be easily amended and completed by own queries.
+B<Gorap> will screen given genomic sequences for all non-coding RNAs present in the Rfam database using a 
+generalized strategy applying multiple filters or specialized software. Gorap provides ncRNA based reconstruction 
+of phylogenetic trees and is able to perform de novo predictions including TPM calculations from RNA-Seq experiments.
+RNA family specific screening options, threshold and constrains can be easily amended and completed by custom queries.
 
 =head1 OPTIONS
 
@@ -676,75 +682,64 @@ this (help) message
 
 =item B<-example>, B<--example>
 
-apply GORAP on $GORAP/example/ecoli.fa
+apply Gorap on the genome of Escherichia coli
 
 =item B<-update>, B<--update>=[all,rfam,ncbi,silva]
 
-updates internal used databases (Rfam, NCBI, Silva)	!!! check your edited configuration files afterwards
+updates internal databases (Rfam, NCBI, Silva)
 
 =item B<-file>, B<--file>=FILE
 
-run GORAP with a parameter file - see provided example for detailed information.
+run Gorap with a parameter file - see provided example for detailed information.
 note: command line parameters priorize parameter file settings
 
 =item B<-l>, B<--label>=STRING
 
-a label for this RUN - useful to find it in the HTML output and for an output refesh
-note: see -refresh
+(! recommended) - a label for this run
 
 =item B<-i>, B<--fastas>=FILE,...
 
-(required)
-paths of comma separated FASTA files
+(! required) - comma separated paths to input FASTA files
 
 =item B<-a>, B<--abbreviations>=STRING,...
 
-(default: build from FASTA file names)
-list of comma separated abbreviations as unique identifiers.
-note: in equal order and list size to -i (otherwise use parameter file)
+(default: filenames) - unique list of comma separated abbreviations, in equal order and list size to option -i
 
 =item B<-q>, B<--queries>=1:5,8,...
 
-list of comma separated, single Rfam ids (e.g. RF00001) or numbers (e.g. 1) and ranges defined by ':' (default: all queries)
+(default: 1:) - comma separated list of single Rfam ids e.g. RF00001 and/or colon defined ranges
 
 =item B<-k>, B<--kingdom>=[bac,arc,euk,fungi,virus]
 
-list of comma separated kingdoms to screen for kingdom specific ncRNAs (default: all)
+(default: bac,arc,euk,fungi,virus) - list of comma separated kingdoms to screen for kingdom specific ncRNAs
 
 =item B<-r>, B<--rank>=[INT/STRING]
 
-NCBI taxonomy matching id or scientific name of rank/genus/... for given sequences.	please use quotas if using names e.g. 'Bacillus subtilis group'
+NCBI taxonomy matching id or scientific name of a rank like class/order/genus/... for given sequences. please quote inputs like 'Bacillus subtilis group'
 
 =item B<-s>, B<--species>=[INT/STRING]
 
-NCBI taxonomy matching scientific name or taxonomy id of given species. please use quotas if using names e.g. 'Bacillus subtilis'
+NCBI taxonomy matching scientific name or taxonomy id of given species. please quote inputs like 'Bacillus subtilis'
 
 =item B<-o>, B<--output>=PATH
 
-(default: <working directory>/gorap_out)
-output directory
+(default: gorap_out) - output directory
 
 =item B<-c>, B<--cpu>=INT
 
-(default: 1)
-number of threads to use
+(default: 1) - number of threads to use
 
 =item B<-t>, B<--tmp>=PATH
 
-(default: $TMPDIR or /tmp or $GORAP/tmp)
-set the temporary directory - will be removed after successful GORAP run
+(default: output directory) - set the temporary directory
 
 =item B<-sort>, B<--sort>
 
 enable resulting alignments to be sorted in taxonomic order
 
-=item B<-notax>, B<--notaxonomy>
-
-disables taxonomic sorting and filters based on given rank/species information useful to skip time consuming initializations for testing purposes
-
 =item B<-nofi>, B<--nofilter>
 
-disables GORAP specific sequence and structure filter
+disables Gorap specific filters
 
 =back
 
@@ -754,58 +749,43 @@ disables GORAP specific sequence and structure filter
 
 =item B<-skip>, B<--skipanno>
 
-disables annotation process - useful for e.g. additional phylogeny reconstruction
+disables screening for ncRNAs - useful for additional downstream analysis like phylogeny reconstruction or TPM calculations
 
 =item B<-refresh>, B<--refresh>
 
-disables any calculations - updates HTML page and annotation files (GFF and FASTA) according to manual changes in Stockholm alignment files
-note: see -l
+(! requires option -l) - for a given label, just update HTML page and annotation files (GFF and FASTA) according to entries in Stockholm alignment files
 
 =item B<-og>, B<--outgroups>=FILE
 
-path to additional FASTA files as trigger for starting phylogeny reconstructions based on RNome and SSU rRNA annotations in given sequences
+comma separated paths to additional input FASTA files, used as outgroup for RNome and SSU rRNA based phylogeny reconstruction
 
 =item B<-oga>, B<--ogabbreviations>=FILE
 
-(default: build from FASTA file name of -og)
-list of comma separated abbreviations as unique identifiers.
-note: in equal order and list size to -og (otherwise use parameter file)
+unique list of comma separated abbreviations, in equal order and list size to option -og
 
 =item B<-g>, B<--gffs>=FILE,...
 
-comma separated paths of known annotations in GFF3 format with necessary ID tag for overlap filter and to calculate TMP/FPKM values
-note1: in equal order and list size to -i (otherwise use parameter file).
-note2: separate multiple BAMs related to one input FASTA by colons
-e.g. s1g1.gff:s1g2.gff,s2.gff
-
-=item B<-noc>, B<--nooverlapcheck>
-
-disables deletion of predictions even if they overlap with a given GFF3 file
+comma separated paths to known annotations in GFF3 format (needs ID tag), in equal order and list size to option -i to highlight overlaps with predicted ncRNAs
 
 =item B<-b>, B<--bams>=FILE,...
 
-comma separated paths of mapping results in BAM format, triggers TPM/FPKM calculation and de novo prediction.
-note1: in equal order and list size to -i (otherwise use parameter file).
-note2: separate multiple BAMs related to one input FASTA by colons
-e.g. s1g1.bam:s1g2.bam,s2.bam
+comma separated paths to mapping results positional sorted BAM format, in equal order and list size to -i, to calculate read counts TPM values and enable de novo predictions
 
-=item B<-strand>, B<--strandspecific>
+=item B<-strand>, B<--strandspecific>=[-1,1]
 
-mapping data (BAM files) resulted from strand specific library preparation
+mapping data resulted from strand specific library preparation (SE or PE): 1 for F/FR; -1 for R/RF
 
 =item B<-notpm>, B<--notpm>
 
-disables TPM/FPKM calculation
+disables quite time consuming read counting for TPM calculation - useful to only enable de novo predictions
 
 =item B<-minl>, B<--minlength>=INT
 
-(default: 50)
-minimum length for de novo gene prediction
+(default: 50) - minimum length for de novo gene prediction
 
-=item B<-minh>, B<--minheigth>=INT
+=item B<-minh>, B<--minheight>=INT
 
-(default: 1000)
-minimum nucleotide coverage for de novo gene prediction
+(default: 1000) - minimum nucleotide coverage for de novo gene prediction
 
 =back
 
@@ -815,11 +795,27 @@ Konstantin Riege, E<lt>konstantin.riege@uni-jena.deE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2015 by Konstantin Riege
+MIT License
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.10 or,
-at your option, any later version of Perl 5 you may have available.
+Copyright (c) 2017 Konstantin Riege
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 =head1 SEE ALSO
 

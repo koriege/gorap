@@ -32,7 +32,6 @@ has 'chunks' => (
 	default => sub {[]}
 );
 
-#for fast access during ToolI deletions
 has 'oheaders' => (
 	is => 'rw',
 	isa => 'HashRef',
@@ -61,9 +60,9 @@ sub _set_db {
 		print $genome."\n" if $self->parameter->verbose;
 		$set_db_abbr = ${$self->parameter->abbreviations}[$i];
 		#make headers uniq by adding an abbreviation/filname in front of \S+
-		&add_fasta($self,$genome,\&_parse_id);
+		$self->add_fasta($genome,\&_parse_id);
 		for (@oheader){
-			$self->oheaders->{$_}=1;
+			push @{$self->oheaders->{$set_db_abbr}}, $_;
 			push @{$self->nheaders} , $set_db_abbr.'.'.$_;
 		}
 		@oheader=();
@@ -107,6 +106,12 @@ sub get_gff3seq {
 		$s =~s/[tT]/U/g;
 		return $s;
 	}
+}
+
+sub get_seq {
+	my ($self,$id) = @_;
+	
+	return $self->db->fetch($id);
 }
 
 #subsequence extraction from this db

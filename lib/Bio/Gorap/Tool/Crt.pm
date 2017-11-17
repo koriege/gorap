@@ -80,7 +80,7 @@ sub calc_features {
 	for (0..$#out){
 		my @l = split /\s+/ , $out[$_];
 		my $id = pop @l;
-		my @gff3entry = &{$self->tool_parser}($id,\@l);
+		my @gff3entry = &{$self->tool_parser}($self->tool,$id,\@l);
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
 
 		$gff3entry[0] .= '.'.$_;
@@ -122,14 +122,16 @@ sub calc_features {
 	$self->parameter->set_cfg($cfg);
 
 	my $uid;
+	my $types;
 	while (my ($chr, $arr) = each %$chr2score) {
 		my ($score,$strand,$rf_rna) = @{$arr};
+		$types->{$rf_rna}=1;
 		my @gff3entry = @{$chr2gff->{$chr}};
 		my @chr = split /\./ , $gff3entry[0];
 		if ($score >= 10){
 			$chr[-1] = $rf_rna;
 			$uid->{join('.',@chr)}++;
-			$chr[-1] = $uid->{join('.',@chr)};
+			$chr[-1] = 'crt'.$uid->{join('.',@chr)};
 			$gff3entry[0] = join('.',@chr);
 			$gff3entry[2] = $rf_rna;
 			$gff3entry[5] = $score;
@@ -139,11 +141,15 @@ sub calc_features {
 		} else {
 			$chr[-1] = 'CRISPR';
 			$uid->{join('.',@chr)}++;
-			$chr[-1] = $uid->{join('.',@chr)};
+			$chr[-1] = 'crt'.$uid->{join('.',@chr)};
 			$gff3entry[0] = join('.',@chr);
 			$gff3entry[5] = 0;
 			$self->gffdb->add_gff3_entry(\@gff3entry,'');
 		}
+	}
+
+	for(keys %$types){
+		$self->gffdb->merge($_,$self->tool); #merge multi kingdoms and overlapping annotations du to genome chunks
 	}
 }
 

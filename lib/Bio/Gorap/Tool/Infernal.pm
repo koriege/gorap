@@ -35,6 +35,8 @@ sub calc_features {
 		}
 		waitpid($pid, 0);
 	}
+
+	$self->gffdb->merge($self->parameter->cfg->rf_rna,$self->tool); #merge with blast results
 }
 
 1;

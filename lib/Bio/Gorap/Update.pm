@@ -13,6 +13,7 @@ use Symbol qw(gensym);
 use IPC::Open3;
 use Config::IniFiles;
 use Switch;
+use File::Basename;
 
 sub dl_rfam {
 	my ($self,$parameter,$taxdb) = @_;
@@ -65,7 +66,7 @@ sub dl_rfam {
 	rmtree($extractpath);
 	print "100% parsed\n";
 
-	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.txt');
+	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.rfam');
 	print MAP $_."\t".$taxdb->accToName->{$_}."\t".$taxdb->accToTaxid->{$_}."\n" for(keys %{$taxdb->accToName});
 	close MAP;
 
@@ -142,6 +143,7 @@ sub dl_rfam {
 			my $rfnr = (split(/\s+/,$prevlines[2]))[2];
 			my $rna = (split(/\s+/,$prevlines[3]))[2];
 
+
 			my $outpath = catdir($ENV{GORAP},'gorap','data','rfam',$rfnr.'_'.$rna);
 			make_path($outpath);
 
@@ -174,7 +176,7 @@ sub dl_rfam {
 			@prevlines=();
 			$ss={};
 			$map={};
-			$taxMapC={};
+			$uid={};
 		} elsif ($_=~/^#/ || $_=~/^\s*$/) {
 			if ($_=~/^#=GC\s+(\S+)/){
 				if (exists $ss->{$1}){
@@ -200,7 +202,6 @@ sub dl_rfam {
 					$taxdb->accToTaxid->{$acc} = $taxid if $taxid;
 				}
 				if ($taxid){
-					$taxMapC->{$taxid}++;
 					my $name;
 					if (exists $taxdb->accToName->{$acc}){
 						$name = $taxdb->accToName->{$acc};
@@ -214,7 +215,9 @@ sub dl_rfam {
 					} else {
 						$taxdb->accToName->{$acc} = $acc;
 					}
-					push @{$map->{$line[0]}} , $taxid.'.'.$taxMapC->{$taxid}.' '.$taxdb->accToName->{$acc}.'.'.$taxMapC->{$taxid}.' '.$line[1];
+					$name = $taxdb->accToName->{$acc};
+					$uid->{$name}++;
+					push @{$map->{$line[0]}} , $taxid.'.'.$uid->{$name}.' '.$name.'.'.$uid->{$name}.' '.$line[1];
 				}
 			}
 		}
@@ -223,7 +226,7 @@ sub dl_rfam {
 	unlink $extractpath;
 	print "100% parsed\n";
 
-	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.txt');
+	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.rfam');
 	print MAP $_."\t".$taxdb->accToName->{$_}."\t".$taxdb->accToTaxid->{$_}."\n" for(keys %{$taxdb->accToName});
 	close MAP;
 }
@@ -246,6 +249,8 @@ sub dl_silva {
 	my $percent = 1;
 	my $step = $tree->number_nodes / 100;
 	my $c=0;
+	my @acctax;
+	my @sciTax;
 	for my $node ( $tree->get_nodes ) {	
 		$c++;
 		if ($c > $percent * $step){
@@ -258,13 +263,16 @@ sub dl_silva {
 
 		my $taxid;
 		my ($name,$acc) = split /__+/,$node->id;
-		for(($acc,$name)){
-			next unless $_;
-			$taxid = $taxdb->accToTaxid->{$_};
-			$taxid = $taxdb->nameToTaxid->{$_} unless $taxid;
-			$taxid = $taxdb->getIDfromAccession($_) unless $taxid;
-			$taxid = $taxdb->getIDfromName($_) unless $taxid;
-			print $_."\n" unless $taxid;
+		
+		$taxid = $taxdb->accToTaxid->{$acc} if $acc;
+		$taxid = $taxdb->nameToTaxid->{$name} if $name && ! $taxid;
+		if ($acc){
+			$taxid = $taxdb->getIDfromAccession($acc) unless $taxid;
+			push @acctax, $acc."\t".$taxid."\n" if $taxid;
+		}
+		if($name){
+			$taxid = $taxdb->getIDfromName($name) unless $taxid;
+			push @scitax, $name."\t".$taxid."\n" if $taxid;
 		}
 		$node->id($taxid ? $taxid : undef);
 	}
@@ -272,9 +280,12 @@ sub dl_silva {
 	
 	Bio::TreeIO->new(-format => 'newick', -file => '>'.catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1)->write_tree($tree);
 
-	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.txt');
-	print MAP $_."\t".$taxdb->accToName->{$_}."\t".$taxdb->accToTaxid->{$_}."\n" for keys %{$taxdb->accToName};
-	close MAP;
+	open ACC , '>'.catfile($ENV{GORAP},'gorap','data','accTax.silva');
+	open SCI , '>'.catfile($ENV{GORAP},'gorap','data','sciTax.silva');
+	print SCI $_ for @scitax;
+	print ACC $_ for @acctax;
+	close ACC;
+	close SCI;
 }
 
 sub dl_silva_ambiguous {
@@ -343,14 +354,10 @@ sub dl_silva_ambiguous {
 	}
 	print "100% parsed\n";
 	Bio::TreeIO->new(-format => 'newick', -file => '>'.catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1)->write_tree($tree);
-
-	open MAP, '>'.catfile($ENV{GORAP},'gorap','data','silvaNcbi.txt') or die $!;
-	print MAP $_."\t".$acc2silva{$_}."\t".$acc2tax{$_}."\n" for keys %acc2tax;
-	close MAP;
 }
 
 sub dl_ncbi {
-	my ($self,$parameter,$taxdb) = @_;
+	my ($self,$parameter) = @_;
 
 	print "Downloading NCBI taxonomy\n";
 	my $wgetpath = catfile($ENV{GORAP},'gorap','data','taxdump.tar.gz');
@@ -363,7 +370,6 @@ sub dl_ncbi {
 	my $taxdb = Bio::Gorap::DB::Taxonomy->new(
 		parameter => $parameter
 	);
-	$taxdb->reindex();
 
 	return $taxdb;
 }
@@ -372,6 +378,7 @@ sub create_cfgs {
 	my ($self,$parameter,$taxdb) = @_;
 
 	make_path(catdir($ENV{GORAP},'gorap','config'));
+	my %cfgs = map {my $f = basename($_); $f=~/(RF\d+)/; $1 => $_} glob catfile($ENV{GORAP},'gorap','config','*.cfg');
 	print "0% configured\n";
 	my @stkfiles = glob(catfile($ENV{GORAP},'gorap','data','rfam','*','*.stk'));
 	my $percent = 1;
@@ -383,24 +390,25 @@ sub create_cfgs {
 			print "".($percent*10)."% configured\n";
 			$percent++;
 		}
-
 		my $bitscore = Bio::Gorap::Functions::STK->get_min_score($stkfile);
 		my $rf_rna = Bio::Gorap::Functions::STK->get_rf_rna($stkfile);
 		my ($ss , $cs) = Bio::Gorap::Functions::STK->get_ss_cs_from_file($stkfile);
 		my ($rf,@rna) = split(/_/,$rf_rna);
+
 		my $kingdoms;
 		my @userdescription;
 		my $types = '';
-		my ($cfg) = glob catfile($ENV{GORAP},'gorap','config',$rf.'*');
-		if (-e $cfg){
+		my $cfg = $cfgs{$rf};
+		if ($cfg){
 			$parameter->set_cfg($cfg);
 			$kingdoms = $parameter->cfg->kingdoms;
 			for (@{$parameter->cfg->constrains}){
 				push @userdescription, $$_[-1] unless $userdescription[-1] eq $$_[-1];
 			}
 			$types = $parameter->cfg->types;
+			unlink $cfg;
+			delete $cfgs{$rf};
 		}
-		unlink $_ for glob catfile($ENV{GORAP},'gorap','config',$rf.'*');
 
 		open CFG, '>'.catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg') or die $!;
 		print CFG '[family]'."\n";
@@ -520,6 +528,7 @@ sub create_cfgs {
 		close CFG;
 	}
 	print "100% configures\n";
+	unlink $cfgs{$_} for keys %cfgs;
 }
 
 sub get_cmd {

@@ -1,16 +1,33 @@
-###########
-# GORAP 2 #
-###########
+================================================
+Gorap 2  -  Genomewide ncRNA Annotation Pipeline
+================================================
+
+Gorap screens genomic sequences for all non-coding RNAs present in the Rfam database using 
+- a generalized strategy and applying multiple filters 
+- or specialized software. 
+Gorap provides ncRNA based reconstruction of phylogenetic trees and is able to perform de novo predictions including TPM calculations from RNA-Seq experiments. RNA family specific screening options, threshold and constrains can be easily amended and completed by custom queries.
+
+Goraps setup will install Bio::Gorap, which is a distribution of Perl modules to provide software wrappers and functions for efficient Fasta, GFF, Stockholm alignment file and taxonomic manipulation.
+
+The installation process includes all necessary software and databases to run the Gorap pipeline.
+- Infernal, Blast, RNAmmer, tRNAscan, Bcheck, CRT, RAxML, Mafft, Samtools
+- Rfam, NCBI Taxonomy, Silva
+
+Requirements: Linux/Unix or Mac with internet access and installed
+- Perl, gcc, make, wget, curl
 
 1   INSTALLATION
 2   UPDATE GORAP
 2.1 UPDATE LIBRARY
 2.2 UPDATE DATABASES
 3   RUNNING GORAP
-4	RESULTS
-5   KNOWN ISSUES AND SOLUTIONS
+4	CONFIGURATION FILES
+4.1 ADD CUSTOM TOOLS
+4.2 ADD CUSTOM CONSTRAINS
+4.3 ADD CUSTOM FAMILY
+5   RESULTS
 6   MISSING STUFF
-7	CONTACT
+7   CONTACT
 
 --------------
 1 INSTALLATION
@@ -28,6 +45,9 @@ cd gorap
 git checkout $(git describe --tags)
 6) Install Gorap and all necessary tools
 ./setup -i all
+7) Download latest NCBI Taxonomy
+$GORAP/bin/gorap/Gorap.pl -update ncbi
+
 
 --------------
 2 UPDATE GORAP
@@ -41,9 +61,8 @@ git checkout $(git describe --tags)
 
 2.3 UPDATE DATABASES
 
-# Info
-In case of updating to a newer Rfam release, you need to correct manually defined family specific configuration constrains.
-Therefore, please check the ERROR output and shift also the pre-annotated CD-box snoRNA constrains matching again: 
+In case of updating to a newer Rfam release, you need to manually correct predefined constrains.
+Therefore, please check the ERROR output and shift pre-annotated CD-box snoRNA box constrains to matching again:
 - the C-box motif UGAUGA
 - the D-box motif CUGA
 Example:
@@ -59,91 +78,108 @@ $GORAP/bin/gorap/Gorap.pl -update rfam
 $GORAP/bin/gorap/Gorap.pl -update ncbi
 $GORAP/bin/gorap/Gorap.pl -update silva
 
+
 ---------------
 3 RUNNING GORAP
 ---------------
 
-#Info
-Hint 1: Multiple (not parallel) runs can be saved into the same output directory
-Hint 2: Restart a run with same parameters, adding -skip, skips annotation
--> but enables additional computations like sorting and phylogeny reconstruction
+# Info
+Hint 1: Multiple runs can be saved into the same output directory
+Hint 2: Restart a run with same parameters, adding -skip option will skip annotation and perform only additional computations like TPM calculation, or phylogeny reconstruction
 Hint 3: Command line parameters priorize parameter file settings
 -> e.g. call Gorap.pl -file parameter.txt -skip -sort -l new_label
-Hint 4: For each Rfam model in $GORAP/config exists specific configuration files
--> Optionally set thresholds, other prediction tools and sequence mismatch constrains here
--> see an exmample here: $GORAP/config/RF00016_SNORD14.cfg 
--> Create an own covariance model and similar configuration file to screen for new families
 
-# Run GORAP using a parameter file - see example parameter file for available options
+# Run GORAP example using command line parameters
+$GORAP/bin/gorap/Gorap.pl -c 8 -i $GORAP/bin/gorap/example/ecoli.fa -q 13 -a eco -k bac -s 562 -r 543 -b $GORAP/bin/gorap/example/ecoli.bam -g $GORAP/bin/gorap/example/ecoli.gff
+
+# Run GORAP using a parameter file - adapt existing parameter file for your needs
 $GORAP/bin/gorap/Gorap.pl -file parameter.txt
 
-# Run GORAP using command line parameters
-$GORAP/bin/gorap/Gorap.pl Gorap.pl -c 8 -i $GORAP/bin/gorap/example/ecoli.fa -a ecol -k bac -s 562 -r 543 -g $GORAP/bin/gorap/example/ecoli.gff
-
-# Run GORAP without taxonomy filter and reading of NCBI Taxonomy even if -s or -r are used
-perl Gorap.pl -notax -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac	-s 562 -r 543
-
 # Screen for a subset of families: ids 1 to 5, 8 and all greater equals 100
-perl Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:
-  
-# Example of annotation and SSU/RNome phylogeny reconstruction in one step. 
-# A given outgroup will be screened only for families present in genome files given by -i
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
-  
-# 3-Step Phylogeny reconstruction from a full annotation after hand curated alignments
-# we recommend to use a defined label to update related HTML page displaying results
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l myphylo
-# Evaluate alignments by removing/adding sequences and now update annotation files
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -refresh -l myphylo
-# Skip the annotation process, but do downstream analysis i.e. phylogeny reconstruction
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -skip -l myphylo
+$GORAP/bin/gorap/Gorap.pl -c 8 -i $GORAP/example/ecoli.fa -a ecol -k bac -q 1:5,8,100:
 
-# De-novo prediction and TPM/FPKM calculation from (small-)RNA-Seq experiments
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> 
--> very (!) experimental and still under construction
+# Example of annotation and SSU/RNome phylogeny reconstruction in one step.
+# A given outgroup genome will be screened only for ncRNAs predicted in genome files given by -i
+Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
+
+# 3-Step Phylogeny reconstruction after hand curating alignments
+# Using labels is highly recommended
+Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l myphylo
+# Evaluate alignments by removing/adding sequences from STK files, then update annotation files
+Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -refresh -l myphylo
+# Skip the annotation process, but do the downstream analysis for phylogeny reconstruction
+Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -skip -l myphylo
+
+# De-novo prediction and TPM calculation (unless use of option -notpm) from RNA-Seq experiments
+perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM>
+-> see options for calling piles: -minl -minh, -strand
+
+
+---------------------
+4 CONFIGURATION FILES
+---------------------
+
+Configuration files are located in the $GORAP/gorap/config/ directory to set family specific thresholds, prediction tools and sequence mismatch constrains, which can be changed here.
+
+4.1 ADD CUSTOM TOOLS
+
+Requirement: New tools output needs to be GFF3 format
+
+In the [cmd] section, cli parameters are stored for each tool applied
+available placeholders are:
+- $genome (replaced by a fasta file location)
+- $kingdom (replaced by bac, arc, euk or fungi)
+- $cpus (replaced by number of threads to use)
+- $output (replaced by a temporary file location, without STDOUT will be parsed)
+
+Example:
+tool=barrnap
+parameter=--threads $cpus --kingdom $kingdom $genome
+
+4.2 ADD CUSTOM CONSTRAINS
+
+Use constrains to set the number of allowed mismatches in a specific region relative to the given STK consensus
+
+Example:
+conserved=uuGCAAUGAUGuUAagAAUUUCUUcacCUGAAuuaaaCcuUGAaGuucAAAaauCGAGCUUUUUAACaCUGAGCaaa
+constrain=.....|..0..|.......................................................|.2..|....
+
+4.3 ADD CUSTOM FAMILY
+
+Create a new configuration file in the $GORAP/gorap/config/ directory, with a similar naming scheme (RFxxxxx_description.cfg) containing required paths to a Stockholm alignment file and its covariance model.
+To use the default screening methods Infernal and/or Blast add the following cli commands to the [cmd] section
+tool=Infernal
+tool=Blast
+
 
 ---------
 4 RESULTS
 ---------
 
-annotations: contains ncRNA predictions in GFF3 and FASTA format
-	*orig - files with original sequence ids 
-	*final - files with predictions passing all filter steps
-	GFF tags of filtered, unreliable sequences: 
-		L - Length cutoff if predicted sequence is shorter than 40% of conserved Rfam sequence
-		B - Bitscore threshold of lowest score of taxonomic related species in Rfam 
-			or as suggested by Rfam for family model, lowered by 10%, applied for non CD-snoRNAs
-		S - Structure based rejection, if less than 50% of conserved hairpins are present
-		P - Primary sequence conservation based rejection, if less than 70% bases are present
-			of conserved bases in 90% of Rfam sequences
-			Exception: CD-snoRNAs - which are screened for special properties and appropriate 
-			box motifs as manually predefined in Rfam model specific configuration files
-		C - Copy number cutoff as defined in model specific configuration files
-		O - Overlap based rejection if previous, higher scoring annotation exists or is provided
-		X - Tag of manually deleted sequences from alignments after Gorap.pl -refresh call
-		! - Final tag - all filters passed
-alignments: contains Stockholm alignments of final predictions for all screened Rfam models
-meta: contains Stockholm alignments of each filter step - see GFF tags
-phylogeny: containes reconstructed phylogenies of given species based on
-	RNome - all ncRNA predictions except rRNAs and tRNAs, using a super-matrix approach
-	core50RNome - ncRNA predictions, present in 50% of given species and except rRNAs and tRNAs,
-		using a super-matrix approach
-	coreRNome STK - ncRNAs present in all species, built from concatenated Stockholm alignments
-	coreRNome MAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
-html: contains labeled html files linking to related results, accessible via main index.html web page
+Browse the results using a webbrowser with index.html or check out the following directories
 
+# annotations
+*orig - files with original sequence ids
+*passed - files with predictions that passed all filters
 
-----------------------------
-4 KNOWN ISSUES AND SOLUTIONS
-----------------------------
+# GFF filter tags
+L - Length cutoff if predicted gene is shorter than 40% of consensus reference
+B - Bitscore cutoff as minimum of scores by taxonomic related species or Rfam suggested noise cutoff
+S - Structure based rejection if predicted gene holds less than 50% conserved hairpins
+P - Primary sequence conservation based rejection, if predicted gene has less than 70% of strongly (>=90%) conserved nucleotides in Rfam
+	Exception: CD-box snoRNAs, which are screened for special properties and proper box motifs
+C - Copy number cutoff as defined in configuration file
+O - Overlap based rejection if higher scored annotation exists due to multi- tool or kingdom screening
+X - Tag for manually deleted sequences after Gorap refresh
+! - Passed tag - all filters passed
 
-GORAP dies due to a Blast bug, if FASTA headers have NCBI typical accession numbers somewhere inside
->something gi|00000000|ref|NC_000000.0| something else
-Transform headers into 
->gi|00000000|ref|NC_000000.0| something else
-by executing
+# alignments - in Stockholm format of filter passed predictions
 
-sed -i'' -e 's/^>\S*\s*/>/' file.fasta
+# phylogeny in newick and PDF format
+RNome - all ncRNA predictions (except rRNAs and tRNAs), using a super-matrix approach
+core50RNome - ncRNA predictions (except rRNAs and tRNAs), present in >=50% of given input FASTA files, using a super-matrix approach
+coreRNomeSTK - ncRNAs present in all species, built from concatenated Stockholm alignments
+coreRNomeMAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
 
 
 ---------------
@@ -158,8 +194,4 @@ Suggestions? Bugs? Troubles? Please let me know!
 ---------
 
 Konstantin Riege
-Chair of Bioinformatics
-High Throughput Analysis
-Friedrich-Schiller-University Jena
-http://www.rna.uni-jena.de
 konstantin{.}riege{a}uni-jena{.}de

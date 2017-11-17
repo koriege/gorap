@@ -193,7 +193,7 @@ sub structure_filter {
 	my @update;
 	my $write;
 
-	my ($ss , $cs) = &get_ss_cs_from_object($self,$stk);
+	my ($ss , $cs) = $self->get_ss_cs_from_object($stk);
 	$ss=~y/\{\<\[\}\>\]/\(\(\(\)\)\)/;
 	my @ss = split // , $ss;
 	my @cs = split // , $cs;
@@ -421,9 +421,9 @@ sub user_filter {
 	$seq=~s/\W/-/g;
 
 	my @stkseedseq = split // , lc($seq);
-	my ($seedss , $seedcs) = &get_ss_cs_from_file($self,$seedstk);
+	my ($seedss , $seedcs) = $self->get_ss_cs_from_file($seedstk);
 	my @seedcs = split // , $seedcs;
-	my ($newss , $newcs) = &get_ss_cs_from_object($self,$stk);
+	my ($newss , $newcs) = $self->get_ss_cs_from_object($stk);
 
 	#mapping of cfg cs to seed stk pos
 	my @cs_pos_in_seed;
@@ -495,7 +495,8 @@ sub user_filter {
 			$query = lc($query);
 			$query=~s/\W//g;
 
-			my $stkseq = lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1));
+			my ($seq) = $stk->get_seq_by_id($f->seq_id);
+			my $stkseq = lc($seq->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,min($seq->length,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1)));
 			my @stkseq = split //, $stkseq;
 			$stkseq=~s/-//g;
 			my ($costs, @alnmap) = &gotoh($query,$stkseq);

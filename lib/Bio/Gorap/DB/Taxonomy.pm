@@ -95,13 +95,14 @@ sub _set_db {
 
 	#initialize taxonomy database
 	#directory was parameter-tmp -> unique id, but now we will reuse created indexes (force 0)
+	die "Please download NCBI Taxonomy first by executing 'Gorap.pl -update ncbi'" unless -e catfile($ENV{GORAP},'gorap','data','taxonomy','nodes.dmp');
+
 	print "No index found. Indexing Taxonomy DB - may take a while\n" unless (-e catfile($ENV{GORAP},'gorap','data','taxonomy','parents'));
 	$self->ncbi(Bio::DB::Taxonomy->new(-source => 'flatfile', -nodesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','nodes.dmp'), -namesfile => catfile($ENV{GORAP},'gorap','data','taxonomy','names.dmp'), -directory => catdir($ENV{GORAP},'gorap','data','taxonomy') , -force => 0 , -verbose => -1 ));
 
 	#read in silva phylogeny accession numbers, already mapped to ncbi taxonomy
-	#in case of coming from previous gorap version or using the ambiguous silva updater
-	if (-e catfile($ENV{GORAP},'gorap','data','silvaNcbi.txt')){
-		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','silvaNcbi.txt') or die $!;
+	if (-e catfile($ENV{GORAP},'gorap','data','accTax.silva')){
+		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','accTax.silva') or die $!;
 		while(<MAP>){
 			chomp $_;
 			my ($acc,$tax) = split(/\s+/,$_);
@@ -109,10 +110,19 @@ sub _set_db {
 		}
 		close MAP;
 	}
+	if (-e catfile($ENV{GORAP},'gorap','data','sciTax.silva')){
+		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','sciTax.silva') or die $!;
+		while(<MAP>){
+			chomp $_;
+			my ($name,$tax) = split(/\s+/,$_);
+			$self->nameToTaxid->{$name} = $tax;
+		}
+		close MAP;
+	}
 
 	#read in rfam and silva accession numbers, already mapped to ncbi taxonomy
-	if (-e catfile($ENV{GORAP},'gorap','data','accSciTax.txt')){
-		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','accSciTax.txt') or die $!;
+	if (-e catfile($ENV{GORAP},'gorap','data','accSciTax.rfam')){
+		open MAP, '<'.catfile($ENV{GORAP},'gorap','data','accSciTax.rfam') or die $!;
 		while(<MAP>){
 			chomp $_;
 			my @tmp=split(/\s+/,$_);
