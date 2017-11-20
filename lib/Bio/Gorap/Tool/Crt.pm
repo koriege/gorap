@@ -15,6 +15,8 @@ use Bio::Seq;
 sub calc_features {
 	my ($self) = @_;
 
+	return if $self->already_predicted;
+
 	#calculations and software calls
 	#results are fetched and stored in DB structure
 

@@ -418,10 +418,9 @@ sub create_cfgs {
 		print CFG '[cmd]'."\n";
 		if ($types){
 			$types = 'RNaseP' if $rf_rna=~/RNaseP/;
-			$types = 'else' if $rf_rna=~/RF00002/;
 			print CFG $self->get_cmd($types);
 		} else {
-			$types = 'rRNA' if $rf_rna =~/_rRNA/ && $rf_rna!~/RF00002/;
+			$types = 'rRNA' if $rf_rna =~/_rRNA/;
 			$types = 'tRNA' if $rf_rna =~/\d_tRNA/;
 			$types = 'RNaseP' if $rf_rna=~/RNaseP/;
 			$types = 'CRISPR' if $rf_rna=~/CRISPR/;

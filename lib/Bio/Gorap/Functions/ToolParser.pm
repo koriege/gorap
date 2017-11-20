@@ -29,14 +29,14 @@ sub gff3_parser {
 sub infernal_parser {
 	my ($uid,$abbr,$rfrna,$s) = @_;
 
-	return ($abbr.'.'.${$s}[5].'.infernal'.$uid , 'GORAPinfernal' , $rfrna , min(${$s}[6],${$s}[7]) , max(${$s}[6],${$s}[7]) , ${$s}[3] , ${$s}[8] , '.');
+	return ($abbr.'.'.${$s}[5].'.Infernal'.$uid , 'GORAPinfernal' , $rfrna , min(${$s}[6],${$s}[7]) , max(${$s}[6],${$s}[7]) , ${$s}[3] , ${$s}[8] , '.');
 }
 
 #gorap specific blastn tabular output parser for Bio::DB::SeqFeature objects
 sub blast_parser {
 	my ($uid,$abbr,$rfrna,$s) = @_;
 
-	return ($abbr.'.'.${$s}[0].'.blast'.$uid, 'GORAPblast' , $rfrna, ${$s}[3], ${$s}[4], ${$s}[5], ${$s}[6], '.');
+	return ($abbr.'.'.${$s}[0].'.Blast'.$uid, 'GORAPblast' , $rfrna, ${$s}[3], ${$s}[4], ${$s}[5], ${$s}[6], '.');
 }
 
 #gorap specific tRNAscan-SE tabular output parser for Bio::DB::SeqFeature objects
@@ -71,6 +71,8 @@ sub barrnap_parser {
 			$rfrna = 'RF01959_SSU_rRNA_archaea';
 		} elsif (${$s}[8]=~/^Name=23S/){
 			$rfrna = 'RF02540_LSU_rRNA_archaea';
+		} elsif (${$s}[8]=~/^Name=5_8S/){
+			$rfrna = 'RF00002_5_8S_rRNA';
 		} else {
 			$rfrna = 'RF00001_5S_rRNA';
 		}
@@ -80,6 +82,8 @@ sub barrnap_parser {
 			#$rfrna = 'RF01960_SSU_rRNA_eukarya';
 		} elsif (${$s}[8]=~/^Name=28S/){
 			$rfrna = 'RF02543_LSU_rRNA_eukarya';
+		} elsif (${$s}[8]=~/^Name=5_8S/){
+			$rfrna = 'RF00002_5_8S_rRNA';
 		} else {
 			$rfrna = 'RF00001_5S_rRNA';
 		}
@@ -88,6 +92,8 @@ sub barrnap_parser {
 			$rfrna = 'RF01960_SSU_rRNA_eukarya';
 		} elsif (${$s}[8]=~/^Name=28S/){
 			$rfrna = 'RF02543_LSU_rRNA_eukarya';
+		} elsif (${$s}[8]=~/^Name=5_8S/){
+			$rfrna = 'RF00002_5_8S_rRNA';
 		} else {
 			$rfrna = 'RF00001_5S_rRNA';
 		}

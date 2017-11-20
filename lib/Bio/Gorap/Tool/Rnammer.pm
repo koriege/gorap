@@ -9,21 +9,7 @@ use File::Spec::Functions;
 sub calc_features {
 	my ($self) = @_;
 
-	#calculations and software calls
-	#results are fetched and stored in DB structure
-	for (0..$#{$self->parameter->genomes}){
-		my $abbr = ${$self->parameter->abbreviations}[$_];
-		#skip redundand calculations
-		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => 'GORAP'.$self->tool});
-		return if $#f > -1;
-
-		my @f = $self->gffdb->db->{$abbr}->features(-attributes => {source => $self->tool});
-		for (@f){
-			my $rfrna = $_->primary_tag;
-			$self->stkdb->db->{$rfrna}->remove_seq($_) for $self->stkdb->db->{$rfrna}->get_seq_by_id($f->seq_id);
-			$self->gffdb->db->{$abbr}->delete($f);
-		}
-	}
+	return if $self->already_predicted;
 
 	my @kingdoms;
 

@@ -41,6 +41,12 @@ has 'bamdb' => (
 	isa => 'Bio::Gorap::DB::BAM',
 	required => 1
 );
+
+has 'fastadb' => (
+	is => 'ro',
+	isa => 'Bio::Gorap::DB::Fasta',
+	required => 1
+);
 #add a gff3 entry into this Bio::DB::SeqFeature database
 sub add_gff3_entry {
 	my ($self,$s,$seq,$flag) = @_;
@@ -218,7 +224,7 @@ sub get_feature {
 	return $#features > -1 ? $features[0] : undef;
 }
 
-sub get_all_overlapping_features { #bad name but returns all features (type independent) overlapping at least 70% in both direction
+sub get_all_overlapping_features { #bad name but returns all features (type independent) overlapping at least 50% in both direction
 	my ($self,$s) = @_;
 
 	my ($f,$id,$source,$type,$start,$stop,$score,$strand,$phase,$attributes);
@@ -247,7 +253,7 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 		next if $_->primary_tag eq $type;
 
 		my ($istart, $istop, $istrand) = $f->intersection($_);
-		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.6 && $istop - $istart >= ($_->stop - $_->start) * 0.6;
+		push @features , $_ if $istart && $istop - $istart >= ($stop - $start) * 0.5 && $istop - $istart >= ($_->stop - $_->start) * 0.5;
 	}
 
 	return \@features;
@@ -281,8 +287,8 @@ sub _set_db {
 	for (0..$#{$self->parameter->gffs}){
 		my $abbr = ${$self->parameter->abbreviations}[$_];
 		for my $f (@{${$self->parameter->gffs}[$_]}){
-			print "$f\n" if $self->parameter->verbose;
 			$self->userdb->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 ) unless $self->userdb->{$abbr};
+			print "$f\n" if -e $f && $self->parameter->verbose;
 			open GFF, '<'.$f or die $!;
 			$self->add_user_entry($_,$abbr,(++$idc)) while <GFF>;
 			close GFF;
@@ -419,7 +425,11 @@ sub _read {
 			my $id = join '.' , ($abbr,$orig,$l[2],$l[1],$copy);
 			$l[1] =~ s/\W//g;
 			$l[1] = lc $l[1];
-			$self->add_gff3_entry(\@l,$headerMapSeq->{$id});
+			if (exists $headerMapSeq->{$id}){
+				$self->add_gff3_entry(\@l,$headerMapSeq->{$id});
+			} else {
+				$self->add_gff3_entry(\@l,$self->fastadb->get_gff3seq(\@l));
+			}
 		}
 		close GFF;
 	}
@@ -503,42 +513,29 @@ sub merge {
 	for my $abbr (@{$self->parameter->abbreviations}){
 		my @features;
 		if ($tool=~/blast/ || $tool=~/infernal/){
-			@features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => 'GORAPinfernal'}),$self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => 'GORAPblast'}));
+			@features = sort {($a->get_tag_values('chr'))[0] cmp ($b->get_tag_values('chr'))[0] || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} ($self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => 'GORAPinfernal'}),$self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => 'GORAPblast'}));
 		} else {
-			@features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $tool});
+			@features = sort {($a->get_tag_values('chr'))[0] cmp ($b->get_tag_values('chr'))[0] || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $tool});
 		}
-		my @toremove;
+		my $toremove;
 		for (my $i=0; $i<=$#features; $i++) {
-			my $j = $i;
-			my $score = $features[$j]->source=~/blast/ ? 0 : $features[$j]->score;
-			my $stop = $features[$j]->stop;
-			my $topfeature = $features[$j];
-			while(defined $features[$j+1] && $features[$j]->strand == $features[$j+1]->strand && $stop >= $features[$j+1]->start){
+			next if exists $toremove->{$i};
+			my $score = $features[$i]->source=~/blast/ ? 0 : $features[$i]->score;
+			my $j = $i+1;
+			while(defined $features[$j] && ($features[$i]->get_tag_values('chr'))[0] eq ($features[$j]->get_tag_values('chr'))[0] && $features[$i]->strand == $features[$j]->strand && $features[$i]->stop >= $features[$j]->start){
 				#merge overlapping annotations of same type, due to multi tool screening or hits in overlapping regions (see fasta split);
-				my $thisscore = $features[$j+1]->source=~/blast/ ? 0 : $features[$j]->score;
+				my $thisscore = $features[$j]->source=~/blast/ ? 0 : $features[$j]->score;
 				if ($thisscore > $score){
-					$score = $thisscore;
-					push @toremove, $topfeature;
-					$topfeature = $features[$j+1];
+					$toremove->{$i} = 1;
 				} else {
-					push @toremove, $features[$j+1];
+					$toremove->{$j} = 1;
 				}
-				$stop = $features[$j+1]->stop if $features[$j+1]->stop > $stop;
 				$j++;
 			}
-			if ($tool!~/blast/ && $tool!~/infernal/ && $i != $j){
-				$topfeature->start($features[$i]->start);
-				$topfeature->stop($stop);
-				$topfeature->score($score);
-				$topfeature->update;
-			}
-			$i=$j;
 		}
-		$self->db->{$abbr}->delete(@toremove);
+		my @rm;
+		push @rm, $features[$_] for keys %$toremove;
+		$self->db->{$abbr}->delete(@rm);
 	}
 }
 
@@ -555,45 +552,44 @@ sub store_overlaps { #final store function which includes overlapping infos and 
 		open FAP , '>'.catfile($self->parameter->output,'annotations',$abbr.'.passed.fa') or die $!;
 		open FAPO , '>'.catfile($self->parameter->output,'annotations',$abbr.'.passed.orig.fa') or die $!;
 
-		my @features = sort {my @id = split /\./ , $a->seq_id; my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-								my @id2 = split /\./ , $b->seq_id; my ($abbr2,$orig2,$copy2) = ($id2[0] , join('.',@id2[1..($#id2-1)]) , $id2[-1]);
-								$orig cmp $orig2 || $a->strand <=> $b->strand || $a->primary_tag cmp $b->primary_tag || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
+		my @features = sort {($a->get_tag_values('chr'))[0] cmp ($b->get_tag_values('chr'))[0] || $a->strand <=> $b->strand || $a->start <=> $b->start || $a->stop <=> $b->stop} $self->db->{$abbr}->features();
 
 		$self->bamdb->calculate_tpm(\@features) if ! $self->parameter->notpm && $self->parameter->has_bams;
 
 		for (my $i=0; $i<=$#features; $i++) {
-			my $j = $i;
 			my $overlaps;
-			my $stop = $features[$j]->stop;
-			while(defined $features[$j+1] && $features[$j]->primary_tag eq $features[$j+1]->primary_tag && $features[$j]->strand == $features[$j+1]->strand && $stop >= $features[$j+1]->start){
-				$overlaps->{$features[$j+1]->primary_tag} = 1;
-				$stop = $features[$j+1]->stop if $features[$j+1]->stop > $stop;
+			my $overlapspassed;
+			my $stop = $features[$i]->stop;
+			my $j = $i+1;
+			while(defined $features[$j] && ($features[$i]->get_tag_values('chr'))[0] eq ($features[$j]->get_tag_values('chr'))[0] && $features[$i]->strand == $features[$j]->strand && $features[$i]->stop >= $features[$j]->start){
+				if ($features[$j]->display_name eq '!'){
+					$overlapspassed->{$features[$j]->primary_tag} = 1;
+				} else {
+					$overlaps->{$features[$j]->primary_tag} = 1;
+				}
 				$j++;
 			}
-			for ($i..$j){
-				my @orig = split /\./,$features[$_]->seq_id;
-				shift @orig;
-				my $copy = pop @orig;
-				if(exists $self->userdb->{$abbr}){
-					for($self->userdb->{$abbr}->features(-seq_id => join('.',@orig), -start => $features[$_]->start , -strand => $features[$_]->strand, -stop => $features[$_]->stop , -range_type => 'overlaps')){
-						my ($userid) = $_->get_tag_values('ID');
-						next unless $userid;
-						$overlaps->{$userid} = 1;
-					}
-				}				
-				if ($features[$_]->display_name eq '!'){
-					print GFFP $self->to_gff3_string($features[$_],$overlaps);
-					print FAP $self->to_fasta_string($features[$_]);
-					print GFFPO $self->to_gff3_string($features[$_],$overlaps,join('.',@orig));
-					print FAPO $self->to_fasta_string($features[$_],join('.',(@orig,$copy)));
-				} else {
-					print GFF $self->to_gff3_string($features[$_],$overlaps);
-					print FA $self->to_fasta_string($features[$_]);
-					print GFFO $self->to_gff3_string($features[$_],$overlaps,join('.',@orig));
-					print FAO $self->to_fasta_string($features[$_],join('.',(@orig,$copy)));
+			my @orig = split /\./,$features[$i]->seq_id;
+			shift @orig;
+			my $copy = pop @orig;
+			if(exists $self->userdb->{$abbr}){
+				for($self->userdb->{$abbr}->features(-seq_id => join('.',@orig), -start => $features[$i]->start , -strand => $features[$i]->strand, -stop => $features[$i]->stop , -range_type => 'overlaps')){
+					my ($userid) = $_->get_tag_values('ID');
+					next unless $userid;
+					$overlaps->{$userid} = 1;
 				}
+			}				
+			if ($features[$i]->display_name eq '!'){
+				print GFFP $self->to_gff3_string($features[$i],$overlapspassed);
+				print FAP $self->to_fasta_string($features[$i]);
+				print GFFPO $self->to_gff3_string($features[$i],$overlapspassed,join('.',@orig));
+				print FAPO $self->to_fasta_string($features[$i],join('.',(@orig,$copy)));
+			} else {
+				print GFF $self->to_gff3_string($features[$i],$overlaps);
+				print FA $self->to_fasta_string($features[$i]);
+				print GFFO $self->to_gff3_string($features[$i],$overlaps,join('.',@orig));
+				print FAO $self->to_fasta_string($features[$i],join('.',(@orig,$copy)));
 			}
-			$i=$j;
 		}
 	}
 }

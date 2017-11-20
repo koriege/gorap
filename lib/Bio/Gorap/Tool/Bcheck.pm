@@ -9,6 +9,8 @@ use IO::Pipe;
 sub calc_features {
 	my ($self) = @_;
 
+	return if $self->already_predicted;
+
 	my @kingdoms;
 
 	push @kingdoms , 'A' if exists $self->parameter->kingdoms->{'arc'};

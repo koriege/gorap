@@ -27,7 +27,7 @@ sub create_genomes {
 	for my $cfg (@{$self->parameter->queries}){
 		$self->parameter->set_cfg($cfg);
 		next if $self->parameter->cfg->rna=~/CRISPR/;
-		next if $self->parameter->cfg->rf_rna =~/_rRNA/ && $self->parameter->cfg->rf!~/RF00002/;
+		next if $self->parameter->cfg->rf_rna =~/_rRNA/;
 		my $testfasta = catfile($self->parameter->cfg->query_dir,$self->parameter->cfg->rf_rna.'.testing.fa');
 		next unless -e $testfasta;
 

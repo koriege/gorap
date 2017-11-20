@@ -146,7 +146,7 @@ sub _set {
 		$types=~s/:*CD-box// if $self->rf_rna =~ /_U[0-9](1|2|atac|_|$)/;
 		$self->types($types);
 	} else {
-		$types = 'rRNA' if $self->rf_rna =~/_rRNA/ && $self->rf_rna!~/RF00002/;
+		$types = 'rRNA' if $self->rf_rna =~/_rRNA/;
 		$types = 'tRNA' if $self->rf_rna =~/\d_tRNA/;
 		$types = 'RNaseP' if $self->rf_rna=~/RNaseP/;
 		$types = 'CRISPR' if $self->rf_rna=~/CRISPR/;

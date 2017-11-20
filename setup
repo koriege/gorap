@@ -486,12 +486,13 @@ compile_hmmer() {
 
 compile_barrnap() {
 	echo ":INFO: installing barrnap"
-	(	url='https://github.com/tseemann/barrnap/archive/0.8.tar.gz' && \
-		wget -q $url -O $GORAP/barrnap.tar.gz && \
-		tar -xzf $GORAP/barrnap.tar.gz -C $GORAP && \
-		rm $GORAP/barrnap.tar.gz
+	(	cd $GORAP && \
+		url=https://github.com/tseemann/barrnap.git && \
+		git clone --recursive $url && \
+		cd barrnap && \
+		git checkout b00248d15277e5e7c94cba51476242c28d50436e
 	) &> /dev/null
-	{	cd $(ls -vd $GORAP/barrnap*/ | tail -1) && \
+	{	cd $GORAP/barrnap && \
 		ln -sfn $PWD/bin $GORAP/bin/barrnap
 	} || return 1
 	return 0

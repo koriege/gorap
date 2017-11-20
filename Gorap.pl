@@ -131,6 +131,11 @@ my $stkdb;
 if ($parameter->refresh){
 	print "Updating GFF and FASTA files from Stockholm alignments\n";
 
+	my $fastadb = Bio::Gorap::DB::Fasta->new(
+		parameter => $parameter,
+		do_chunks => 0
+	);
+
 	if ($parameter->taxonomy){
 		$taxdb = Bio::Gorap::DB::Taxonomy->new(
 			parameter => $parameter
@@ -145,8 +150,14 @@ if ($parameter->refresh){
 		);
 	}
 
-	my $gffdb = Bio::Gorap::DB::GFF->new(
+	my $bamdb = Bio::Gorap::DB::BAM->new(
 		parameter => $parameter
+	);
+
+	my $gffdb = Bio::Gorap::DB::GFF->new(
+		parameter => $parameter,
+		bamdb => $bamdb,
+		fastadb => $fastadb
 	);
 
 	for my $cfg (@{$parameter->queries}){
@@ -208,7 +219,8 @@ my $bamdb = Bio::Gorap::DB::BAM->new(
 #gorap gff3 storage database initialization without loss of existing data in output directory
 my $gffdb = Bio::Gorap::DB::GFF->new(
 	parameter => $parameter,
-	bamdb => $bamdb
+	bamdb => $bamdb,
+	fastadb => $fastadb
 );
 
 
@@ -473,13 +485,13 @@ sub run {
 
 			if ($tool eq 'Infernal' || $tool eq 'Blast'){
 				($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold($parameter->threads - $thrListener->get_workload);
-				last if $threshold && $threshold == 999999;
+				last if $threshold && $threshold == 999999; #cm is biases by species not related to input
 			}
 			$obj->calc_features;
 		}
 
-		next if $threshold && $threshold == 999999;
-		next if $parameter->cfg->rf_rna=~/SU_rRNA/;
+		next if $threshold && $threshold == 999999;  #cm is biases by species not related to input
+		next if $parameter->cfg->rf_rna=~/SU_rRNA/; #do not align long RNAs
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
 
@@ -644,7 +656,7 @@ sub safety_store {
 	say ":ERROR: Safety store in progress";
 	$thrListener->stop if $thrListener;
 	$gffdb->store if $gffdb;
-	# rmtree($parameter->tmp);
+	rmtree($parameter->tmp);
 	exit 1;
 }
 

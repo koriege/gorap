@@ -142,9 +142,10 @@ sub chunk { #CRT doesnt like multi fasta files!!
 	my $c=-1;
 	my @chunks;
 	for my $h (@{$self->nheaders}){
-		my $residues = ($self->db->fetch($h))->length;
+		my $seqo = $self->db->fetch($h);
+		my $residues = $seqo->length;
 
-		$residues /= $residues < 2000 * $self->parameter->threads ? 1 : $self->parameter->threads;
+		$residues /= $self->parameter->threads if $residues > 2000 * $self->parameter->threads;
 
 		my $outfile = catfile($self->parameter->tmp,$self->parameter->pid.'.'.(++$c));
 		push @chunks, $outfile;
@@ -152,13 +153,12 @@ sub chunk { #CRT doesnt like multi fasta files!!
 		my $written=0;
 		my $pos=0;
 		print O '>'.$pos.'.'.$h."\n";
-		my $seqo = $self->db->fetch($h);
+		
 		my @seqparts = unpack("(A80)*", $seqo->seq);
 		for my $i (0..$#seqparts){
-			my $seq=$seqparts[$i];
-			print O $seq."\n";
-			$written+=length($seq);
-			$pos+=length($seq);
+			print O $seqparts[$i]."\n";
+			$written+=length($seqparts[$i]);
+			$pos+=length($seqparts[$i]);
 			if ($written > $residues){
 				close O;
 				$outfile = catfile($self->parameter->tmp,$self->parameter->pid.'.'.(++$c));
@@ -167,17 +167,17 @@ sub chunk { #CRT doesnt like multi fasta files!!
 
 				my @overlap;
 				my $owritten=0;
+				my $opos = $pos;
 				for (my $j=$i; $j>=0; $j--){
 					unshift @overlap , $seqparts[$j];
-					$pos-=length($seqparts[$j]);
+					$opos-=length($seqparts[$j]);
 					$owritten+=length($seqparts[$j]);
-					last if $owritten > 1000;
+					last if $owritten >= 1000;
 				}
 
-				print O '>'.$pos.'.'.$h."\n";
+				print O '>'.$opos.'.'.$h."\n";
 				# print '>'.$pos.'.'.$h."\n";
 				print O $_."\n" for @overlap;
-				$pos+=$owritten;
 				$written=0;
 			}
 		}

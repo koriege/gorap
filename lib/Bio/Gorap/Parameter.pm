@@ -65,10 +65,7 @@ has 'abbreviations' => (
 has 'tmp' => (
 	is => 'rw',
 	isa => 'Str',
-	default => sub { my $self = shift;
-		make_path(catdir($ENV{GORAP},'tmp'));
-		return catdir($ENV{GORAP},'tmp');
-	}
+	default => catdir($ENV{GORAP},'tmp')
 );
 
 has commandline => (

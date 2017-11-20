@@ -301,7 +301,7 @@ sub calculate_threshold {
 					return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);
 				} else {
 
-					if ($self->parameter->cmtaxbiascutoff > 0 && $self->parameter->cfg->types!~/(CD|HACA)-box/){
+					if ($self->parameter->cmtaxbiascutoff > 0){
 						my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 						my $ancestors={};
 						my $seqc=0;
@@ -331,12 +331,13 @@ sub calculate_threshold {
 							}
 						}
 						return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
+					} else {
+						$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
+						return ($threshold,0);
 					}
-					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
-					return ($threshold,0);
 				}
 			} else {
-				if ($self->parameter->cmtaxbiascutoff > 0 && $self->parameter->cfg->types!~/(CD|HACA)-box/){
+				if ($self->parameter->cmtaxbiascutoff > 0){
 					my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 					my $ancestors={};
 					my $seqc=0;
@@ -367,9 +368,10 @@ sub calculate_threshold {
 						}
 					}
 					return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
+				} else {
+					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
+					return (max(8,$threshold),0);
 				}
-				$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
-				return (max(8,$threshold),0);
 			}
 		} else {
 			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;

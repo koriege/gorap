@@ -87,97 +87,43 @@ sub score_filter {
 	my $write;
 	my @update;
 
-	my $cdsno = $rna_types=~/CD-box/ ? 1 : 0;
+	# if ($userfilter && $rna_types=~/CD-box/){
+	# 	for (keys %{$features}){
+	# 		my $f = $features->{$_};
+	# 		next if $f->score eq '.';
+	# 		if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 8){
+	# 			delete $features->{$_};
+	# 			$write = 1;
+	# 			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+	# 			push @update , $f->seq_id.' '.$f->primary_tag.' B';
+	# 		}
+	# 	}
+	# 	return ($stk , $features, \@update , $write);
+	# }
 
-	if ( ! $nofilter && $userfilter && $cdsno){
-		for (keys %{$features}){
-			my $f = $features->{$_};
-			next if $f->score eq '.';
+	$nonTaxThreshold = 999999 unless $nontaxthreshold; #else: gorap was startet with taxonomy - $threshold is taxonomy based, $nontaxthreshold comes from cfg
+		
+	for (keys %{$features}){
+		my $f = $features->{$_};
+		next if $f->score eq '.';
 
-			if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 8){
+		my @id = split /\./ , $f->seq_id;
+		my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+
+		if ($f->source =~ /infernal/ || $f->source =~ /blast/){
+			my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
+			if ($score < $threshold){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
 				push @update , $f->seq_id.' '.$f->primary_tag.' B';
 			}
-		}
-
-		return ($stk , $features, \@update , $write);
-	}
-
-	if ($nonTaxThreshold){ #gorap was startet with taxonomy - $threshold is taxonomy based
-		if ($cdsno){
-			for (keys %{$features}){
-				my $f = $features->{$_};
-				next if $f->score eq '.';
-
-				my @id = split /\./ , $f->seq_id;
-				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-
-				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
-					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
-					if ($score < min($nonTaxThreshold,$threshold)){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				} else {
-					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				}
-			}
 		} else {
-			for (keys %{$features}){
-				my $f = $features->{$_};
-				next if $f->score eq '.';
-
-				my @id = split /\./ , $f->seq_id;
-				my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
-
-				if ($f->source =~ /infernal/ || $f->source =~ /blast/){
-					my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
-					if ($score < $threshold){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				} else {
-					if ($f->score < 8 || $f->score < min($nonTaxThreshold,$threshold) ){
-						delete $features->{$_};
-						$write = 1;
-						$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-						push @update , $f->seq_id.' '.$f->primary_tag.' B';
-					}
-				}
-			}
-		}
-
-	} else {
-		for (keys %{$features}){
-			my $f = $features->{$_};
-			next if $f->score eq '.';
-
-			if ($f->source =~ /infernal/ || $f->source =~ /blast/){
-				my $score = $f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0]);
-				if ($score < $threshold){
-					delete $features->{$_};
-					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-					push @update , $f->seq_id.' '.$f->primary_tag.' B';
-				}
-			} else {
-				if ($f->score < 8 || $f->score < $threshold){
-					delete $features->{$_};
-					$write = 1;
-					$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-					push @update , $f->seq_id.' '.$f->primary_tag.' B';
-				}
+			if ($f->score < min($nonTaxThreshold,$threshold) ){
+				delete $features->{$_};
+				$write = 1;
+				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
+				push @update , $f->seq_id.' '.$f->primary_tag.' B';
 			}
 		}
 	}
