@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 use strict;
 use warnings;
 
-my @scripts = qw (Gorap.pl Gosno.pl);
+my @scripts = qw (Gorap.pl);
 
 WriteMakefile(
 	'NAME'	=>	'Bio::Gorap',
