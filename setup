@@ -287,15 +287,15 @@ compile_raxml() {
 		rm $GORAP/raxml.tar.gz
 	) 2> /dev/null
 	if [[ $OSTYPE =~ darwin ]]; then
-		makefile='Makefile.AVX2.Pthreads.mac'
+		makefile='Makefile.AVX2.PTHREADS.mac'
 		avx=$(sysctl -n machdep.cpu.features | grep -Fi avx2)
-		[[ ! $avx ]] && makefile='Makefile.AVX.Pthreads.mac' && avx=$(sysctl -n machdep.cpu.features | grep -Fi avx)
-		[[ ! $avx ]] && makefile='Makefile.SSE3.Pthreads.mac'
+		[[ ! $avx ]] && makefile='Makefile.AVX.PTHREADS.mac' && avx=$(sysctl -n machdep.cpu.features | grep -Fi avx)
+		[[ ! $avx ]] && makefile='Makefile.SSE3.PTHREADS.mac'
 	else
-		makefile='Makefile.AVX2.Pthreads.gcc'
+		makefile='Makefile.AVX2.PTHREADS.gcc'
 		avx=$(grep -Fi avx2 /proc/cpuinfo)
-		[[ ! $avx ]] && makefile='Makefile.AVX.Pthreads.gcc' && avx=$(grep -Fi avx /proc/cpuinfo)
-		[[ ! $avx ]] && makefile='Makefile.SSE3.Pthreads.gcc'
+		[[ ! $avx ]] && makefile='Makefile.AVX.PTHREADS.gcc' && avx=$(grep -Fi avx /proc/cpuinfo)
+		[[ ! $avx ]] && makefile='Makefile.SSE3.PTHREADS.gcc'
 	fi
 	{	cd $(ls -vd $GORAP/standard-RAxML*/ | tail -1) && \
 		makeclean $makefile && \
