@@ -14,7 +14,7 @@ The installation process includes all necessary software and databases to run th
 - Rfam, NCBI Taxonomy, Silva
 
 Requirements: Linux/Unix or Mac with internet access and installed
-- Perl, gcc, make, wget, curl
+- Perl, git, gcc, make, wget, curl
 
 1   INSTALLATION
 2   UPDATE GORAP
@@ -167,7 +167,7 @@ L - Length cutoff if predicted gene is shorter than 40% of consensus reference
 B - Bitscore cutoff as minimum of scores by taxonomic related species or Rfam suggested noise cutoff
 S - Structure based rejection if predicted gene holds less than 50% conserved hairpins
 P - Primary sequence conservation based rejection, if predicted gene has less than 70% of strongly (>=90%) conserved nucleotides in Rfam
-	Exception: CD-box snoRNAs, which are screened for special properties and proper box motifs
+	Exception: snoRNAs, which are screened for special properties and proper box motifs
 C - Copy number cutoff as defined in configuration file
 O - Overlap based rejection if higher scored annotation exists due to multi- tool or kingdom screening
 X - Tag for manually deleted sequences after Gorap refresh

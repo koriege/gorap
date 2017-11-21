@@ -209,7 +209,7 @@ sub align {
 			$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $stkfile $cm $fastafile" if $cm;
 			($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );
 		}
-	} else { 
+	} else {
 		$cmd2 = "esl-alimerge --rna -o $stkfile ".$self->parameter->cfg->stk." $tmpfile1";
 		($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd2 , verbose => 0 );
 
@@ -296,7 +296,11 @@ sub calculate_threshold {
 					}
 					close S;
 
-					$threshold = $threshold < $self->parameter->cfg->bitscore * $self->parameter->thfactor ? floor($threshold) : floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
+					if ($threshold > $self->parameter->cfg->bitscore * $self->parameter->thfactor){
+						$threshold = floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
+					} else {
+						$threshold = floor($threshold);
+					}
 					#returns threshold and nonTaxThreshold
 					return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);
 				} else {
@@ -331,10 +335,9 @@ sub calculate_threshold {
 							}
 						}
 						return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
-					} else {
-						$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
-						return ($threshold,0);
 					}
+					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
+					return ($threshold,0);
 				}
 			} else {
 				if ($self->parameter->cmtaxbiascutoff > 0){
@@ -368,10 +371,9 @@ sub calculate_threshold {
 						}
 					}
 					return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
-				} else {
-					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
-					return (max(8,$threshold),0);
-				}
+				} 
+				$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
+				return (max(8,$threshold),0);
 			}
 		} else {
 			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
@@ -406,7 +408,6 @@ sub filter_stk {
 		return @update if scalar keys %{$features} == 0;
 		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;
 	}
-
 	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold, $self->parameter->cfg->types);
 	push @update , @{$up} if $up;
 	return @update if scalar keys %{$features} == 0;
@@ -441,10 +442,12 @@ sub filter_stk {
 		return @update if scalar keys %{$features} == 0;
 		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.C.stk'));# if $write;
 
-		($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->overlap_filter($stk, $features, $gffdb);
-		push @update , @{$up} if $up;
-		return @update if scalar keys %{$features} == 0;
-		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
+		if ($self->parameter->check_overlaps){
+			($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->overlap_filter($stk, $features, $gffdb);
+			push @update , @{$up} if $up;
+			return @update if scalar keys %{$features} == 0;
+			$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.O.stk'));# if $write;
+		}
 	}
 
 	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'alignments',$id.'.stk'),$taxdb);

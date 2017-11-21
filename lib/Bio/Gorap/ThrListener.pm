@@ -57,13 +57,13 @@ sub stop {
 	for (keys %{$self->thrList}){
 		waitpid($_,0);
 		delete $self->thrList->{$_};
-		$self->_read();
+		push @{$self->finished} , $self->_read();
 	}
 }
 
-#check for resources and extends an object by inter process communication
-sub push_obj {
-	my ($self,$obj) = @_;
+#check for resources
+sub _enqueue {
+	my ($self) = @_;
 
 	for (keys %{$self->thrList}){
 		waitpid($_, &WNOHANG);
@@ -98,22 +98,24 @@ sub _read {
 	return $type;
 }
 
-sub calc_background {
+sub start {
 	#subroutine reference, which returns array of strings to print into pipe
 	my ($self,$sub) = @_;
+
+	$self->_enqueue;
 
 	my $pipe = IO::Pipe->new;
 	#start single threaded filter calculations
 	my $pid = fork();
 	unless ($pid) {
 		$pipe->writer();
-    	$pipe->autoflush(1);
-    	#background calculation starts here
-    	#returned array of strings of given subroutine is written to IO::Pipe
-    	for (&$sub){
-    		chomp $_;
-    		print $pipe $_."\n";
-    	}
+		$pipe->autoflush(1);
+		#background calculation starts here
+		#returned array of strings of given subroutine is written to IO::Pipe
+		for (&$sub){
+			chomp $_;
+			print $pipe $_."\n";
+		}
 		exit;
 	} else {
 		$pipe->reader();

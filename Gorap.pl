@@ -92,10 +92,13 @@ BEGIN {
 
 use File::Basename;
 use File::Copy qw(copy);
-use File::Path qw(make_path rmtree);
+use File::Path qw(make_path remove_tree);
 use List::Util qw(any);
 use Try::Tiny;
 use Hash::Merge qw(merge);
+
+
+use lib './lib'; #TODO remove this
 
 use Bio::Gorap::Parameter;
 use Bio::Gorap::ThrListener;
@@ -183,7 +186,7 @@ if ($parameter->refresh){
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 	print "\nResults stored with label: ".$parameter->label."\n";
 
-	rmtree($parameter->tmp);
+	remove_tree($parameter->tmp,{verbose => 0, error  => \my $err});
 
 	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 	$year = $year + 1900;
@@ -223,7 +226,6 @@ my $gffdb = Bio::Gorap::DB::GFF->new(
 	fastadb => $fastadb
 );
 
-
 #starts a necessary stdout listener for forked jobs using io::select and io::pipe
 #with related storage object and a codeRef for parsing/storing a string of information
 #fetched during background calculations
@@ -236,20 +238,8 @@ my $thrListener = Bio::Gorap::ThrListener->new(
 
 unless ($parameter->skip_comp){
 	&run();
-
-	#stops the thread listener and waits for remaining background jobs to be finished
-	$thrListener->stop;
-
-	#remove overlap marked sequences
-	my ($type_map_features) = $gffdb->get_filtered_features('O');
-
-	for (keys %$type_map_features){
-		$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
-	}
-	#store final annotation results
-	$gffdb->store_overlaps;
-
-	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
+} else {
+	$stkdb->store if $parameter->sort;
 }
 
 if ($parameter->has_outgroups){
@@ -293,14 +283,6 @@ if ($parameter->has_outgroups){
 				storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 			);
 			&run();
-			#stops the thread listener and waits for remaining background jobs to be finished
-			$thrListener->stop;
-			my ($type_map_features) = $gffdb->get_filtered_features('O');
-			for (keys %$type_map_features){
-				$stkdb->rm_seq_from_stk($type_map_features->{$_},$_,'O');
-			}
-			#store final annotation results
-			$gffdb->store_overlaps;
 		}
 
 		my @allabbres = (@oldabbres,@{$parameter->ogabbreviations});
@@ -409,17 +391,6 @@ if ($parameter->has_outgroups){
 	}
 }
 
-#remove temp files
-rmtree($parameter->tmp);
-
-$stkdb->store if $parameter->skip_comp && $parameter->sort;
-print "\nResults stored with label ".$parameter->label."\n";
-
-($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
-$year = $year + 1900;
-$mon += 1;
-print "$mday.$mon.$year-$hour:$min:$sec\n";
-
 sub run {
 	print "Writing to ".$parameter->output."\n" if $parameter->verbose;
 
@@ -428,7 +399,7 @@ sub run {
 		#parse the query related cfg file and store it into parameter object
 		$parameter->set_cfg($cfg);
 		$c++;
-		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf if $parameter->verbose;
+		print $c.' of ',$#{$parameter->queries}+1,' - '.$parameter->cfg->rf_rna if $parameter->verbose;
 		#start screening if rfam query belongs to a kingdom of interest
 		my $next=1;
 		for (keys %{$parameter->kingdoms}){
@@ -454,7 +425,7 @@ sub run {
 			my $f = catfile('Bio','Gorap','Tool',$tool.'.pm');
 			my $class = 'Bio::Gorap::Tool::'.$tool;
 			try {
-		    	require $f;
+				require $f;
 			} catch {
 				if (/^Can't locate .*?\.pm in \@INC/){
 					print 'Unknown tool '.$tool.': using Default.pm'."\n";
@@ -481,7 +452,6 @@ sub run {
 				tool => $tool,
 				cmd => $cmd
 			);
-			$thrListener->push_obj($obj);
 
 			if ($tool eq 'Infernal' || $tool eq 'Blast'){
 				($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold($parameter->threads - $thrListener->get_workload);
@@ -495,7 +465,7 @@ sub run {
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
 
-		#print "align\n";
+		# print "align\n";
 		if ($parameter->cfg->cm){
 			my ($scorefile,$stk);
 			try{
@@ -510,11 +480,11 @@ sub run {
 			$gffdb->update_score_by_file($parameter->cfg->rf_rna,$scorefile);
 
 			#start of time consuming single threaded background job with a subroutine reference,
-			#which returns an array of String, parsable by pipe_parser
+			#which returns an array of String, parsable by thredlisteners storage_saver - the gff objects function to update the filter tag
 			if ($threshold){
 				my $features = $gffdb->get_features($parameter->cfg->rf_rna,$parameter->abbreviations);
 				next if $#{$features} == -1;
-				$thrListener->calc_background(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
+				$thrListener->start(sub {$stkdb->filter_stk($parameter->cfg->rf_rna,$stk,$features,$threshold,$nonTaxThreshold,$taxdb,$gffdb)});
 			} else {
 				$stkdb->remove_gap_columns_and_write($stk,catfile($parameter->output,'alignments',$parameter->cfg->rf_rna.'.stk'),$taxdb);
 				$gffdb->store($parameter->cfg->rf_rna);
@@ -525,7 +495,6 @@ sub run {
 			$gffdb->store(shift @{$thrListener->finished});
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}
-
 	}
 
 	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
@@ -542,7 +511,18 @@ sub run {
 		cmd => ''
 	))->calc_features;
 
+	#stops the thread listener and waits for remaining background jobs to be finished
+	$thrListener->stop;
+	#store final annotation results
+	$gffdb->store_overlaps;
+	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 
+	remove_tree($parameter->tmp,{verbose => 0, error  => \my $err});
+	print "\nResults stored with label ".$parameter->label."\n";
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
+	$year = $year + 1900;
+	$mon += 1;
+	print "$mday.$mon.$year-$hour:$min:$sec\n";
 }
 
 sub get_phylo_features {
@@ -656,7 +636,7 @@ sub safety_store {
 	say ":ERROR: Safety store in progress";
 	$thrListener->stop if $thrListener;
 	$gffdb->store if $gffdb;
-	rmtree($parameter->tmp);
+	remove_tree($parameter->tmp,{verbose => 0, error  => \my $err});
 	exit 1;
 }
 
@@ -691,6 +671,10 @@ RNA family specific screening options, threshold and constrains can be easily am
 =item B<-h>, B<--help>
 
 this (help) message
+
+=item B<-v>, B<--version>
+
+this Gorap version
 
 =item B<-example>, B<--example>
 
@@ -751,7 +735,11 @@ enable resulting alignments to be sorted in taxonomic order
 
 =item B<-nofi>, B<--nofilter>
 
-disables Gorap specific filters
+disables Gorap specific filters for length, identitiy, secondary structure, overlapping ncRNA families
+
+=item B<-nodel>, B<--nooverlapdeletion>
+
+allow annotation of overlapping ncRNA families
 
 =back
 

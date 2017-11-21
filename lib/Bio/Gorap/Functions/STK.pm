@@ -127,7 +127,7 @@ sub score_filter {
 			}
 		}
 	}
-
+	
 	return ($stk , $features, \@update , $write);
 }
 

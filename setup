@@ -74,6 +74,8 @@ checkopt() {
 }
 
 dependencies() {
+	[[ $(perl -v &> /dev/null; echo $?) -gt 0 ]] && echo ":ERROR: dependency missing: perl" && return 1
+	[[ $(git --help &> /dev/null; echo $?) -gt 0 ]] && echo ":ERROR: dependency missing: git" && return 1
 	[[ $(make -h &> /dev/null; echo $?) -gt 0 ]] && echo ":ERROR: dependency missing: make" && return 1
 	[[ $(gcc -v &> /dev/null; echo $?) -gt 0 ]] && echo ":ERROR: dependency missing: gcc" && return 1
 	[[ $(unzip -h &> /dev/null; echo $?) -gt 0 ]] && echo ":ERROR: dependency missing: unzip" && return 1
@@ -245,7 +247,7 @@ compile_clibs() {
 		makeclean && \
 		mkdir built && \
 		./configure --prefix=$PWD/built && \
-		make -j $THREADS && \
+		make -j $threads && \
 		make install
 	} || return 1
 
@@ -259,7 +261,7 @@ compile_clibs() {
 		makeclean && \
 		mkdir built && \
 		./configure --prefix=$PWD/built && \
-		make -j $THREADS && \
+		make -j $threads && \
 		make install
 	} || return 1
 
@@ -271,7 +273,7 @@ compile_clibs() {
 	{	cd $(ls -dv $GORAP/bzip2*/ | tail -1) && \
 		makeclean && \
 		sed -i -r 's/^\s*CFLAGS\s*=\s*/override CFLAGS += /' Makefile && \
-		make -j $THREADS CFLAGS="-fPIC"
+		make -j $threads CFLAGS="-fPIC"
 	} || return 1
 
 	return 0
@@ -285,15 +287,15 @@ compile_raxml() {
 		rm $GORAP/raxml.tar.gz
 	) 2> /dev/null
 	if [[ $OSTYPE =~ darwin ]]; then
-		makefile='Makefile.AVX2.PTHREADS.mac'
+		makefile='Makefile.AVX2.Pthreads.mac'
 		avx=$(sysctl -n machdep.cpu.features | grep -Fi avx2)
-		[[ ! $avx ]] && makefile='Makefile.AVX.PTHREADS.mac' && avx=$(sysctl -n machdep.cpu.features | grep -Fi avx)
-		[[ ! $avx ]] && makefile='Makefile.SSE3.PTHREADS.mac'
+		[[ ! $avx ]] && makefile='Makefile.AVX.Pthreads.mac' && avx=$(sysctl -n machdep.cpu.features | grep -Fi avx)
+		[[ ! $avx ]] && makefile='Makefile.SSE3.Pthreads.mac'
 	else
-		makefile='Makefile.AVX2.PTHREADS.gcc'
+		makefile='Makefile.AVX2.Pthreads.gcc'
 		avx=$(grep -Fi avx2 /proc/cpuinfo)
-		[[ ! $avx ]] && makefile='Makefile.AVX.PTHREADS.gcc' && avx=$(grep -Fi avx /proc/cpuinfo)
-		[[ ! $avx ]] && makefile='Makefile.SSE3.PTHREADS.gcc'
+		[[ ! $avx ]] && makefile='Makefile.AVX.Pthreads.gcc' && avx=$(grep -Fi avx /proc/cpuinfo)
+		[[ ! $avx ]] && makefile='Makefile.SSE3.Pthreads.gcc'
 	fi
 	{	cd $(ls -vd $GORAP/standard-RAxML*/ | tail -1) && \
 		makeclean $makefile && \
@@ -547,21 +549,22 @@ compile_jquery() {
 
 ############### MAIN
 
-[[ $# -eq 0 ]] && usage
-[[ ! $GORAP ]] && echo ":ERROR: please do: export GORAP=/path/to/install/dir" && trapper
-dependencies || trapper
-
-make='all'
 if [[ $OSTYPE =~ darwin ]]; then
 	threads=$(sysctl -n hw.ncpu)
 else
 	threads=$(cat /proc/cpuinfo | grep -cF processor)
 fi
+VERSION=$(perl -e 'use File::Spec::Functions; BEGIN{ unshift @INC,"$ENV{PWD}/lib"}; use Bio::Gorap::Gorap; print Bio::Gorap::Gorap->VERSION')
+
+[[ $# -eq 0 ]] && usage
+[[ ! $GORAP ]] && echo ":ERROR: please do: export GORAP=/path/to/install/dir" && trapper
+dependencies || trapper
+
 verbose=0
 log=$GORAP/install.log
 SRC=$(cd $(dirname $0) && echo $PWD)
 cd $SRC
-VERSION=$(perl -e 'use File::Spec::Functions; BEGIN{ unshift @INC,"$ENV{PWD}/lib"}; use Bio::Gorap::Gorap; print Bio::Gorap::Gorap->VERSION')
+make='all'
 for i in $(seq 1 $#); do
 	if [[ ${!i} =~ ^- ]]; then
 		j=$((i+1))
