@@ -520,7 +520,7 @@ sub create_cfgs {
 		print CFG "conserved=$cs\n";
 		if ($#userdescription != -1){
 			print CFG 'constrain='.$_."\n" for @userdescription;
-			print STDERR ":ERROR: manually re-check constrains for $rf_rna in ".catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg')."\n" if length($cs) != length($userdescription[0]);
+			print STDERR ":ERROR: manually re-check constrains for $rf_rna in ".catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg')."\n" if length($cs) != length($userdescription[0]) && ! (length($userdescription[0])-length($cs) == 1 && $userdescription[0]=~/\|$/);
 		} elsif($cdsnorna){
 			print ":INFO: consider to add box constrains for $rf_rna in ".catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg')."\n";
 		}

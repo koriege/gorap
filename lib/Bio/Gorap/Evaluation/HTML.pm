@@ -42,7 +42,7 @@ sub create {
 					print HTML '<br>'."\n";
 					print HTML 'Gorap.pl -file '.$parameter->file.' ';
 					print HTML '-ss ' if $parameter->strandspec;
-					print HTML '-notax ' if $parameter->notax;
+					print HTML '-notax ' if $parameter->taxonomy;
 					print HTML '-sort ' if $parameter->sort;
 					print HTML '-nofi ' if $parameter->nofilter;
 					print HTML '-nobl ' if $parameter->noblast;

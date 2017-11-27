@@ -80,26 +80,12 @@ sub length_filter {
 }
 
 sub score_filter {
-	my ($self, $nofilter, $userfilter, $stk, $features, $threshold, $nonTaxThreshold, $rna_types) = @_;
+	my ($self, $stk, $features, $threshold, $nonTaxThreshold) = @_;
 
 	my $c=0;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
 	my $write;
 	my @update;
-
-	# if ($userfilter && $rna_types=~/CD-box/){
-	# 	for (keys %{$features}){
-	# 		my $f = $features->{$_};
-	# 		next if $f->score eq '.';
-	# 		if ( ($f->source =~ /blast/ ? $f->score : max($f->score,($f->get_tag_values('origscore'))[0])) < 8){
-	# 			delete $features->{$_};
-	# 			$write = 1;
-	# 			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));
-	# 			push @update , $f->seq_id.' '.$f->primary_tag.' B';
-	# 		}
-	# 	}
-	# 	return ($stk , $features, \@update , $write);
-	# }
 
 	$nonTaxThreshold = 999999 unless $nontaxthreshold; #else: gorap was startet with taxonomy - $threshold is taxonomy based, $nontaxthreshold comes from cfg
 		
@@ -242,12 +228,13 @@ sub structure_filter {
 
 	my $hacasno = $rna_types=~/HACA-box/ ? 1 : 0;
 	my @aca;
+	my $i=$#cs;
 	for(reverse @cs){
 		if ($_=~/[a-zA-Z]/){
-			unshift @aca, $_;
-			$i++;
+			unshift @aca, $i;
+			$i--;
 		}
-		last if $i==12;
+		last if $#aca==12;
 	}
 	my @anna;
 	my ($hp,$i,$bracket) = (0,0,0);
@@ -352,110 +339,89 @@ sub sequence_filter {
 
 sub user_filter {
 	my ($self, $stk, $features, $constrains, $cs, $seedstk, $rna_types) = @_;
-	$cs=~s/\W/-/g;
 	$features = {map { $c++ => $_ } @{$features}} if ref($features) eq 'ARRAY';
-
+	my $cdsno = $rna_types=~/CD-box/ ? 1 : 0;
 	my @update;
 	my $write;
 
-	my $seedseqo = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln->get_seq_by_pos(1);
-    my $seq = lc($seedseqo->seq);
-	$seq=~s/\W/-/g;
-
-	my @seedseq = split // , lc($seq);
-	$seq = ($stk->get_seq_by_id($seedseqo->id))->seq;
-	$seq=~s/\W/-/g;
-
-	my @stkseedseq = split // , lc($seq);
+	my @cs = split //,$cs;
 	my ($seedss , $seedcs) = $self->get_ss_cs_from_file($seedstk);
 	my @seedcs = split // , $seedcs;
-	my ($newss , $newcs) = $self->get_ss_cs_from_object($stk);
 
-	#mapping of cfg cs to seed stk pos
-	my @cs_pos_in_seed;
-	my @cs = split(//,$cs);
-	my $c=0;
-	for my $i (0..$#cs){
-		$c++ while $i+$c <= $#seedcs && $seedcs[$i+$c] !~ /\w/;
-		push @cs_pos_in_seed , $i+$c;
-	}
-
-	# mapping of seed stk seq to new stk seq
-	my @seedseq_pos_in_stk;
+	my %seedmap;
 	my $j=0;
-	for (my $i=0; $i<=$#seedseq; $i++){
-		$c = $i;
-		$i++ while $seedseq[$i]=~/\W/;
-		#print $seedseq[$i].' '.$stkseedseq[$j]." $i  $j\n";
-
-		if ($seedseq[$i] eq $stkseedseq[$j]){
-			$j++;
-		} else {
-			$j++ while $seedseq[$i] ne $stkseedseq[$j];
-			$i--;
-		}
-
-		push @seedseq_pos_in_stk , ($j)x($i-$c+1);
-		# print ($j)x($i-$c+1);
-		# exit if $i >9;
+	for my $i (0..$#cs){
+		$j++ while $i+$j<$#seedcs && $seedcs[$i+$j]=~/\W/;
+		$seedmap{$i} = $i+$j;
 	}
-	# print $#seedseq." ".$#seedseq_pos_in_stk."\n";
 
-	# print ''.join('',@cs)."\n";
-	# print ''.join('',@seedseq)."\n";
-	# for (0..$#{$constrains}){
-	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
-	# 	print $cs_pos_in_seed[$sta-1]." ".$cs_pos_in_seed[$sto-1].' '.join('',@seedseq[$cs_pos_in_seed[$sta-1]..$cs_pos_in_seed[$sto-1]])."\n";
-	# }
+	my $seedaln = (Bio::AlignIO->new(-format  => 'stockholm', -file => $seedstk, -verbose => -1 ))->next_aln;
+	for my $c (0..$#{$constrains}){
+		my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
+		$sta--;
+		$sto--;
+		# print "contrain: $query\n";
+		# print @cs[$sta..$sto]; print "\t";
+		# print @seedcs[$seedmap{$sta}..$seedmap{$sto}]; print "\n";
 
-	# print ''.join('',@stkseedseq)."\n";
-	# # print ''.join('',@seedseq_pos_in_stk)."\n";
-	# for (0..$#{$constrains}){
-	# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-	# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
-	# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.join('',@stkseedseq[$seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]..$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]])."\n";
-	# }
-
-	my $cdsno = $rna_types=~/CD-box/ ? 1 : 0;
+		my $hold=1;
+		for $seedseq ($seedaln->each_seq) {
+			my $subseq = $seedseq->subseq($seedmap{$sta}+1,$seedmap{$sto}+1);
+			unless ($subseq=~/^\W/ && $subseq=~/\W$/){
+				my @stkseq = split // , ($stk->get_seq_by_id($seedseq->id))->seq;
+				my @seedseq = split //, $seedseq->seq;
+				my %stkmap;
+				my $j=0;
+				for my $i (0..$#seedseq){
+					next if $seedseq[$i]=~/\W/;
+					$j++ while $i+$j<$#stkseq && $stkseq[$i+$j]=~/\W/;
+					$stkmap{$i} = $i+$j;
+				}
+				# print $seedseq->seq."\n";
+				# print $seedmap{$sta}."\t".$seedmap{$sto}."\t".$subseq."\n";
+				# print @stkseq; print "\n";
+				# print $stkmap{$seedmap{$sta}}."\t".$stkmap{$seedmap{$sto}}."\t";
+				# print @stkseq[$stkmap{$seedmap{$sta}}..$stkmap{$seedmap{$sto}}]; print "\n";
+				${$$constrains[$c]}[0] = $stkmap{$seedmap{$sta}};
+				${$$constrains[$c]}[1] = $stkmap{$seedmap{$sto}};
+				last;
+			}		
+		}
+		${$$constrains[$c]}[3]='' unless $hold;
+	}
 
 	for my $k (keys %{$features}){
 		my $f = $features->{$k};
-		# print $f->seq_id."\n";
-		# print ''.join('',@stkseedseq)."\n";
-		# print ''.($stk->get_seq_by_id($f->seq_id))[0]->seq."\n";
-		# for (0..$#{$constrains}){
-		# 	my ($sta,$sto,$mm,$query) = @{$$constrains[$_]};
-		# 	print $sta." ".$sto." ".join('',@cs[$sta-1..$sto-1])."\n";
-		# 	print $seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]." ".$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1].' '.lc(($stk->get_seq_by_id($f->seq_id))[0]->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1))."\n";
-		# }
-
 		next if $f->score ne '.' && $f->score > 30 && $cdsno;
 
-		my $hold=1;
+		my $stkseq = $stk->get_seq_by_id($f->seq_id);
 		my @uga_ug;
 		my @cu_ga;
+		my $hold=1;
 		for my $c (0..$#{$constrains}){
 			my ($sta,$sto,$mm,$query) = @{$$constrains[$c]};
+			next unless $query; #backmap unavailable
+			#print $query."\t".$f->seq_id."\t".$stkseq->subseq($sta+1,$sto+1)."\n";
 
-			$query = lc($query);
+			$query = lc $query;
 			$query=~s/\W//g;
 
 			my ($seq) = $stk->get_seq_by_id($f->seq_id);
-			my $stkseq = lc($seq->subseq($seedseq_pos_in_stk[$cs_pos_in_seed[$sta-1]-1]+1,min($seq->length,$seedseq_pos_in_stk[$cs_pos_in_seed[$sto-1]-1]+1)));
-			my @stkseq = split //, $stkseq;
-			$stkseq=~s/-//g;
-			my ($costs, @alnmap) = &gotoh($query,$stkseq);
+			my $seq = lc $stkseq->subseq($sta+1,$sto+1);
+			$seq=~s/\W//g;
+			my @seq = split //,$seq;
+			
+			my ($costs, @alnmap) = &gotoh($query,$seq);
 			if ($costs*-1 > $mm){
 				$hold=0;
 				last;
 			}
 
-			@uga_ug = (defined $alnmap[3] && $stkseq[$alnmap[3]] ? $stkseq[$alnmap[3]] : '', defined $alnmap[4] && $stkseq[$alnmap[4]] ? $stkseq[$alnmap[4]] : '') if $c==0;
-			@cu_ga = (defined $alnmap[0] && $stkseq[$alnmap[0]] ? $stkseq[$alnmap[0]] : '', defined $alnmap[1] && $stkseq[$alnmap[1]] ? $stkseq[$alnmap[1]] : '') if $c==1;
+			@uga_ug = (defined $alnmap[3] && $seq[$alnmap[3]] ? $seq[$alnmap[3]] : '', defined $seq[4] && $seq[$alnmap[4]] ? $seq[$alnmap[4]] : '') if $c==0;
+			@cu_ga = (defined $alnmap[0] && $seq[$alnmap[0]] ? $seq[$alnmap[0]] : '', defined $seq[1] && $seq[$alnmap[1]] ? $seq[$alnmap[1]] : '') if $c==1;
 		}
 
-		if ($hold && $cdsno && $f->score ne '.' && $f->score < 25 && $#uga_ug>=1 && $#cu_ga>=1){
+		if ($hold && $cdsno && $#uga_ug>=1 && $#cu_ga>=1){
 			# print ''.join('',@uga_ug)." ".join('',@cu_ga)."\n";
 			my $bpmm=0;
 			switch ($uga_ug[0]){
@@ -499,7 +465,6 @@ sub user_filter {
 		}
 
 		unless ($hold){
-			# print $features->{$k}->seq_id."\n";
 			delete $features->{$k};
 			$write = 1;
 			$stk->remove_seq($stk->get_seq_by_id($f->seq_id));

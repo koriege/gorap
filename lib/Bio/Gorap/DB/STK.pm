@@ -244,145 +244,95 @@ sub align {
 }
 
 sub calculate_threshold {
-	# my ($self,$cpus,$relatedRankIDsToLineage,$relatedSpeciesIDsToLineage) = @_;
 	my ($self,$cpus) = @_;
 
 	my $threshold=999999;
 	if ($self->parameter->cfg->bitscore == $self->parameter->cfg->bitscore_cm){ #user didnt change anything
-		if ($self->has_taxonomy && ($self->taxonomy->rankID || $self->taxonomy->speciesID) ){ #taxonomy filter is enabled
-			#check taxonomy to create own bitscore, else use Rfam bitscore threshold
 
-			if (scalar keys %{$self->taxonomy->relatedSpeciesIDsToLineage} > 0 || scalar keys %{$self->taxonomy->relatedRankIDsToLineage} > 0){
+		my $scorefile;
+		if ($self->parameter->taxonomy && (scalar keys %{$self->taxonomy->relatedSpeciesIDsToLineage} > 0 || scalar keys %{$self->taxonomy->relatedRankIDsToLineage} > 0)){
 
-				my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+			my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
 
-				my ($inRank,$inSpecies);
-				while ( my $s = $fasta->next_seq() ) {
-					if ($s->id=~/^(\d+)/){
-						push @{$inSpecies} , $s if exists $self->taxonomy->relatedSpeciesIDsToLineage->{$1};
-						push @{$inRank} , $s if exists $self->taxonomy->relatedRankIDsToLineage->{$1};
-					}
+			my ($inRank,$inSpecies);
+			while ( my $s = $fasta->next_seq() ) {
+				if ($s->id=~/^(\d+)/){
+					push @{$inSpecies} , $s if exists $self->taxonomy->relatedSpeciesIDsToLineage->{$1};
+					push @{$inRank} , $s if exists $self->taxonomy->relatedRankIDsToLineage->{$1};
 				}
+			}
 
-				my $scorefile;
-				if ($#{$inSpecies} > -1 ){
-					$scorefile = $self->align(
-						$self->parameter->cfg->rf_rna.'.tax',
-						$inSpecies,
-						$cpus,
-						$self->parameter->cfg->cm,
-						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
-						1
-					);
-				}elsif($#{$inRank} > -1){
-					$scorefile = $self->align(
-						$self->parameter->cfg->rf_rna.'.tax',
-						$inRank,
-						$cpus,
-						$self->parameter->cfg->cm,
-						catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
-						1
-					);
-				}
-
-				if ($scorefile){
-					open S , '<'.$scorefile or die $!;
-					while(<S>){
-						chomp $_ ;
-						$_ =~ s/^\s+|\s+$//g;
-						next if $_=~/^#/;
-						my @l = split /\s+/ , $_;
-						$threshold = $l[6] if $l[6] < $threshold;
-					}
-					close S;
-
-					if ($threshold > $self->parameter->cfg->bitscore * $self->parameter->thfactor){
-						$threshold = floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
-					} else {
-						$threshold = floor($threshold);
-					}
-					#returns threshold and nonTaxThreshold
-					return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);
-				} else {
-
-					if ($self->parameter->cmtaxbiascutoff > 0){
-						my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
-						my $ancestors={};
-						my $seqc=0;
-						while ( my $s = $fasta->next_seq() ) {
-							$seqc++;
-							if ($s->id=~/^(\d+)/){
-								my @nodes;
-								push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
-								if ($#nodes > -1) {
-									#push @$nodes , $1;
-									push @{$ancestors->{$nodes[-1]}} , \@nodes if $nodes[0] != 28384 && $nodes[0] != 12908;
-								}
-							}
-						}
-						$seqc = 6 if $seqc < 6;
-						#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
-						my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;
-						my $notinrank=0;
-						for (@overrepresented){
-							my @lineage = @{${$ancestors->{$_}}[0]};
-							my @rankids = @{$self->taxonomy->rankIDlineage};
-							for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
-								if($lineage[$i] != $rankids[$i]){
-									$notinrank++;
-									last;
-								}
-							}
-						}
-						return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
-					}
-					$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor ;
-					return ($threshold,0);
-				}
-			} else {
-				if ($self->parameter->cmtaxbiascutoff > 0){
-					my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
-					my $ancestors={};
-					my $seqc=0;
-					while ( my $s = $fasta->next_seq() ) {
-						$seqc++;
-						if ($s->id=~/^(\d+)/){
-							my @nodes;
-							push @nodes , $_->id for @{$self->taxonomy->getLineageNodes($1)};
-							if ($#nodes > -1) {
-								#push @$nodes , $1;
-								push @{$ancestors->{$nodes[-1]}} , \@nodes;
-								push @{$ancestors->{$nodes[-1]}} , \@nodes if $nodes[0] != 28384 && $nodes[0] != 12908;
-							}
-						}
-					}
-					$seqc = 6 if $seqc < 6;
-					#if at least one third of seed sequneces belongs to one species: dont trust into predictions if lineage differs with query
-					my @overrepresented = grep { $#{$ancestors->{$_}}+1 >= $seqc*$self->parameter->cmtaxbiascutoff } keys %$ancestors;
-					my $notinrank=0;
-					for (@overrepresented){
-						my @lineage = @{${$ancestors->{$_}}[0]};
-						my @rankids = @{$self->taxonomy->rankIDlineage};
-						for (my $i=0; $i<=min($#lineage,$#rankids); $i++){
-							if($lineage[$i] != $rankids[$i]){
-								$notinrank++;
-								last;
-							}
-						}
-					}
-					return (999999,0) if scalar keys %$ancestors < 6 && $notinrank > 0 && $notinrank == $#overrepresented+1;
-				} 
-				$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
-				return (max(8,$threshold),0);
+			if ($#{$inSpecies} > -1 ){
+				$scorefile = $self->align(
+					$self->parameter->cfg->rf_rna.'.tax',
+					$inSpecies,
+					$cpus,
+					$self->parameter->cfg->cm,
+					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
+					1
+				);
+			}elsif($#{$inRank} > -1){
+				$scorefile = $self->align(
+					$self->parameter->cfg->rf_rna.'.tax',
+					$inRank,
+					$cpus,
+					$self->parameter->cfg->cm,
+					catfile($self->parameter->output,'meta',$self->parameter->cfg->rf_rna.'.tax.score'),
+					1
+				);
 			}
 		} else {
 			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
-			return (max(8,$threshold),0);
+			return ($threshold,0);
+		}
+
+		if ($scorefile){
+			open S , '<'.$scorefile or die $!;
+			while(<S>){
+				chomp $_ ;
+				$_ =~ s/^\s+|\s+$//g;
+				next if $_=~/^#/;
+				my @l = split /\s+/ , $_;
+				$threshold = $l[6] if $l[6] < $threshold;
+			}
+			close S;
+
+			if ($threshold > $self->parameter->cfg->bitscore * $self->parameter->thfactor){
+				$threshold = floor( ($threshold - ($threshold - $self->parameter->cfg->bitscore * $self->parameter->thfactor)/2) * $self->parameter->thfactor);
+			} else {
+				$threshold = floor($threshold);
+			}
+			#returns threshold and nonTaxThreshold
+			return ($threshold,$self->parameter->cfg->bitscore * $self->parameter->thfactor);
+		} else { #no related species in seed alignment 
+			if ($self->parameter->cmtaxbiascutoff > 0){
+				my $fasta = Bio::SeqIO->new(-file => $self->parameter->cfg->fasta , -format => 'Fasta', -verbose => -1);
+				my $ancestors;
+				my $seqc=0;
+				while ( my $s = $fasta->next_seq() ) {
+					$seqc++;
+					if ($s->id=~/^(\d+)/){
+						my $ancestor;
+						my @nodes;
+						push @nodes, $_->id for @{$self->taxonomy->getLineageNodes($1)};
+						if ($#nodes != -1){
+							unless ($nodes[0] == 28384 || $nodes[0] == 12908){ #label: other sequence(s)
+								$ancestors->{$nodes[-1]}++; #e.g Genus epithet strand -> ancestor = Genus epithet 
+								$ancestors->{$1}++; #e.g. Genus epithet -> ancestor = Genus => add also $1
+								$ancestors->{$nodes[-2]}++; #e.g Genus epithet strand -> ancestor = Genus epithet => add also -2
+							}
+						}
+					}
+				}
+				my ($overrepresented) = reverse sort { $ancestors->{$a} <=> $ancestors->{$b} } keys %$ancestors;
+				return (999999,0) if $overrepresented && ($ancestors->{$overrepresented} == $seqc || $ancestors->{$overrepresented} > max(1,$seqc*$self->parameter->cmtaxbiascutoff));
+			}
+			$threshold = $self->parameter->cfg->bitscore * $self->parameter->thfactor;
+			return ($threshold,0);
 		}
 	} else {
 		#use user bitscore
-		$threshold = $self->parameter->cfg->bitscore;
-		return ($threshold,0);
+		return ($self->parameter->cfg->bitscore,0);
 	}
 }
 
@@ -408,7 +358,13 @@ sub filter_stk {
 		return @update if scalar keys %{$features} == 0;
 		$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.L.stk'));# if $write;
 	}
-	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($self->parameter->nofilter, $self->parameter->cfg->userfilter, $stk, $features, $threshold, $nonTaxThreshold, $self->parameter->cfg->types);
+
+	if ( ! $self->parameter->nofilter || $self->parameter->nobutkingsnofilter){
+		if ($self->parameter->cfg->types=~/CD-box/ && $self->parameter->cfg->userfilter){
+			$threshold = 20 * $self->parameter->thfactor;
+		}
+	}
+	($stk, $features, $up, $write) = Bio::Gorap::Functions::STK->score_filter($stk, $features, $threshold, $nonTaxThreshold);
 	push @update , @{$up} if $up;
 	return @update if scalar keys %{$features} == 0;
 	$stk = $self->remove_gap_columns_and_write($stk,catfile($self->parameter->output,'meta',$id.'.B.stk'));# if $write;

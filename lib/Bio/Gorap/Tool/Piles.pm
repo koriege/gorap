@@ -15,6 +15,7 @@ sub calc_features {
 	my @out;
 
 	for my $abbr (keys %{$self->fastadb->oheaders}){
+		next if $#{$self->bamdb->db->{$abbr}} == -1;
 		for my $chr (@{$self->fastadb->oheaders->{$abbr}}){
 			my $start = 1;
 			my $stop = 0;

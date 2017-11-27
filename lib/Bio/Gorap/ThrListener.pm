@@ -73,7 +73,7 @@ sub _enqueue {
 		}
 	}
 
-	while($self->get_workload >= $self->threads/2){
+	while($self->get_workload >= 0.6*$self->threads){
 		sleep(0.1);
 		my ($key) = keys %{$self->thrList};
 		waitpid($key,0);

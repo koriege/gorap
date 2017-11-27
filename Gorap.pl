@@ -97,8 +97,7 @@ use List::Util qw(any);
 use Try::Tiny;
 use Hash::Merge qw(merge);
 
-
-use lib './lib'; #TODO remove this
+use lib './lib'; # devel
 
 use Bio::Gorap::Parameter;
 use Bio::Gorap::ThrListener;
@@ -139,19 +138,9 @@ if ($parameter->refresh){
 		do_chunks => 0
 	);
 
-	if ($parameter->taxonomy){
-		$taxdb = Bio::Gorap::DB::Taxonomy->new(
-			parameter => $parameter
-		);
-		$stkdb = Bio::Gorap::DB::STK->new(
-			parameter => $parameter,
-			taxonomy => $taxdb
-		);
-	} else {
-		$stkdb = Bio::Gorap::DB::STK->new(
-			parameter => $parameter
-		);
-	}
+	$stkdb = Bio::Gorap::DB::STK->new(
+		parameter => $parameter
+	);
 
 	my $bamdb = Bio::Gorap::DB::BAM->new(
 		parameter => $parameter
@@ -174,13 +163,12 @@ if ($parameter->refresh){
 				$hold=1;
 				$gffdb->update_filter($f->seq_id,$type,'!');
 			} else {
-				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!' && $f->primary_tag!~/SU_rRNA/;
+				$gffdb->update_filter($f->seq_id,$type,'X') if $f->display_name eq '!';
 			}
 		}
 		unlink $stkdb->idToPath->{$type} if ! $hold && exists $stkdb->db->{$type};
 	}
 	print "Storing changes\n";
-	$stkdb->store;
 	$gffdb->store_overlaps;
 
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
@@ -409,10 +397,11 @@ sub run {
 			say " - skipped due to kingdom restriction" if $parameter->verbose;
 			next;
 		}
-		say "" if $parameter->verbose;
 
 		my ($threshold,$nonTaxThreshold);
-		for my $tool (@{$parameter->cfg->tools}){
+		my @tools = @{$parameter->cfg->tools};
+		@tools = ('infernal') if $parameter->rfamscan;
+		for my $tool (@tools){
 			my $cmd = $parameter->cfg->cmd->{$tool};
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
@@ -455,12 +444,15 @@ sub run {
 
 			if ($tool eq 'Infernal' || $tool eq 'Blast'){
 				($threshold,$nonTaxThreshold) = $stkdb->calculate_threshold($parameter->threads - $thrListener->get_workload);
-				last if $threshold && $threshold == 999999; #cm is biases by species not related to input
+				last if $threshold == 999999; #cm is biases by species not related to input
 			}
 			$obj->calc_features;
 		}
-
-		next if $threshold && $threshold == 999999;  #cm is biases by species not related to input
+		if ($threshold && $threshold == 999999){  #cm is biases by species not related to input
+			say " - skipped due to heavy bias of unrelated species" if $parameter->verbose;
+			next;
+		}
+		say "" if $parameter->verbose;
 		next if $parameter->cfg->rf_rna=~/SU_rRNA/; #do not align long RNAs
 		my $sequences = $gffdb->get_sequences($parameter->cfg->rf_rna,$parameter->abbreviations);
 		next if $#{$sequences} == -1;
@@ -497,26 +489,26 @@ sub run {
 		}
 	}
 
-	$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
-
-	(Bio::Gorap::Tool::Piles->new(
-		threads => $parameter->threads - $thrListener->get_workload +1,
-		parameter => $parameter,
-		tool_parser => \&Bio::Gorap::Functions::ToolParser::gff3_parser,
-		gffdb => $gffdb,
-		fastadb => $fastadb,
-		stkdb => $stkdb,
-		bamdb => $bamdb,
-		tool => 'denovo',
-		cmd => ''
-	))->calc_features;
+	if ($parameter->has_bams){
+		$parameter->cfg( Bio::Gorap::CFG->new(rf_rna => 'NEW_RNA'));
+		(Bio::Gorap::Tool::Piles->new(
+			threads => $parameter->threads - $thrListener->get_workload +1,
+			parameter => $parameter,
+			tool_parser => \&Bio::Gorap::Functions::ToolParser::gff3_parser,
+			gffdb => $gffdb,
+			fastadb => $fastadb,
+			stkdb => $stkdb,
+			bamdb => $bamdb,
+			tool => 'denovo',
+			cmd => ''
+		))->calc_features;
+	}
 
 	#stops the thread listener and waits for remaining background jobs to be finished
 	$thrListener->stop;
 	#store final annotation results
 	$gffdb->store_overlaps;
 	Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
-
 	remove_tree($parameter->tmp,{verbose => 0, error  => \my $err});
 	print "\nResults stored with label ".$parameter->label."\n";
 	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());

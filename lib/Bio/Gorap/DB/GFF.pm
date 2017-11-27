@@ -108,9 +108,6 @@ sub update_filter {
 	return unless exists $self->db->{$abbr};
 	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type );
 
-	return unless $feature;
-	return unless $feature->display_name eq '!' || $feature->display_name eq 'O';
-
 	$feature->display_name($filter);
 	$feature->update;
 
@@ -219,9 +216,9 @@ sub get_filtered_features {
 sub get_feature {
 	my ($self,$id,$type,$source,$abbr) = @_;
 
-	my @features = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type , -attributes => {source => $source});
+	my ($f) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type);
 
-	return $#features > -1 ? $features[0] : undef;
+	return $f;
 }
 
 sub get_all_overlapping_features { #bad name but returns all features (type independent) overlapping at least 50% in both direction
@@ -261,12 +258,12 @@ sub get_all_overlapping_features { #bad name but returns all features (type inde
 
 sub get_user_overlaps {
 	my ($self,$id,$start,$stop,$strand) = @_;
-	return () unless $strand || $strand eq '.';
 
 	my ($abbr,@orig) = split /\./ , $id;
 	my $orig = join '.' , @orig;
 
-	return $self->userdb->{$abbr}->features(-seq_id => $orig, -start => $start , -strand => $strand, -stop => $stop , -range_type => 'overlaps');
+	my @features = $self->userdb->{$abbr}->features(-seq_id => $orig, -start => $start , -strand => $strand, -stop => $stop , -range_type => 'overlaps');
+	return \@features;
 }
 
 #gorap specific set up databases for all genome files from parameter object and
@@ -362,7 +359,7 @@ sub update_attribute {
 
 	if (ref($f) eq 'ARRAY'){
 		my ($abbr) = split /\./, $$f[0];
-		($f) = $self->db->{$abbr}->features(-seq_id => $$f[0] , -primary_tag => $$f[2] , -attributes => {source => $$f[1]});
+		($f) = $self->db->{$abbr}->features(-seq_id => $$f[0] , -primary_tag => $$f[2]);
 	}
 	
 	$f->remove_tag($attribute);
@@ -371,13 +368,17 @@ sub update_attribute {
 }
 
 
-sub add_seq {
-	my ($self,$seq,$id,$type,$source,$abbr) = @_;
+sub get_features_by_source {
+	my ($self,$abbr,$source,$type) = @_;
 
-	my ($feature) = $self->db->{$abbr}->features(-seq_id => $id , -primary_tag => $type , -attributes => {source => $source});
-	$feature->remove_tag('seq');
-	$feature->add_tag_value('seq',$seq);
-	$feature->update;
+	my @features;
+	if ($type){
+		@features = $self->db->{$abbr}->features(-primary_tag => $type , -attributes => {source => $source});
+	}  else {
+		@features = $self->db->{$abbr}->features(-attributes => {source => $source});
+	}
+
+	return \@features;
 }
 
 #gorap way to fill gff database with existing data in defined output directory
@@ -556,16 +557,18 @@ sub store_overlaps { #final store function which includes overlapping infos and 
 
 		$self->bamdb->calculate_tpm(\@features) if ! $self->parameter->notpm && $self->parameter->has_bams;
 
+		my $overlaps;
+		my $overlapspassed;
 		for (my $i=0; $i<=$#features; $i++) {
-			my $overlaps;
-			my $overlapspassed;
 			my $stop = $features[$i]->stop;
 			my $j = $i+1;
 			while(defined $features[$j] && ($features[$i]->get_tag_values('chr'))[0] eq ($features[$j]->get_tag_values('chr'))[0] && $features[$i]->strand == $features[$j]->strand && $features[$i]->stop >= $features[$j]->start){
-				if ($features[$j]->display_name eq '!'){
-					$overlapspassed->{$features[$j]->primary_tag} = 1;
-				} else {
-					$overlaps->{$features[$j]->primary_tag} = 1;
+				if ($features[$i]->display_name eq '!' && $features[$j]->display_name eq '!'){
+					$overlapspassed->{$features[$i]->seq_id.'.'.$features[$i]->primary_tag}->{$features[$j]->primary_tag} = 1;
+					$overlapspassed->{$features[$j]->seq_id.'.'.$features[$j]->primary_tag}->{$features[$i]->primary_tag} = 1;
+				} elsif ($features[$i]->display_name ne '!' && $features[$j]->display_name ne '!'){
+					$overlaps->{$features[$i]->seq_id.'.'.$features[$i]->primary_tag}->{$features[$j]->primary_tag} = 1;
+					$overlaps->{$features[$j]->seq_id.'.'.$features[$j]->primary_tag}->{$features[$i]->primary_tag} = 1;
 				}
 				$j++;
 			}
@@ -576,7 +579,8 @@ sub store_overlaps { #final store function which includes overlapping infos and 
 				for($self->userdb->{$abbr}->features(-seq_id => join('.',@orig), -start => $features[$i]->start , -strand => $features[$i]->strand, -stop => $features[$i]->stop , -range_type => 'overlaps')){
 					my ($userid) = $_->get_tag_values('ID');
 					next unless $userid;
-					$overlaps->{$userid} = 1;
+					$overlapspassed->{$features[$i]->seq_id}->{$userid} = 1;
+					$overlaps->{$features[$i]->seq_id}->{$userid} = 1;
 				}
 			}				
 			if ($features[$i]->display_name eq '!'){
@@ -595,17 +599,17 @@ sub store_overlaps { #final store function which includes overlapping infos and 
 }
 
 sub to_gff3_string {
-	my ($self, $feature, $overlaps, $chr, $tpm, $reads) = @_;
+	my ($self, $feature, $overlaps, $chr) = @_;
 	$chr = $feature->seq_id unless $chr;
 
-	my $o = join(',',keys %{$overlaps});
+	my $o = join(',',keys %{$overlaps->{$feature->seq_id.'.'.$feature->primary_tag}});
 	$o='.' unless $o;
 
 	my $source = $feature->source;
 	$source =~ s/GORAP//;
 
-	($reads) = $feature->get_tag_values('reads') unless $reads;
-	($tpm) = $feature->get_tag_values('tpm') unless $tpm;
+	my ($reads) = $feature->get_tag_values('reads');
+	my ($tpm) = $feature->get_tag_values('tpm');
 	$tpm = sprintf("%.2f", $tpm) unless $tpm eq '.';
 
 	my $score = $feature->source=~/blast/ || $feature->source=~/denovo/ ? $feature->score : max($feature->score,($feature->get_tag_values('origscore'))[0]);

@@ -86,7 +86,7 @@ has 'strandspec' => (
 	default => 0
 );
 
-has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'notax', 'refresh'] => (
+has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'refresh', 'rfamscan'] => (
 	is => 'rw',
 	isa => 'Bool',
 	default => 0
@@ -227,7 +227,8 @@ sub BUILD {
 		'nofi|nofilter' => \my $nofilter,
 		'strand|strandspecific=i' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
-		'biasco|biascutoff=f' => \my $taxbiascutoff #hidden dev option
+		'biasco|biascutoff=f' => \my $taxbiascutoff, #hidden dev option
+		'rfamscan|rfamscan' => \my $rfamscan #hidden dev option
 	) or pod2usage(-exitval => 1, -verbose => 0) if $self->commandline;
 
 	&read_parameter($self,$file) if $file && $file ne 'x';
@@ -291,7 +292,6 @@ sub BUILD {
 		$self->label($label);
 	}
 	$self->skip_comp(1) if $skipanno;
-	$self->notax(1) if $notax;
 	$self->refresh(1) if $refresh;
 
 	#store arguments into data structure
@@ -384,13 +384,24 @@ sub BUILD {
 	$self->denovolength($denovolength) if $denovolength;
 	$self->noblast(1) if $noblast;
 	if ($nofilter) {
+		$self->taxonomy(0);
 		$self->nofilter(1);
-		$self->noblast(1);
 	}
-	$self->nobutkingsnofilter(1) if $nobutkingsnofilter;
+	if ($nobutkingsnofilter){
+		$self->nobutkingsnofilter(1);
+		$self->taxonomy(0);
+	}
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
 	$self->strandspec($strandspec) if $strandspec;
+
+	if ($rfamscan){
+		$self->rfamscan(1);
+		$self->taxonomy(0);
+		$self->nofilter(1);
+		$self->noblast(1);
+		$self->thfactor(1);
+	}
 
 	make_path(catdir($self->tmp,$self->pid));
 	$self->tmp(catdir($self->tmp,$self->pid));

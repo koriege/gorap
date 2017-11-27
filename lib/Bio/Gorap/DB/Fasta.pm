@@ -133,11 +133,7 @@ sub get_subseq {
 sub chunk { #CRT doesnt like multi fasta files!!
 	my ($self) = @_;
 
-	# my $residues=0;
-	# for (@{$self->nheaders}){
-	# 	$residues += ($self->db->fetch($_))->length;
-	# }
-	# $residues /= $self->parameter->threads;
+	print "Generating chunks\n" if $self->parameter->verbose;
 
 	my $c=-1;
 	my @chunks;
@@ -145,7 +141,7 @@ sub chunk { #CRT doesnt like multi fasta files!!
 		my $seqo = $self->db->fetch($h);
 		my $residues = $seqo->length;
 
-		$residues /= $self->parameter->threads if $residues > 2000 * $self->parameter->threads;
+		$residues /= $residues / 20000 > $self->parameter->threads ? $self->parameter->threads : $residues/20000;
 
 		my $outfile = catfile($self->parameter->tmp,$self->parameter->pid.'.'.(++$c));
 		push @chunks, $outfile;
