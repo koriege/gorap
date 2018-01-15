@@ -141,7 +141,7 @@ compile_cpanm() {
 	echo ":INFO: installing cpanm"
 	(	mkdir -p $GORAP/cpanm && \
 		url='cpanmin.us' && \
-		wget -q $url -O $GORAP/cpanm/cpanm
+		wget -T 5 -t 2 -q $url -O $GORAP/cpanm/cpanm
 	) 2> /dev/null
 	{	chmod 775 $GORAP/cpanm/cpanm
 	} || return 1
@@ -154,7 +154,7 @@ compile_samtools() {
 	declare ncurses=$(ls -dv $GORAP/ncurses*/built/lib*/ | tail -1)
 	declare zlib=$(ls -dv $GORAP/zlib*/built/lib*/ | tail -1)
 	(	url='https://github.com/samtools/samtools/archive/0.1.19.tar.gz' && \
-		wget -q $url -O $GORAP/samtools.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/samtools.tar.gz && \
 		tar -xzf $GORAP/samtools.tar.gz -C $GORAP && \
 		rm $GORAP/samtools.tar.gz
 	) 2> /dev/null
@@ -225,7 +225,7 @@ compile_upgrade() {
 compile_java() {
 	(	echo ":INFO: installing java" && \
 		url=$(curl -s http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html | grep -Eo 'http[^"]+linux-x64.tar.gz') && \
-		wget --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" $url -O $GORAP/java.tar.gz && \
+		wget -T 5 -t 2 --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" $url -O $GORAP/java.tar.gz && \
 		tar -xzf $GORAP/java.tar.gz -C $GORAP && \
 		rm $GORAP/java.tar.gz
 	) 2> /dev/null
@@ -239,7 +239,7 @@ compile_java() {
 compile_clibs() {
 	echo ":INFO: installing c(++) libraries"
 	(	url='https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.0.tar.gz' && \
-		wget -q $url -O $GORAP/ncurses.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/ncurses.tar.gz && \
 		tar -xzf $GORAP/ncurses.tar.gz -C $GORAP && \
 		rm $GORAP/ncurses.tar.gz
 	) 2> /dev/null
@@ -253,7 +253,7 @@ compile_clibs() {
 
 	(	url='https://github.com/madler/zlib/archive/v1.2.8.tar.gz' && \
 		# version >= 1.2.10 is not recognized as bigger than 1.2.1 by R
-		wget -q $url -O $GORAP/zlib.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/zlib.tar.gz && \
 		tar -xzf $GORAP/zlib.tar.gz -C $GORAP && \
 		rm $GORAP/zlib.tar.gz
 	) 2> /dev/null
@@ -266,7 +266,7 @@ compile_clibs() {
 	} || return 1
 
 	(	url='http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz' && \
-		wget -q $url -O $GORAP/libbz2.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/libbz2.tar.gz && \
 		tar -xzf $GORAP/libbz2.tar.gz -C $GORAP && \
 		rm $GORAP/libbz2.tar.gz
 	) 2> /dev/null
@@ -282,7 +282,7 @@ compile_clibs() {
 compile_raxml() {
 	echo ":INFO: installing raxml"
 	(	url='https://github.com/stamatak/standard-RAxML/archive/v8.2.11.tar.gz' && \
-		wget -q $url -O $GORAP/raxml.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/raxml.tar.gz && \
 		tar -xzf $GORAP/raxml.tar.gz -C $GORAP && \
 		rm $GORAP/raxml.tar.gz
 	) 2> /dev/null
@@ -311,7 +311,7 @@ compile_raxml() {
 compile_mafft() {
 	echo ":INFO: installing mafft"
 	(	url='https://mafft.cbrc.jp/alignment/software/mafft-7.312-with-extensions-src.tgz' && \
-		wget -q $url -O $GORAP/mafft.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/mafft.tar.gz && \
 		tar -xzf $GORAP/mafft.tar.gz -C $GORAP && \
 		rm $GORAP/mafft.tar.gz
 	) &> /dev/null
@@ -336,7 +336,7 @@ compile_newicktopdf() {
 	echo ":INFO: installing newicktopdf"
 	(	mkdir -p $GORAP/newicktopdf && \
 		url='ftp://pbil.univ-lyon1.fr/pub/mol_phylogeny/njplot/newicktopdf' && \
-		wget -q $url -O $GORAP/newicktopdf/newicktopdf
+		wget -T 5 -t 2 -q $url -O $GORAP/newicktopdf/newicktopdf
 	) &> /dev/null
 	{	chmod 755 $GORAP/newicktopdf/newicktopdf && \
 		ln -sfn $GORAP/newicktopdf $GORAP/bin/newicktopdf
@@ -348,7 +348,7 @@ compile_newicktopdf() {
 compile_infernal() {
 	echo ":INFO: installing infernal"
 	(	url='http://eddylab.org/infernal/infernal-1.1.2.tar.gz' && \
-		wget -q $url -O $GORAP/infernal.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/infernal.tar.gz && \
 		tar -xzf $GORAP/infernal.tar.gz -C $GORAP && \
 		rm $GORAP/infernal.tar.gz
 	) &> /dev/null
@@ -370,7 +370,7 @@ compile_infernal() {
 compile_infernal1() {
 	echo ":INFO: installing infernal 1.0"
 	(	url='http://eddylab.org/software/infernal/infernal-1.0.tar.gz' && \
-		wget -q $url -O $GORAP/infernal1.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/infernal1.tar.gz && \
 		tar -xzf $GORAP/infernal1.tar.gz -C $GORAP && \
 		rm $GORAP/infernal1.tar.gz
 	) &> /dev/null
@@ -389,7 +389,7 @@ compile_crt() {
 	echo ":INFO: installing crt"
 	(	mkdir -p $GORAP/crt-1.2
 		url='http://www.room220.com/crt/CRT1.2-CLI.jar.zip' && \
-		wget -q $url -O $GORAP/crt.zip && \
+		wget -T 5 -t 2 -q $url -O $GORAP/crt.zip && \
 		unzip -q -o -d $GORAP/crt-1.2 $GORAP/crt.zip && \
 		rm $GORAP/crt.zip
 	) &> /dev/null
@@ -424,7 +424,7 @@ EOF
 compile_rnabob() {
 	echo ":INFO: installing rnabob"
 	(	url='http://eddylab.org/software/rnabob/rnabob-2.2.1.tar.gz' && \
-		wget -q $url -O $GORAP/rnabob.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/rnabob.tar.gz && \
 		tar -xzf $GORAP/rnabob.tar.gz -C $GORAP && \
 		rm $GORAP/rnabob.tar.gz
 	) &> /dev/null
@@ -445,7 +445,7 @@ compile_rnabob() {
 compile_trnascan() {
 	echo ":INFO: installing trnascan"
 	(	url='http://eddylab.org/software/tRNAscan-SE/tRNAscan-SE-1.3.1.tar.gz' && \
-		wget -q $url -O $GORAP/trnascan.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/trnascan.tar.gz && \
 		tar -xzf $GORAP/trnascan.tar.gz -C $GORAP && \
 		rm $GORAP/trnascan.tar.gz
 	) &> /dev/null
@@ -471,7 +471,7 @@ compile_trnascan() {
 compile_hmmer() {
 	echo ":INFO: installing hmmer"
 	(	url='http://eddylab.org/software/hmmer/2.3.2/hmmer-2.3.2.tar.gz' && \
-		wget -q $url -O $GORAP/hmmer.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/hmmer.tar.gz && \
 		tar -xzf $GORAP/hmmer.tar.gz -C $GORAP && \
 		rm $GORAP/hmmer.tar.gz
 	) &> /dev/null
@@ -503,7 +503,7 @@ compile_barrnap() {
 compile_bcheck() {
 	echo ":INFO: installing bcheck"
 	(	url='http://rna.tbi.univie.ac.at/bcheck/Bcheck.tgz'
-		wget -q $url -O $GORAP/bcheck.tar.gz && \
+		wget -T 5 -t 2 -q $url -O $GORAP/bcheck.tar.gz && \
 		tar -xzf $GORAP/bcheck.tar.gz -C $GORAP && \
 		rm $GORAP/bcheck.tar.gz
 	) &> /dev/null
@@ -520,11 +520,11 @@ compile_bcheck() {
 compile_blast() {
 	echo ":INFO: installing blast"
 	if [[ $OSTYPE =~ darwin ]]; then
-		url=$(wget --spider --force-html -r -nd -np -l 1 -A *x64-macosx.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ 2>&1 | grep '^--.*tar.gz' | awk '{print $NF}')
+		url=$(wget -T 5 -t 2 --spider --force-html -r -nd -np -l 1 -A *x64-macosx.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ 2>&1 | grep '^--.*tar.gz' | awk '{print $NF}')
 	else
-		url=$(wget --spider --force-html -r -nd -np -l 1 -A *x64-linux.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ 2>&1 | grep '^--.*tar.gz' | awk '{print $NF}')
+		url=$(wget -T 5 -t 2 --spider --force-html -r -nd -np -l 1 -A *x64-linux.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ 2>&1 | grep '^--.*tar.gz' | awk '{print $NF}')
 	fi
-	(	wget -q $url -O $GORAP/blast.tar.gz && \
+	(	wget -T 5 -t 2 -q $url -O $GORAP/blast.tar.gz && \
 		tar -xzf $GORAP/blast.tar.gz -C $GORAP && \
 		rm $GORAP/blast.tar.gz
 	) &> /dev/null
@@ -538,7 +538,7 @@ compile_blast() {
 compile_jquery() {
 	echo ":INFO: installing jquery"
 	url='http://tablesorter.com/__jquery.tablesorter.zip'
-	(	wget -q $url -O $GORAP/jquery.zip && \
+	(	wget -T 5 -t 2 -q $url -O $GORAP/jquery.zip && \
 		mkdir -p $GORAP/jquery
 		unzip -q -o -d $GORAP/jquery $GORAP/jquery.zip && \
 		rm $GORAP/jquery.zip

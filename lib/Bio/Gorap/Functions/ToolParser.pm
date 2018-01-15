@@ -155,7 +155,7 @@ sub bcheck_parser {
 	my $rfrna;
 
 	${$s}[0] = substr ${$s}[0] , 1;
-	my @l = ( split(/\//,${$s}[0]) , substr((split(/\s+/,${$s}[1]))[2] , 0 , -1) );
+	my @l = ( split(/\//,${$s}[0]), substr(${$s}[3], 0 , -1) );
 	my ($sta,$sto) = split /-/ , $l[1];
 
 	if ($l[3]=~/bac/){

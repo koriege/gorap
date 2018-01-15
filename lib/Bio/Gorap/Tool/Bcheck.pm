@@ -90,7 +90,7 @@ sub calc_features {
 	my $types;
 	for (@out){
 		my @l = split /\s+/, $_;
-		my @gff3entry = &{$self->tool_parser}(\@l);
+		my @gff3entry = &{$self->tool_parser}($self->tool,\@l);
 		$types->{$gff3entry[2]} = 1;
 		($gff3entry[0], $gff3entry[3], $gff3entry[4]) = $self->fastadb->chunk_backmap($gff3entry[0], $gff3entry[3], $gff3entry[4]);
 		$gff3entry[0] .= '.'.$self->tool.(++$uid->{$gff3entry[0].'.'.$gff3entry[2]});
