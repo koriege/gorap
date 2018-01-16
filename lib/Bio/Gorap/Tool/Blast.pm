@@ -5,7 +5,7 @@ use POSIX qw(:sys_wait_h);
 use File::Spec::Functions;
 use IPC::Cmd qw(run);
 use IPC::Open3;
-use List::Util qw(max);
+use List::Util qw(max any);
 use Symbol qw(gensym);
 
 sub calc_features {
@@ -34,6 +34,9 @@ sub calc_features {
 			next if $_=~/^#/;
 			next if $_=~/^\s*$/;
 			my @l = split /\s+/ , $_;
+			if ($l[1]=~/^ref\|(.+)\|$/ && ! any {$_ eq $l[1]} @{$self->fastadb->oheaders->{$abbr}} ){
+				$l[1]=$1;
+			}
 			if ($l[8]>$l[9]){
 				push @tab, $l[1]."\tBlast\t".$self->parameter->cfg->rf_rna."\t$l[9]\t$l[8]\t$l[11]\t-\t$l[10]\t$l[0]\t$l[6]\t$l[7]";
 			} else {
