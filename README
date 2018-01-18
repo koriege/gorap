@@ -160,7 +160,7 @@ tool=Blast
 4 RESULTS
 ---------
 
-Browse the results using a webbrowser with index.html or check out the following directories
+Browse the results by using a webbrowser to open index.html or check out the following directories
 
 1) annotations
 *orig - files with original sequence ids
@@ -177,13 +177,15 @@ O - Overlap based rejection if higher scored annotation exists due to multi- too
 X - Tag for manually deleted sequences after Gorap refresh
 ! - Passed tag - all filters passed
 
-# alignments - in Stockholm format of filter passed predictions
+2) alignments - in Stockholm format of filter passed predictions
 
-# phylogeny in newick and PDF format
+3) phylogeny in newick and PDF format
 RNome - all ncRNA predictions (except rRNAs and tRNAs), using a super-matrix approach
 core50RNome - ncRNA predictions (except rRNAs and tRNAs), present in >=50% of given input FASTA files, using a super-matrix approach
 coreRNomeSTK - ncRNAs present in all species, built from concatenated Stockholm alignments
 coreRNomeMAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
+
+4) meta - intermediate results for each filter applied
 
 
 ---------------
@@ -199,3 +201,5 @@ Suggestions? Bugs? Troubles? Please let me know!
 
 Konstantin Riege
 konstantin{.}riege{a}uni-jena{.}de
+konstantin{a}bioinf{.}uni-leipzig{.}de
+konstantin.riege{a}leibniz-fli{.}de

@@ -314,7 +314,7 @@ sub calculate_threshold {
 					if ($s->id=~/^(\d+)/){
 						my $ancestor;
 						my @nodes;
-						push @nodes, $_->id for @{$self->taxonomy->getLineageNodes($1)};
+						push @nodes, $_ for @{$self->taxonomy->getLineageNodes($1)};
 						if ($#nodes != -1){
 							unless ($nodes[0] == 28384 || $nodes[0] == 12908){ #label: other sequence(s)
 								$ancestors->{$nodes[-1]}++; #e.g Genus epithet strand -> ancestor = Genus epithet 

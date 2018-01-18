@@ -4,6 +4,7 @@ use Moose;
 use File::Spec::Functions;
 use Bio::DB::Taxonomy;
 use Bio::Tree::Tree;
+use Bio::Tree::Node;
 use Bio::TreeIO;
 use Bio::DB::EUtilities;
 use List::Util qw(min max);
@@ -182,7 +183,7 @@ sub getLineageNodes { #does not include node of it self
 	my @nodes = ();
 	if ($taxon){
 		my $tree_functions = Bio::Tree::Tree->new( -verbose => -1);
-		@nodes = $tree_functions->get_lineage_nodes($taxon);
+		push @nodes, $_->id for $tree_functions->get_lineage_nodes($taxon);
 		# push @nodes, $taxid;
 	} else { # try to reach web api
 		my ($error, $try, $tries) = (1, 0, 5);
@@ -214,7 +215,7 @@ sub getLineageNodes { #does not include node of it self
 		}
 		# push @nodes, $taxid;
 	}
-	push @{$self->taxIDsToLineage->{$taxid}}, @nodes if $#nodes > -1;
+	push @{$self->taxIDsToLineage->{$taxid}}, $_ for @nodes;
 
 	return \@nodes;
 }
@@ -360,7 +361,7 @@ sub findRelatedSpecies {
 	if ($self->parameter->has_rank){
 		$self->rankID($self->getIDfromName($self->parameter->rank));
 		if ($self->rankID){
-			push @{$self->rankIDlineage} , $_->id for @{$self->getLineageNodes($self->rankID)};
+			push @{$self->rankIDlineage} , $_ for @{$self->getLineageNodes($self->rankID)};
 			push @{$self->rankIDlineage} , $self->rankID;
 			$self->relatedRankIDsToLineage($self->findRelatedIDs($self->rankID));
 		} else {
@@ -385,9 +386,7 @@ sub findRelatedIDs {
 
 	my $relatedIDsToLineage;
 	for my $t ($taxon,$self->ncbi->get_all_Descendents($taxon)){
-		my $nodes = $self->getLineageNodes($t);
-		$_ = $_->id for @{$nodes};
-		$relatedIDsToLineage->{$t->id} = $nodes;
+		$relatedIDsToLineage->{$t->id} = $self->getLineageNodes($t);
 	}
 	# print scalar keys %{$relatedIDsToLineage}; print "\n";
 	# print join(":",(@{$relatedIDsToLineage->{$_}},$_))."\n" for keys %{$relatedIDsToLineage};
@@ -410,9 +409,7 @@ sub findRelatedIDs {
 				next unless $_->id;
 				unless (exists $relatedIDsToLineage->{$_->id}){
 					my $t = $self->ncbi->get_taxon(-taxonid => $_->id);
-					my $nodes = $self->getLineageNodes($t);
-					$_ = $_->id for @{$nodes};
-					$relatedIDsToLineage->{$t->id} = $nodes;
+					$relatedIDsToLineage->{$t->id} = $self->getLineageNodes($t);
 				}
 			}
 		} else {
@@ -480,9 +477,7 @@ sub findRelatedIDs_old {
 
 	#store all children of the query taxon as related taxons with its lineages
 	for my $t ($taxon,$self->ncbi->get_all_Descendents($taxon)){
-		my $nodes = $self->getLineageNodes($t);
-		$_ = $_->id for @{$nodes};
-		$relatedIDsToLineage->{$t->id} = $nodes;
+		$relatedIDsToLineage->{$t->id} = $self->getLineageNodes($t);
 	}
 
 	#if query taxon belongs to bacteria, go on refining the related list by silva tree
@@ -555,9 +550,7 @@ sub findRelatedIDs_old {
 			next unless $taxon;
 			for my $t ($taxon , $self->ncbi->get_all_Descendents($taxon)){
 				next if exists $relatedIDsToLineage->{$t->id};
-				my $nodes = $self->getLineageNodes($t);
-				$_ = $_->id for @{$nodes};
-				$relatedIDsToLineage->{$t->id} = $nodes;
+				$relatedIDsToLineage->{$t->id} = $self->getLineageNodes($t);
 			}
 		}
 	}
@@ -598,10 +591,7 @@ sub sort_stk {
 sub lineageNodesToString {
 	my ($self, $nodes) = @_;
 
-	my @s;
-	push @s, $_->id for @{$nodes};
-
-	return join(',',@s);
+	return join(',',@{$nodes});
 }
 
 1;

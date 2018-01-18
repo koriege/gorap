@@ -143,7 +143,7 @@ compile_cpanm() {
 		url='cpanmin.us' && \
 		wget -T 5 -t 2 -q $url -O $GORAP/cpanm/cpanm
 	) 2> /dev/null
-	{	chmod 775 $GORAP/cpanm/cpanm
+	{	chmod 755 $GORAP/cpanm/cpanm
 	} || return 1
 
 	return 0
@@ -556,13 +556,16 @@ else
 fi
 VERSION=$(perl -e 'use File::Spec::Functions; BEGIN{ unshift @INC,"$ENV{PWD}/lib"}; use Bio::Gorap::Gorap; print Bio::Gorap::Gorap->VERSION')
 
+SRC=$(cd $(dirname $0) && echo $PWD)
+
 [[ $# -eq 0 ]] && usage
 [[ ! $GORAP ]] && echo ":ERROR: please do: export GORAP=/path/to/install/dir" && trapper
+[[ $SRC == $GORAP ]] || [[ $(dirname $SRC) == $GORAP ]] && echo ":ERROR: source and target directory paths overlap. Please choose an other GORAP=/path/to/install/dir" && trapper
 dependencies || trapper
 
 verbose=0
 log=$GORAP/install.log
-SRC=$(cd $(dirname $0) && echo $PWD)
+
 cd $SRC
 make='all'
 for i in $(seq 1 $#); do
