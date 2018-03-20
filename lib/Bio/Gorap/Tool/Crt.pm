@@ -77,6 +77,8 @@ sub calc_features {
 		}
 	}
 
+	return if $#out == -1;
+	
 	my @sequences;
 	my $chr2gff;
 	for (0..$#out){

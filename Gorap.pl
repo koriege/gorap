@@ -155,6 +155,7 @@ if ($parameter->refresh){
 	for my $cfg (@{$parameter->queries}){
 		$parameter->set_cfg($cfg);
 		my $type = $parameter->cfg->rf_rna;
+		next if $type=~/(L|S)SU_rRNA/;
 		my $hold = 0;
 		for my $f (@{$gffdb->get_all_features($type)}){
 			my $seq;

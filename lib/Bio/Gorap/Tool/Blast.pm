@@ -34,7 +34,7 @@ sub calc_features {
 			next if $_=~/^#/;
 			next if $_=~/^\s*$/;
 			my @l = split /\s+/ , $_;
-			if ($l[1]=~/^ref\|(.+)\|$/ && ! any {$_ eq $l[1]} @{$self->fastadb->oheaders->{$abbr}} ){
+			if ($l[1]=~/\|([^\|]+)\|$/ && ! any {$_ eq $l[1]} @{$self->fastadb->oheaders->{$abbr}} ){
 				$l[1]=$1;
 			}
 			if ($l[8]>$l[9]){

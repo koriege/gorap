@@ -26,7 +26,7 @@ has 'cmd' => (
 	default => sub {
 		my $self = shift;
 		return { infernal => 'cmsearch --noali --cpu $cpus '.$self->cm.' $genome',
-			blast => 'blastn -num_threads $cpus -query '.$self->fasta.' -db $genome -task dc-megablast -word_size 11 -template_type optimal -template_length 16 -evalue '.$self->evalue.' -window_size 50 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"'
+			blast => 'blastn -num_threads $cpus -query '.$self->fasta.' -db $genome -task dc-megablast -word_size 11 -template_type optimal -template_length 16 -evalue '.$self->evalue.' -window_size 0 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"'
 		}
 	}
 );

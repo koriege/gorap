@@ -1,6 +1,6 @@
 package Bio::Gorap::Gorap;
 
-use version; our $VERSION = "2.3.8";
+use version; our $VERSION = "2.3.9";
 
 1;
 
