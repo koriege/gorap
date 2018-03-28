@@ -215,7 +215,7 @@ sub BUILD {
 		't|tmp:s' => \my $tmp,
 		'notax|notaxonomy' => \my $notax,
 		'notpm|notpm' => \my $notpm,
-		'nobl|noblast' => \my $noblast,
+		'nobl|noblast' => \my $noblast, 
 		'sort|sort' => \my $sort,
 		'refresh|refresh' => \my $refresh,
 		'skip|skipanno' => \my $skipanno,
@@ -228,7 +228,7 @@ sub BUILD {
 		'strand|strandspecific=i' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff, #hidden dev option
-		'rfamscan|rfamscan' => \my $rfamscan #hidden dev option
+		'rfamscan|rfamscan' => \my $rfamscan
 	) or pod2usage(-exitval => 1, -verbose => 0) if $self->commandline;
 
 	&read_parameter($self,$file) if $file && $file ne 'x';
@@ -401,6 +401,7 @@ sub BUILD {
 		$self->nofilter(1);
 		$self->noblast(1);
 		$self->thfactor(1);
+		$self->check_overlaps(0);
 	}
 
 	make_path(catdir($self->tmp,$self->pid));

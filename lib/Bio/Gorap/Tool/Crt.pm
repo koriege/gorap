@@ -101,7 +101,7 @@ sub calc_features {
 		my $rf_rna = basename(dirname($cm));
 
 		$self->parameter->set_cfg(catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg'));
-		my ($scorefile,$stk) = $self->stkdb->align($rf_rna,\@sequences,$self->threads,$cm);
+		my ($scorefile,$stk) = $self->stkdb->align($rf_rna,\@sequences,$self->threads,$cm,catfile($self->parameter->tmp,$rf_rna.'.score'),1);
 
 		open F,'<'.$scorefile or die $!;
 		while(<F>){

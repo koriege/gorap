@@ -407,7 +407,6 @@ sub run {
 			$tool=~s/[\W\d_]//g;
 			$tool = lc $tool;
 			$tool = ucfirst $tool;
-			$tool = 'Infernal' if $parameter->nofilter;
 			next if $tool eq 'Blast' && $parameter->noblast;
 
 			#dynamically initialize toolname dependent modules
@@ -726,6 +725,10 @@ NCBI taxonomy matching scientific name or taxonomy id of given species. please q
 
 enable resulting alignments to be sorted in taxonomic order
 
+=item B<-nobl>, B<--noblast>
+
+disable additional Rfam screenes with Blast
+
 =item B<-nofi>, B<--nofilter>
 
 disables Gorap specific filters for length, identitiy, secondary structure, overlapping ncRNA families
@@ -733,6 +736,10 @@ disables Gorap specific filters for length, identitiy, secondary structure, over
 =item B<-nodel>, B<--nooverlapdeletion>
 
 allow annotation of overlapping ncRNA families
+
+=item B<-rfamscan>, B<--rfamscan>
+
+behave like multithreaded rfam_scan on latest Rfam, i.e. use Infernal only, use Rfam thresholds and disable all filters
 
 =back
 

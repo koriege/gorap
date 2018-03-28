@@ -97,41 +97,26 @@ sub _set {
 	my ($stkfile) = glob(catfile($querydir,$self->rf.'*.stk'));
 	$self->query_dir($querydir);
 
-	my $v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
-	if ($v){
-		$self->tools([reverse sort split /\n/ , $v]); #infernal before blast
-		$v = $cfg->val('cmd','parameter');
-		if ($v){
-			my $cmd;
-			my $i = $#{$self->tools};
-			for (split(/\n/ , $v)){
-				$cmd->{${$self->tools}[$i]} = ${$self->tools}[$i]." ".$_;
-				$i--;
-			}
-			$self->cmd($cmd);
-		}
-	}
-
-	$v = $cfg->val('thresholds','evalue');
+	my $v = $cfg->val('thresholds','evalue') or die 'Check your parameter file '.$self->cfg;
 	$self->evalue($v) if $v;
 	$v = $cfg->val('thresholds','bitscore');
 	$self->bitscore($v) if $v;
 
-	$v = $cfg->val('query','fasta');
+	$v = $cfg->val('query','fasta') or die 'Check your parameter file '.$self->cfg;
 	if (-e $v){
 		$self->fasta($v);
 	} else {
 		die 'Check fasta definition in parameter file '.$self->cfg unless -e $fastafile;
 		$self->fasta($fastafile);
 	}
-	$v = $cfg->val('query','stk');
+	$v = $cfg->val('query','stk') or die 'Check your parameter file '.$self->cfg;
 	if (-e $v){
 		$self->stk($v);
 	} else {
 		die 'Check stk definition in parameter file '.$self->cfg unless -e $stkfile;
 		$self->stk($stkfile);
 	}
-	$v = $cfg->val('query','cm');
+	$v = $cfg->val('query','cm') or die 'Check your parameter file '.$self->cfg;
 	if (-e $v){
 		$self->cm($v);
 	} else {
@@ -183,6 +168,24 @@ sub _set {
 				$1=~/(\d+)/;
 				push @{$self->constrains} , [$sta+1,$sto,$1,substr($self->cs,$sta,$sto-$sta),$_];
 			}
+		}
+	}
+
+	$v = $cfg->val('cmd','tool') or die 'Check your parameter file '.$self->cfg;
+	if ($v){
+		$self->tools([reverse sort split /\n/ , $v]); #infernal before blast
+		$v = $cfg->val('cmd','parameter');
+		if ($v){
+			my $cmd;
+			my $i = $#{$self->tools};
+			for (split(/\n/ , $v)){
+				$cmd->{${$self->tools}[$i]} = ${$self->tools}[$i]." ".$_;
+				$i--;
+			}
+			$cmd->{'infernal'} = 'cmsearch --noali --cpu $cpus '.$self->cm.' $genome';
+			$cmd->{'blast'} = 'blastn -num_threads $cpus -query '.$self->fasta.' -db $genome -task dc-megablast -word_size 11 -template_type optimal -template_length 16 -evalue '.$self->evalue.' -window_size 0 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"';
+
+			$self->cmd($cmd);
 		}
 	}
 }

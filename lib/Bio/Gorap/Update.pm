@@ -526,7 +526,7 @@ sub create_cfgs {
 		}
 		close CFG;
 	}
-	print "100% configures\n";
+	print "100% configured\n";
 	unlink $cfgs{$_} for keys %cfgs;
 }
 
@@ -534,12 +534,12 @@ sub get_cmd {
 	my ($self, $rna_type) = @_;
 
 	my $options;
-    switch ($rna_type) {
+	switch ($rna_type) {
 		case /rRNA/	{
 			$options = "tool=barrnap\n";
-			$options .= "parameter=--threads $cpus\n";
-			$options .= "parameter=--kingdom $kingdom\n";
-			$options .= "parameter=$genome\n";
+			$options .= 'parameter=--threads $cpus';
+			$options .= ' --kingdom $kingdom';
+			$options .= ' $genome'."\n";
 			# $options = "tool=rnammer\n";
 			# $options .= "parameter=-m ssu,lsu,tsu\n";
 			# $options .= 'parameter=-S $kingdom'."\n";
@@ -548,35 +548,35 @@ sub get_cmd {
 		}
 		case /tRNA/ {
 			$options = "tool=tRNAscan-SE\n";
-			$options .= "parameter=-q\n";
-			$options .= "parameter=-b\n";
-			$options .= "parameter=-Q\n";
-			$options .= 'parameter=-$kingdom'."\n";
-			$options .= 'parameter=$genome'."\n";
+			$options .= "parameter=-q";
+			$options .= " -b";
+			$options .= " -Q";
+			$options .= ' -$kingdom';
+			$options .= ' $genome'."\n";
 		}
 		case /RNaseP/ {
 			$options = "tool=Bcheck\n";
-			$options .= 'parameter=-$kingdom'."\n";
-			$options .= 'parameter=--ss'."\n";
-			$options .= 'parameter=-o $output'."\n";
-			$options .= 'parameter=$genome'."\n";
+			$options .= 'parameter=-$kingdom';
+			$options .= ' --ss';
+			$options .= ' -o $output';
+			$options .= ' $genome'."\n";
 		}
 		case /CRISPR/ {
 			$options = "tool=crt\n";
-			$options .= "parameter=-screen 1\n";
-			$options .= "parameter=-minNR 4\n";
-			$options .= "parameter=-minRL 10\n";
-			$options .= "parameter=-maxRL 100\n";
-			$options .= "parameter=-minSL 10\n";
-			$options .= "parameter=-maxSL 100\n";
-			$options .= "parameter=-searchWL 8\n";
-			$options .= 'parameter=$genome'."\n";
+			$options .= "parameter=-screen 1";
+			$options .= " -minNR 4";
+			$options .= " -minRL 10";
+			$options .= " -maxRL 100";
+			$options .= " -minSL 10";
+			$options .= " -maxSL 100";
+			$options .= " -searchWL 8";
+			$options .= ' $genome'."\n";
 		}
 		else {
 			$options = "tool=infernal\n";
 			$options .= "tool=blast\n";
 		}
-    }
+	}
 
 	return $options;
 }
