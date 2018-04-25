@@ -548,8 +548,8 @@ sub get_cmd {
 		}
 		case /tRNA/ {
 			$options = "tool=tRNAscan-SE\n";
-			$options .= "parameter=-q";
-			$options .= " -b";
+			$options .= "parameter=-L";
+			$options .= " -q";
 			$options .= " -Q";
 			$options .= ' -$kingdom';
 			$options .= ' $genome'."\n";

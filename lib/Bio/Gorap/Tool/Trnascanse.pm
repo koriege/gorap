@@ -17,7 +17,7 @@ sub calc_features {
 	my @kingdoms;
 	push @kingdoms , 'A' if exists $self->parameter->kingdoms->{'arc'};
 	push @kingdoms , 'B' if exists $self->parameter->kingdoms->{'bac'};
-	push @kingdoms , undef if exists $self->parameter->kingdoms->{'euk'} || exists $self->parameter->kingdoms->{'fungi'};
+	push @kingdoms , 'E' if exists $self->parameter->kingdoms->{'euk'} || exists $self->parameter->kingdoms->{'fungi'};
 
 	my $select = IO::Select->new();
 	my $thrs={};
@@ -82,6 +82,7 @@ sub calc_features {
 	my $uid;
 	my $types;
 	for (@out){
+		next if $_=~/^(Sequence\s+|Name\s+|---)/;
 		my @l = split /\s+/, $_;
 		next if $#l<8;
 

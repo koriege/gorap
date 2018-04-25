@@ -35,7 +35,7 @@ BEGIN {
 		glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
 		glob(catdir($ENV{GORAP},"gorap","*","perl5"))
 	);
-
+	
 	if (`tRNAscan-SE -h &> /dev/null; echo \$?` != 0){
 		say ":ERROR: check failed - try: setup -i trnascan";
 		exit 1;
@@ -401,7 +401,7 @@ sub run {
 
 		my ($threshold,$nonTaxThreshold);
 		my @tools = @{$parameter->cfg->tools};
-		@tools = ('infernal') if $parameter->rfamscan;
+		@tools = ('infernal') if $parameter->rfamscan || $parameter->pureinfernal;
 		for my $tool (@tools){
 			my $cmd = $parameter->cfg->cmd->{$tool};
 			$tool=~s/[\W\d_]//g;

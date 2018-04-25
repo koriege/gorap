@@ -179,6 +179,8 @@ sub align {
 		return $scorefile;
 	}
 
+	$cm = $self->parameter->cfg->cm.".eval.orig" if -e $self->parameter->cfg->cm.".eval.orig";
+	
 	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 ".$self->parameter->cfg->cm." $fastafile";
 	$cmd1 = "cmalign --mxsize ".$self->parameter->mem." --noprob --sfile $scorefile --cpu $threads -o $tmpfile1 $cm $fastafile" if $cm;
 	($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd1 , verbose => 0 );

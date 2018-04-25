@@ -252,6 +252,9 @@ sub structure_filter {
 	$minstructures = ($#areas +1)/2 unless $minstructures;
 	for (keys %{$features}){
 		my $f = $features->{$_};
+
+		next if max($f->score,($f->get_tag_values('origscore'))[0]) >= 40;
+
 		if ($#areas == 1){
 			if (! exists $ssPresentCount->{$f->seq_id} || $ssPresentCount->{$f->seq_id} < 1){
 				delete $features->{$_};
@@ -325,7 +328,7 @@ sub sequence_filter {
 			# 		push @update , $f->seq_id.' '.$f->primary_tag.' P';
 			# 	}
 			# } elsif ($consC/$allCons < 0.7 || ($type=~/_mir/i && $consC/$allCons < 0.9)){
-			if ($consC/$allCons < 0.7 || ($f->primary_tag=~/_mir/i && $consC/$allCons < 0.9)){
+			if ($consC/$allCons < 0.7 || ($f->primary_tag=~/_mir/i && $consC/$allCons < 0.8)){
 				delete $features->{$_};
 				$write = 1;
 				$stk->remove_seq($stk->get_seq_by_id($f->seq_id));

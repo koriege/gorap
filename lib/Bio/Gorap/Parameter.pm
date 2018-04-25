@@ -24,7 +24,7 @@ has 'label' => (
 has 'mem' => (
 	is => 'ro',
 	isa => 'Int',
-	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem()/1024/1024 * 0.9)) }
+	default => sub { min(40000,sprintf("%.0f",Sys::MemInfo::totalmem()/1024/1024 * 0.8)) }
 );
 
 has 'pwd' => (
@@ -86,7 +86,7 @@ has 'strandspec' => (
 	default => 0
 );
 
-has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'refresh', 'rfamscan'] => (
+has ['sort', 'skip_comp', 'notpm', 'noblast', 'nofilter', 'nobutkingsnofilter', 'refresh', 'rfamscan', 'pureinfernal'] => (
 	is => 'rw',
 	isa => 'Bool',
 	default => 0
@@ -175,7 +175,7 @@ has 'denovoheight' => (
 has 'thfactor' => (
 	is => 'rw',
 	isa => 'Num',
-	default => 0.9
+	default => 0.8
 );
 
 has 'cmtaxbiascutoff' => (
@@ -228,7 +228,8 @@ sub BUILD {
 		'strand|strandspecific=i' => \my $strandspec,
 		'thfactor|thresholdfactor=f' => \my $thfactor, #hidden dev option
 		'biasco|biascutoff=f' => \my $taxbiascutoff, #hidden dev option
-		'rfamscan|rfamscan' => \my $rfamscan
+		'rfamscan|rfamscan' => \my $rfamscan,
+		'pure|pureinfernal' => \my $pureinfernal #hidden dev option
 	) or pod2usage(-exitval => 1, -verbose => 0) if $self->commandline;
 
 	&read_parameter($self,$file) if $file && $file ne 'x';
@@ -394,6 +395,11 @@ sub BUILD {
 	$self->thfactor($thfactor) if $thfactor;
 	$self->cmtaxbiascutoff($taxbiascutoff) if $taxbiascutoff;
 	$self->strandspec($strandspec) if $strandspec;
+
+	if ($pureinfernal){
+		$self->pureinfernal(1);
+		$self->noblast(1);
+	}
 
 	if ($rfamscan){
 		$self->rfamscan(1);
