@@ -1,7 +1,9 @@
 #! /usr/bin/env bash
 # (c) Konstantin Riege
+set -eu -o pipefail
 shopt -s extglob
-trap 'trap "" EXIT; kill -PIPE -- -$$' INT KILL TERM EXIT
+trap 'exit' INT KILL TERM
+trap 'source deactivate 2> /dev/null; kill -PIPE 0' EXIT
 
 trapper() {
 	echo ":ERROR: failed" | tee -a $log 2> /dev/null
