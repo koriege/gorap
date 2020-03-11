@@ -47,7 +47,7 @@ has 'cfg' => (
 has 'genomes' => (
 	is => 'rw',
 	isa => 'ArrayRef',
-	default => sub { [catfile($ENV{GORAP},'gorap','example','ecoli.fa')] }
+	default => sub { [catfile($ENV{GORAP},'db','example','ecoli.fa')] }
 );
 
 has 'threads' => (
@@ -468,21 +468,21 @@ sub set_queries {
 		}
 		if ($_=~/R?F?0*(\d+)\s*:\s*R?F?0*(\d+)/){
 			for ($1..$2){
-				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'db','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}
 
 		}elsif($_=~/R?F?0*(\d+)\s*:\s*/) {
 			my $nr1 = $1;
-			my @q = glob(catfile($ENV{GORAP},'gorap','config','*.cfg'));
+			my @q = glob(catfile($ENV{GORAP},'db','config','*.cfg'));
 			basename($q[$#q])=~/R?F?0*(\d+)/;
 			my $nr2=$1;
 			for ($nr1..$nr2){
-				my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
+				my ($q) = glob(catfile($ENV{GORAP},'db','config','RF'.((0) x (5-length($_))).$_.'*.cfg'));
 				push @queries , $q if $q;
 			}
 		} elsif ($_=~/R?F?0*(\d+)/){
-			my ($q) = glob(catfile($ENV{GORAP},'gorap','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
+			my ($q) = glob(catfile($ENV{GORAP},'db','config','RF'.((0) x (5-length($1))).$1.'*.cfg'));
 			push @queries , $q if $q;
 		}
 	}
@@ -495,7 +495,7 @@ sub _set_queries {
 	my ($self) = @_;
 
 	my @queries;
-	push @queries , glob(catfile($ENV{GORAP},'gorap','config','*.cfg'));
+	push @queries , glob(catfile($ENV{GORAP},'db','config','*.cfg'));
 
 	return \@queries;
 }

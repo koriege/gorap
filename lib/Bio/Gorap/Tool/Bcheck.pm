@@ -5,6 +5,7 @@ use IPC::Cmd qw(run);
 use File::Spec::Functions;
 use IO::Select;
 use IO::Pipe;
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -42,14 +43,14 @@ sub calc_features {
 			} else {
 				$pipe->writer();
 				$pipe->autoflush(1);
-				my $tmpfile=catfile($self->parameter->tmp,$$);
+				my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
 
 				my $cmd = $self->cmd;
 				$cmd =~ s/\$genome/$genome/;
 				$cmd =~ s/\$kingdom/$kingdom/;
 				$cmd =~ s/\$output/$tmpfile/;
 
-				local $ENV{PATH} = catdir($ENV{GORAP},'bin','infernal1').':'.$ENV{PATH};
+				local $ENV{PATH} = catdir($ENV{GORAP},'infernal','1.0','bin').':'.$ENV{PATH};
 				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
 
 				open F , '<'.$tmpfile.'_rnpB.ss' or exit;

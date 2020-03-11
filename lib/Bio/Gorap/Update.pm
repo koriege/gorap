@@ -18,10 +18,10 @@ use File::Basename;
 sub dl_rfam {
 	my ($self,$parameter,$taxdb) = @_;
 
-	my $wgetpath = catdir($ENV{GORAP},'gorap','data','rfam_trees.tar.gz');
+	my $wgetpath = catdir($ENV{GORAP},'db','data','rfam_trees.tar.gz');
 	my $url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.seed_tree.tar.gz';
 	system("wget -O $wgetpath $url");
-	my $extractpath = catdir($ENV{GORAP},'gorap','data','rfam_trees');
+	my $extractpath = catdir($ENV{GORAP},'db','data','rfam_trees');
 	make_path($extractpath);
 	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
 	unlink $wgetpath;
@@ -31,26 +31,33 @@ sub dl_rfam {
 	my $percent = 1;
 	my $step = ($#trees+1)/100;
 	my $c=0;
-	for (reverse @trees){
+	for my $treefile (@trees){
 		$c++;
 		if ($c > $percent * $step){
 			print "$percent% parsed\n";
 			$percent++;
 		}
-		open F,'<'.$_ or die $!;
+
+		open F,"<$treefile" or die $!;
 		while(<F>){
-			my @m = $_=~/[^_]+\/[^\[]+\[\d+\]/g;
-			for (@m){
-				my $acc = (split /\//,$_)[0];
-				$_=~/\[(\d+)\]/;
-				my $tmptaxid = $1;
-				my $taxid;
-				$taxid = $taxdb->accToTaxid->{$acc} if exists $taxdb->accToTaxid->{$acc};
-				$taxid = $taxdb->getIDfromName($tmptaxid) unless $taxid;
-				$taxid = $taxdb->getIDfromAccession($acc) unless $taxid;
+			chomp $_;
+			@matches = $_=~/([^)(,]+\/[^)(,]+)/;
+			for (@matches){
+				my ($acc,$name) = split /\//;
+				$acc =~ s/^[^_]*_//;
+				$name =~ s/^[^_]*_//;
+				$name =~ s/\[([^\]]+).*//;
+				$name = $taxdb->flatname($name);
+				$taxid = $1;
+				unless($taxid=~/^\d+$/){ # sometimes rfam has newick format issues
+					undef $taxid;
+					$taxid = $taxdb->accToTaxid->{$acc} if $acc && exists $taxdb->accToTaxid->{$acc};
+					$taxid = $taxdb->getIDfromAccession($acc) if $acc && ! $taxid;
+					$taxid = $taxdb->getIDfromName($name) if $name && ! $taxid;
+				}
 				if ($taxid){
 					$taxdb->accToTaxid->{$acc} = $taxid;
-					my $name = $taxdb->getNameFromID($taxid);
+					$name = $taxdb->getNameFromID($taxid);
 					if ($name){
 						$taxdb->taxidToName->{$taxid} = $name;
 						$taxdb->nameToTaxid->{$name} = $taxid;
@@ -62,18 +69,27 @@ sub dl_rfam {
 			}
 		}
 		close F;
+
+		# my $tree = (Bio::TreeIO->new(-format => 'newick', -file => $treefile , -verbose => -1))->next_tree(); # sometimes, rf00001 e.g., parser failes
+		# for my $node ( $tree->get_nodes ) {	
+		# 	next unless defined $node->is_Leaf;
+		# 	$node->id=~/^[^_]+_([^\/]+)\/[^_]+_(\S+)/;
+		# 	my $acc = $1;
+		# 	my $name = taxdb->flatname($2);
+		# 	my $taxid = $node->bootstrap;
+		# }
 	}
 	rmtree($extractpath);
 	print "100% parsed\n";
 
-	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.rfam');
+	open MAP , '>'.catfile($ENV{GORAP},'db','data','accSciTax.rfam');
 	print MAP $_."\t".$taxdb->accToName->{$_}."\t".$taxdb->accToTaxid->{$_}."\n" for(keys %{$taxdb->accToName});
 	close MAP;
 
-	$wgetpath=catdir($ENV{GORAP},'gorap','data','rfam.cm.gz');
+	$wgetpath=catdir($ENV{GORAP},'db','data','rfam.cm.gz');
 	$url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.cm.gz';
-	system("wget --unlink -O $wgetpath $url");
-	$extractpath = catfile($ENV{GORAP},'gorap','data','rfam.cm');
+	system("wget -O $wgetpath $url");
+	$extractpath = catfile($ENV{GORAP},'db','data','rfam.cm');
 	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
 	unlink $wgetpath;
 
@@ -84,8 +100,8 @@ sub dl_rfam {
 		push @tmp, $_;
 		if ($_=~/^INFERNAL/){
 			next unless $rf;
-			rmtree($_) for glob catdir($ENV{GORAP},'gorap','data','rfam',$rf.'*');
-			$outpath=catdir($ENV{GORAP},'gorap','data','rfam',$rf.'_'.$rna);
+			rmtree($_) for glob catdir($ENV{GORAP},'db','data','rfam',$rf.'*');
+			$outpath=catdir($ENV{GORAP},'db','data','rfam',$rf.'_'.$rna);
 			make_path($outpath);
 			open CMOUT , '>'.catfile($outpath, $rf.'_'.$rna.'.cm') or die $!;
 			pop @tmp;
@@ -99,24 +115,25 @@ sub dl_rfam {
 			$rf = $1;
 		}
 	}
-	rmtree($_) for glob catdir($ENV{GORAP},'gorap','data','rfam',$rf.'*');
-	$outpath=catdir($ENV{GORAP},'gorap','data','rfam',$rf.'_'.$rna);
+	rmtree($_) for glob catdir($ENV{GORAP},'db','data','rfam',$rf.'*');
+	$outpath=catdir($ENV{GORAP},'db','data','rfam',$rf.'_'.$rna);
 	make_path($outpath);
 	open CMOUT , '>'.catfile($outpath, $rf.'_'.$rna.'.cm') or die $!;
 	print CMOUT $_ for @tmp;
 	close CMOUT;
 	unlink $extractpath;
 
-	$wgetpath = catdir($ENV{GORAP},'gorap','data','rfam.stk.gz');
+
+	$wgetpath = catdir($ENV{GORAP},'db','data','rfam.stk.gz');
 	$url = 'ftp://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.seed.gz';
 	system("wget -O $wgetpath $url");
-	$extractpath = catfile($ENV{GORAP},'gorap','data','rfam.stk');
+	$extractpath = catfile($ENV{GORAP},'db','data','rfam.stk');
 	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
 	unlink $wgetpath;
 
 	print "0% parsed\n";
 	$percent = 1;
-	$step = $#trees / 10;
+	$step = ($#trees+1)/100;
 	$c=0;
 	@prevlines=();
 	my $map={};
@@ -129,7 +146,7 @@ sub dl_rfam {
 		if($_=~/^\/\//){
 			$c++;
 			if ($c > $percent * $step){
-				print "".($percent*10)."% parsed\n";
+				print "$percent% parsed\n";
 				$percent++;
 			}
 
@@ -143,8 +160,7 @@ sub dl_rfam {
 			my $rfnr = (split(/\s+/,$prevlines[2]))[2];
 			my $rna = (split(/\s+/,$prevlines[3]))[2];
 
-
-			my $outpath = catdir($ENV{GORAP},'gorap','data','rfam',$rfnr.'_'.$rna);
+			my $outpath = catdir($ENV{GORAP},'db','data','rfam',$rfnr.'_'.$rna);
 			make_path($outpath);
 
 			open STKOUT , '>'.catfile($outpath,$rfnr.'_'.$rna.'.stk') or die $!;
@@ -194,14 +210,18 @@ sub dl_rfam {
 			}else{
 				my $acc = (split /\// , $line[0])[0];
 				my $taxid;
-
+				
 				if (exists $taxdb->accToTaxid->{$acc}){
 					$taxid = $taxdb->accToTaxid->{$acc};
 				} else {
-					$taxid = $taxdb->getIDfromAccession($acc) unless $taxid;
-					$taxdb->accToTaxid->{$acc} = $taxid if $taxid;
+					if ($acc=~/^URS0[^_]+_(\d+)$/){
+						$taxid = $1;
+					} else {
+						$taxid = $taxdb->getIDfromAccession($acc);
+					}
 				}
 				if ($taxid){
+					$taxdb->accToTaxid->{$acc} = $taxid;
 					my $name;
 					if (exists $taxdb->accToName->{$acc}){
 						$name = $taxdb->accToName->{$acc};
@@ -223,10 +243,11 @@ sub dl_rfam {
 		}
 	}
 	close STK;
+
 	unlink $extractpath;
 	print "100% parsed\n";
 
-	open MAP , '>'.catfile($ENV{GORAP},'gorap','data','accSciTax.rfam');
+	open MAP , '>'.catfile($ENV{GORAP},'db','data','accSciTax.rfam');
 	print MAP $_."\t".$taxdb->accToName->{$_}."\t".$taxdb->accToTaxid->{$_}."\n" for(keys %{$taxdb->accToName});
 	close MAP;
 }
@@ -234,23 +255,32 @@ sub dl_rfam {
 sub dl_silva {
 	my ($self,$parameter,$taxdb) = @_;
 
-	my $wgetpath = catfile($ENV{GORAP},'gorap','data','silvaList');
-	my $url = 'ftp://ftp.arb-silva.de/living_tree/';
+	my $wgetpath = catfile($ENV{GORAP},'db','data','taxonomy','silva.newick.gz');
+	my $url = 'ftp://ftp.arb-silva.de/current/Exports/taxonomy/*.tre.gz';
+	system("wget --glob on $url -O $wgetpath");
+	my $extractpath = catdir($ENV{GORAP},'db','data','taxonomy');
+	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
+	unlink $wgetpath;
+	
+	return;
+
+	$wgetpath = catfile($ENV{GORAP},'db','data','silvaList');
+	$url = 'ftp://ftp.arb-silva.de/living_tree/';
 	my $version = `curl -s $url | awk \'{print \$NF}\' | sort -V | tail -1`;
 	chomp $version;
-	my $dir = `curl -s ftp://ftp.arb-silva.de/living_tree/$version/ | grep ^d | grep _SSU | awk \'{print \$NF}\'`;
-	chomp $dir;
+	my $file = `curl -s ftp://ftp.arb-silva.de/living_tree/$version/ | grep -F SSU_tree.newick | awk \'{print \$NF}\'`;
+	chomp $file;
 
-	$wgetpath = catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick');
-	system("wget ftp://ftp.arb-silva.de/living_tree/$version/$dir/${dir}_tree.newick -O $wgetpath");
+	$wgetpath = catfile($ENV{GORAP},'db','data','taxonomy','silva.newick');
+	system("wget ftp://ftp.arb-silva.de/living_tree/$version/$file -O $wgetpath");
 
 	print "0% parsed\n";
-	my $tree = (Bio::TreeIO->new(-format => 'newick', -file => catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1))->next_tree();
+	my $tree = (Bio::TreeIO->new(-format => 'newick', -file => catfile($ENV{GORAP},'db','data','taxonomy','silva.newick') , -verbose => -1))->next_tree();
 	my $percent = 1;
 	my $step = $tree->number_nodes / 100;
 	my $c=0;
-	my @acctax;
-	my @sciTax;
+	open ACC , '>'.catfile($ENV{GORAP},'db','data','accTax.silva');
+	open SCI , '>'.catfile($ENV{GORAP},'db','data','sciTax.silva');
 	for my $node ( $tree->get_nodes ) {	
 		$c++;
 		if ($c > $percent * $step){
@@ -262,108 +292,41 @@ sub dl_silva {
 		$node->id(undef) unless $node->id;
 
 		my $taxid;
-		my ($name,$acc) = split /__+/,$node->id;
-		
-		$taxid = $taxdb->accToTaxid->{$acc} if $acc;
-		$taxid = $taxdb->nameToTaxid->{$name} if $name && ! $taxid;
+		my $nodeid = $node->id;
+		$nodeid=~s/\W//g;
+		my ($acc,$name) = split /_+/,$nodeid;
+		if(! $name){
+			$name = $acc;
+			$acc = '';
+		}
+		$name=~s/\s+/_/g;
 		if ($acc){
+			$taxid = $taxdb->accToTaxid->{$acc};
 			$taxid = $taxdb->getIDfromAccession($acc) unless $taxid;
-			push @acctax, $acc."\t".$taxid."\n" if $taxid;
-		}
-		if($name){
+			print ACC $acc."\t".$taxid."\n" if $taxid;
+		} elsif ($name){
+			$taxid = $taxdb->nameToTaxid->{$name};
 			$taxid = $taxdb->getIDfromName($name) unless $taxid;
-			push @scitax, $name."\t".$taxid."\n" if $taxid;
+			print SCI $name."\t".$taxid."\n" if $taxid;
 		}
+
 		$node->id($taxid ? $taxid : undef);
 	}
-	print "100% parsed\n";
-	
-	Bio::TreeIO->new(-format => 'newick', -file => '>'.catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1)->write_tree($tree);
-
-	open ACC , '>'.catfile($ENV{GORAP},'gorap','data','accTax.silva');
-	open SCI , '>'.catfile($ENV{GORAP},'gorap','data','sciTax.silva');
-	print SCI $_ for @scitax;
-	print ACC $_ for @acctax;
 	close ACC;
 	close SCI;
-}
-
-sub dl_silva_ambiguous {
-	my ($self,$parameter,$taxdb) = @_;
-
-	my $wgetpath = catfile($ENV{GORAP},'gorap','data','silvaList');
-	my $url = 'ftp://ftp.arb-silva.de/current/Exports/taxonomy/';
-	system("curl -s $url > $wgetpath");
-	my $urlnewick;
-	my $urltaxmap;
-	open F , '<'.$wgetpath or die $!;
-	while(<F>){
-		my @l = split /\s+/, $_;
-		$urlnewick = $url.$l[-1] if $l[-1] =~ /^tax_slv_ssu_.+\.tre$/;
-		$urlacc = $url.$l[-1] if $l[-1] =~ /^tax_slv_ssu_.+\.acc_taxid$/;
-		$urlacctax = $url.$l[-1] if $l[-1] =~ /^taxmap_embl_ssu_ref_.+\.txt.gz$/;
-	}
-	close F;
-	unlink $wgetpath;
-
-	my %acc2silva;
-	my %silva2acc;
-	$wgetpath = catfile($ENV{GORAP},'gorap','data','taxonomy','silva.acc');
-	system("wget -O $wgetpath $urlacc");
-	open F, '<'.$wgetpath or die $!;
-	while(<F>){
-		my @l = split /\s+/,$_;
-		$acc2silva{(split /\./,$l[0])[0]} = $l[1];
-		$silva2acc{$l[1]} = (split /\./,$l[0])[0];
-	}
-	close F;
-	unlink $wgetpath;
-
-	my %acc2tax;
-	$wgetpath = catfile($ENV{GORAP},'gorap','data','taxonomy','silva.accTax.gz');
-	my $extractpath = catfile($ENV{GORAP},'gorap','data','taxonomy','silva.accTax');
-	system("wget -O $wgetpath $urlacctax");
-	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
-	open F, '<'.$extractpath or die $!;
-	while(<F>){
-		my @l = split /\s+/,$_;
-		$acc2tax{$l[0]} = $l[-1];
-	}
-	close F;
-	unlink $wgetpath;
-	unlink $extractpath;
-
-	$wgetpath = catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick');
-	system("wget -O $wgetpath $urlnewick");
-
-	##!!!!not unambiguous:
-	my $tree = (Bio::TreeIO->new(-format => 'newick', -file => $wgetpath , -verbose => -1))->next_tree();
-	print "0% parsed\n";
-	my $percent = 1;
-	my $step = $tree->number_nodes / 10;
-	my $c=0;
-	for my $node ( $tree->get_nodes ) {
-		$c++;
-		if ($c > $percent * $step){
-			print "".($percent*10)."% parsed\n";
-			$percent++;
-		}
-
-		next unless defined $node->id;
-		$node->id($acc2tax{$silva2acc{$node->id}});
-	}
 	print "100% parsed\n";
-	Bio::TreeIO->new(-format => 'newick', -file => '>'.catfile($ENV{GORAP},'gorap','data','taxonomy','silva.newick') , -verbose => -1)->write_tree($tree);
+
+	Bio::TreeIO->new(-format => 'newick', -file => '>'.catfile($ENV{GORAP},'db','data','taxonomy','silva.newick') , -verbose => -1)->write_tree($tree);
 }
 
 sub dl_ncbi {
 	my ($self,$parameter) = @_;
 
 	print "Downloading NCBI taxonomy\n";
-	my $wgetpath = catfile($ENV{GORAP},'gorap','data','taxdump.tar.gz');
+	my $wgetpath = catfile($ENV{GORAP},'db','data','taxdump.tar.gz');
 	my $url = 'ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz';
-	system("wget --unlink -O $wgetpath $url");
-	my $extractpath = catdir($ENV{GORAP},'gorap','data','taxonomy');
+	system("wget -O $wgetpath $url");
+	my $extractpath = catdir($ENV{GORAP},'db','data','taxonomy');
 	(Archive::Extract->new( archive => $wgetpath ))->extract( to => $extractpath );
 	unlink $wgetpath;
 
@@ -377,10 +340,10 @@ sub dl_ncbi {
 sub create_cfgs {
 	my ($self,$parameter,$taxdb) = @_;
 
-	make_path(catdir($ENV{GORAP},'gorap','config'));
-	my %cfgs = map {my $f = basename($_); $f=~/(RF\d+)/; $1 => $_} glob catfile($ENV{GORAP},'gorap','config','*.cfg');
+	make_path(catdir($ENV{GORAP},'db','config'));
+	my %cfgs = map {my $f = basename($_); $f=~/(RF\d+)/; $1 => $_} glob catfile($ENV{GORAP},'db','config','*.cfg');
 	print "0% configured\n";
-	my @stkfiles = glob(catfile($ENV{GORAP},'gorap','data','rfam','*','*.stk'));
+	my @stkfiles = glob(catfile($ENV{GORAP},'db','data','rfam','*','*.stk'));
 	my $percent = 1;
 	my $step = ($#stkfiles + 1) / 10;
 	my $c=0;
@@ -410,7 +373,7 @@ sub create_cfgs {
 			delete $cfgs{$rf};
 		}
 
-		open CFG, '>'.catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg') or die $!;
+		open CFG, '>'.catfile($ENV{GORAP},'db','config',$rf_rna.'.cfg') or die $!;
 		print CFG '[family]'."\n";
 		print CFG 'id='.$rf."\n";
 		print CFG 'name='.join('_',@rna)."\n";
@@ -481,16 +444,16 @@ sub create_cfgs {
 				print CFG "kingdom=arc\nkingdom=bac\n";
 			} else {
 				if (scalar(keys %$kingdoms) == 0 ){
-					my $seqio = Bio::SeqIO->new( -format => 'Fasta' , -file => catfile($ENV{GORAP},'gorap','data','rfam',$rf_rna,$rf_rna.'.fa'), -verbose => -1);
+					my $seqio = Bio::SeqIO->new( -format => 'Fasta' , -file => catfile($ENV{GORAP},'db','data','rfam',$rf_rna,$rf_rna.'.fa'), -verbose => -1);
 					while(my $seqobj = $seqio->next_seq()){
 						my @lineage = @{$taxdb->getLineageNodes((split /\./ ,$seqobj->id)[0])};
 						next if $#lineage < 1;
-						next if $lineage[0]->id == 28384 || $lineage[0]->id == 12908;
-						$kingdoms->{'virus'} = 1 if $lineage[0]->id==10239 || $lineage[0]->id==12884;
-						$kingdoms->{'euk'} = 1 if $lineage[1]->id==2759;
-						$kingdoms->{'arc'} = 1 if $lineage[1]->id==2157;
-						$kingdoms->{'bac'} = 1 if $lineage[1]->id==2;
-						$kingdoms->{'fungi'} = 1 if $lineage[3] && $lineage[3]->id==4751;
+						next if $lineage[0] == 28384 || $lineage[0] == 12908;
+						$kingdoms->{'virus'} = 1 if $lineage[0] == 10239 || $lineage[0] == 12884;
+						$kingdoms->{'euk'} = 1 if $lineage[1] == 2759;
+						$kingdoms->{'arc'} = 1 if $lineage[1] == 2157;
+						$kingdoms->{'bac'} = 1 if $lineage[1] == 2;
+						$kingdoms->{'fungi'} = 1 if $lineage[3] && $lineage[3] == 4751;
 					}
 					$kingdoms->{'fungi'} = 1 if exists $kingdoms->{'euk'};
 				}
@@ -520,9 +483,9 @@ sub create_cfgs {
 		print CFG "conserved=$cs\n";
 		if ($#userdescription != -1){
 			print CFG 'constrain='.$_."\n" for @userdescription;
-			print STDERR ":ERROR: manually re-check constrains for $rf_rna in ".catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg')."\n" if length($cs) != length($userdescription[0]) && ! (length($userdescription[0])-length($cs) == 1 && $userdescription[0]=~/\|$/);
+			print STDERR ":ERROR: manually re-check constrains for $rf_rna in ".catfile($ENV{GORAP},'db','config',$rf_rna.'.cfg')."\n" if length($cs) != length($userdescription[0]) && ! (length($userdescription[0])-length($cs) == 1 && $userdescription[0]=~/\|$/);
 		} elsif($cdsnorna){
-			print ":INFO: consider to add box constrains for $rf_rna in ".catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg')."\n";
+			print ":INFO: consider to add box constrains for $rf_rna in ".catfile($ENV{GORAP},'db','config',$rf_rna.'.cfg')."\n";
 		}
 		close CFG;
 	}

@@ -91,7 +91,7 @@ sub _set {
 	$self->rf($cfg->val('family','id')) or die 'Check your parameter file '.$self->cfg;
 	$self->rna($cfg->val('family','name')) or die 'Check your parameter file '.$self->cfg;
 	$self->rf_rna($self->rf.'_'.$self->rna);
-	my ($querydir) = glob(catdir($ENV{GORAP},'gorap','data','rfam',$self->rf.'*'));
+	my ($querydir) = glob(catdir($ENV{GORAP},'db','data','rfam',$self->rf.'*'));
 	my ($fastafile) = glob(catfile($querydir,$self->rf.'*.fa'));
 	my ($cmfile) = glob(catfile($querydir,$self->rf.'*.cm'));
 	my ($stkfile) = glob(catfile($querydir,$self->rf.'*.stk'));

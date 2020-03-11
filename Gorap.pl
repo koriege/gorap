@@ -1,103 +1,18 @@
-#! /usr/bin/env perl
+#!/usr/bin/env perl
+use lib './lib'; # devel
 
 use v5.10;
 use strict;
 use warnings;
 use sigtrap qw(handler safety_store normal-signals);
-
-use File::Spec::Functions;
 use Cwd qw(abs_path);
-
-BEGIN {
-	if ( ! $ENV{GORAP} ){
-		say "Install and export Gorap environment variable - see README";
-		exit 1;
-	}
-
-	my @path;
-	push @path,abs_path($_) for glob("$ENV{GORAP}/bin/*");
-	$ENV{PATH} = $ENV{PATH} ? join(":",(@path,$ENV{PATH})) : join(":",@path);
-
-	if ( $ENV{PERL5LIB} ){
-		$ENV{PERL5LIB} = join(":",
-			glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
-			glob(catdir($ENV{GORAP},"gorap","*","perl5")),
-			$ENV{PERL5LIB}
-		);
-	} else {
-		$ENV{PERL5LIB} = join(":",
-			glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
-			glob(catdir($ENV{GORAP},"gorap","*","perl5"))
-		);
-	}
-
-	unshift(@INC,
-		glob(catdir($ENV{GORAP},"gorap","*","perl5","x86_64*")),
-		glob(catdir($ENV{GORAP},"gorap","*","perl5"))
-	);
-	
-	if (`tRNAscan-SE -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i trnascan";
-		exit 1;
-	}
-	if (`java -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i java";
-		exit 1;
-	}
-	if (`raxml -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i raxml";
-		exit 1;
-	}
-	if (`newicktopdf -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i newicktopdf";
-		exit 1;
-	}
-	if (`hmmsearch -h -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i hmmer";
-		exit 1;
-	}
-	if (`rnabob -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i rnabob";
-		exit 1;
-	}
-	if (`PATH=\$GORAP/bin/infernal1:\$PATH && Bcheck -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i bcheck";
-		exit 1;
-	}
-	if (`cmsearch -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i infernal";
-		exit 1;
-	}
-	if (`blastn -h &> /dev/null; echo \$?` != 0){
-		say ":ERROR: check failed - try: setup -i bast";
-		exit 1;
-	}
-	if (`barrnap 2>&1 | grep -Fc Torsten` == 0){
-		say ":ERROR: check failed - try: setup -i barrnap";
-		exit 1;
-	}
-	if (`samtools 2>&1 | grep -Fc Version` == 0){
-		say ":ERROR: check failed - try: setup -i samtools";
-		exit 1;
-	}
-	if (`crt 2>&1 | grep -Fc OPTIONS` == 0){
-		say ":ERROR: check failed - try: setup -i crt";
-		exit 1;
-	}
-	if (`mafft -h 2>&1 | grep -Fc MAFFT` == 0){
-		say ":ERROR: check failed - try: setup -i mafft";
-		exit 1;
-	}
-}
-
+use File::Spec::Functions;
 use File::Basename;
 use File::Copy qw(copy);
 use File::Path qw(make_path remove_tree);
 use List::Util qw(any);
 use Try::Tiny;
 use Hash::Merge qw(merge);
-
-use lib './lib'; # devel
 
 use Bio::Gorap::Parameter;
 use Bio::Gorap::ThrListener;
@@ -112,6 +27,22 @@ use Bio::Gorap::CFG;
 use Bio::Gorap::Functions::ToolParser;
 use Bio::Tree::Draw::Cladogram;
 use Bio::TreeIO;
+
+BEGIN {
+	if ( ! $ENV{GORAP} ){
+		say "Export GORAP environment variable pointing towards installation directory and try again!";
+		exit 1;
+	}
+	my @path;
+	push @path,abs_path($_) for glob("$ENV{GORAP}/*/*/bin");
+
+	if($#path == -1){
+		say "Please ensure Gorap is correclty installed and GORAP environment variable points towards installation directory!";
+		exit 1;
+	}
+	
+	$ENV{PATH} = $ENV{PATH} ? join(":",($ENV{PATH},@path)) : join(":",@path);
+}
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 $year += 1900;

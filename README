@@ -17,15 +17,10 @@ Requirements: Linux/Unix or Mac with internet access and installed
 - Perl, git, gcc, make, wget, curl
 
 1   INSTALLATION
-2   RUN GORAP
-3   UPDATE GORAP
-3.1 UPDATE LIBRARY
-3.2 UPDATE DATABASES
-4   CONFIGURATION FILES
-4.1 ADD CUSTOM TOOLS
-4.2 ADD CUSTOM CONSTRAINS
-4.3 ADD CUSTOM FAMILY
-5   RESULTS
+2   UPDATE GORAP
+3   RUN GORAP
+4   RESULTS
+5   CONFIGURE GORAP
 6   MISSING STUFF
 7   CONTACT
 
@@ -42,66 +37,123 @@ echo "export GORAP=$GORAP" >> ~/.bashrc
 git clone --recursive https://github.com/koriege/gorap.git
 4) Enter the source directory
 cd gorap
-5) Checkout latest stable version
-git checkout $(git describe --tags)
-6) Install Gorap and all necessary tools
-./setup -i all
+5) Install necessary third-party tools
+./setup.sh -d $GORAP
+6) Install Gorap
+source $GORAP/conda/bin/activate gorap
+cpanm .
+make clean
+rm Makefile.old
+conda deactivate
 7) Download latest NCBI Taxonomy
-$GORAP/bin/gorap/Gorap.pl -update ncbi
+source $GORAP/conda/bin/activate gorap
+Gorap.pl -update ncbi
+conda deactivate
+
+
+--------------
+2 UPDATE GORAP
+--------------
+
+1) Follow the INSTALLATION steps 1 to 4
+3) Install Gorap
+source $GORAP/conda/bin/activate gorap
+cpanm .
+make clean
+rm Makefile.old
+conda deactivate
+4) Optionally, choose a) and or b)
+a) Replace databases and configurations from enclosed data archive
+./setup.sh -u -d $GORAP
+b) Download latest databases and subsequently re-configure Gorap
+source $GORAP/conda/bin/activate gorap
+Gorap.pl -update all
+conda deactivate
 
 
 -----------
-2 RUN GORAP
+3 RUN GORAP
 -----------
+
+- Load conda environment
+source $GORAP/conda/bin/activate gorap
 
 - Get help
-$GORAP/bin/gorap/Gorap.pl -h
-
+Gorap.pl -h
 
 - Screen example data for 6S RNA (Rfam entry 13), on 8 threads and taxonomic information 
-Gorap.pl -q 13 -c 8 -k bac -s 562 -r 543 -i $GORAP/bin/gorap/example/ecoli.fa -b $GORAP/bin/gorap/example/ecoli.bam -g $GORAP/bin/gorap/example/ecoli.gff
+Gorap.pl -q 13 -c 8 -k bac -s 562 -r 543 -i $GORAP/db/example/ecoli.fa
 
 - Run GORAP using a parameter file - adapt existing parameter file for your needs
 Gorap.pl -file parameter.txt
 
 - Hint 1: Multiple runs can be saved into the same output directory
-- Hint 2: Restart a run with same parameters, adding -skip option will skip annotation to perform only additional computations like TPM calculation, or phylogeny reconstruction
+- Hint 2: Restart a run with same parameters, adding -skip option will skip annotation to perform downstream analysis like phylogeny reconstruction
 - Hint 3: Command line parameters priorize parameter file settings
 -> e.g. Gorap.pl -file parameter.txt -skip -sort -l newlabel
-
 
 - Example for annotation and SSU/RNome based phylogeny reconstruction (via -og) in one step
 - A given outgroup genome will be screened only for ncRNAs predicted in genome files given by -i
 Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -og <FASTA>
 
 - 3-Step phylogeny reconstruction on hand curated alignments
-- Using labels is highly recommended
+- Hint: Using labels is highly recommended to update initially created HTML output
 Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l mylabel
-- Evaluate alignments by removing/adding (see meta) sequences from STK files, then update annotation files
+- Evaluate alignments and remove false positve sequences from STK files
+- Sequneces may also be re-added from intermediate (meta) results
 Gorap.pl -i <FASTA>,<FASTA>,<FASTA>,<FASTA> -k bac -l mylabel -refresh
-- Skip the annotation process, but do the downstream analysis for phylogeny reconstruction
+- Skip the annotation process, but run downstream phylogeny reconstruction on a chosen outgroup
 Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -og <FASTA> -k bac -l mylabel -skip
 
-
-- Example with enabled de novo prediction and TPM calculation (via -b) from RNA-Seq experiments
-- See options for calling piles: -minl -minh, -strand
-perl Gorap.pl -i <FASTA>,<FASTA>,<FASTA> -k bac -b <BAM>,<BAM> -l mylabel -skip
+- Deactivate conda environment
+conda deactivate
 
 
---------------
-3 UPDATE GORAP
---------------
+---------
+4 RESULTS
+---------
 
-3.1 UPDATE LIBRARY
+Browse the results by either using a webbrowser (index.html) or check out the following directories
 
-1) Follow the INSTALLATION steps 3 to 5
-2) Update Gorap
-./setup -i update
+1) annotations
+*orig - files with original sequence ids
+*passed - files with predictions that passed all filters
 
-3.2 UPDATE DATABASES
+GFF filter tags (ordered according to sequentially applied Gorap filters):
+L - Length cutoff if predicted gene is shorter than 40% of consensus reference
+B - Bitscore cutoff as minimum of scores by taxonomic related species or Rfam suggested noise cutoff
+S - Structure based rejection if predicted gene holds less than 50% conserved hairpins
+P - Primary sequence conservation based rejection, if predicted gene has less than 70% of strongly (>=90%) conserved nucleotides in Rfam
+	Exception: snoRNAs, which are screened for special properties and proper box motifs
+C - Copy number cutoff as defined in configuration file
+O - Overlap based rejection if higher scored annotation exists due to multi- tool or kingdom screening
+X - Tag for manually deleted sequences after Gorap refresh
+! - Passed tag - all filters passed
 
-In case of updating to a newer Rfam release, you need to manually correct predefined constrains.
-Therefore, please check the ERROR output and shift pre-annotated CD-box snoRNA box constrains towards matching:
+2) alignments - in Stockholm format 
+sequences comprise Rfam seed sequences and new predictions which passed all filters
+
+3) phylogeny in newick and PDF format
+RNome - all ncRNA predictions (except rRNAs and tRNAs), using a super-matrix approach
+core50RNome - ncRNA predictions (except rRNAs and tRNAs), present in >=50% of given input FASTA files, using a super-matrix approach
+coreRNomeSTK - ncRNAs present in all species, built from concatenated Stockholm alignments
+coreRNomeMAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
+
+4) meta - Stockholm alignments returned by sequentially applied Gorap filters
+
+
+-----------------
+5 CONFIGURE GORAP
+-----------------
+
+Configuration files are located in the $GORAP/db/config directory and enable to define RNA family specific
+- thresholds
+- command lines of prediction tools
+- consensus sequence based mismatch constrains
+
+5.1 CUSTOM CONSTRAINS
+
+Gorap comes with pre-defined constrains for many C/D-Box snoRNAs comprising
 - the C-box motif UGAUGA
 - the D-box motif CUGA
 Example:
@@ -109,24 +161,12 @@ conserved=uuGCAAUGAUGuUAagAAUUUCUUcacCUGAAuuaaaCcuUGAaGuucAAAaauCGAGCUUUUUAACaCU
 constrain=.....|..1...|......................................................|.1..|....
 constrain=......|0.|...........................................................|0.|....
 
-- Update all databases
-Gorap.pl -update all
+Use constrains to set the number of allowed mismatches in a specific region.
+The given STK consensus can be modified according to IUPAC, but must not change in length.
 
-- Or update single databases
-$GORAP/bin/gorap/Gorap.pl -update rfam
-$GORAP/bin/gorap/Gorap.pl -update ncbi
-$GORAP/bin/gorap/Gorap.pl -update silva
+5.2 ADD CUSTOM TOOLS
 
-
----------------------
-4 CONFIGURATION FILES
----------------------
-
-Configuration files are located in the $GORAP/gorap/config/ directory to set family specific thresholds, prediction tools and sequence mismatch constrains, which can be changed here.
-
-4.1 ADD CUSTOM TOOLS
-
-Requirement: New tools output needs to be GFF3 format
+Requirement: The output format of yet unsupported tools must be GFF3
 
 In the [cmd] section, cli parameters are stored for each tool applied.
 Available placeholders:
@@ -139,67 +179,28 @@ Example:
 tool=barrnap
 parameter=--threads $cpus --kingdom $kingdom $genome
 
-4.2 ADD CUSTOM CONSTRAINS
 
-Use constrains to set the number of allowed mismatches in a specific region.
-The given STK consensus can be modified according to IUPAC, but must not change in length.
+5.3 ADD CUSTOM FAMILY
+
+Create a new configuration file in the $GORAP/db/config directory following the naming scheme RFxxxxx_description.cfg
+To use the default screening methods Infernal and/or Blast add the following cli commands to the [cmd] section
 
 Example:
-conserved=uuGCAAUGAUGuUAagAAUUUCUUcacCUGAAuuaaaCcuUGAaGuucAAAaauCGAGCUUUUUAACaCUGAGCaaa
-constrain=.....|..0..|.......................................................|.2..|....
-
-4.3 ADD CUSTOM FAMILY
-
-Create a new configuration file in the $GORAP/gorap/config/ directory, with a similar naming scheme (RFxxxxx_description.cfg) containing required paths to a Stockholm alignment file and its covariance model.
-To use the default screening methods Infernal and/or Blast add the following cli commands to the [cmd] section
 tool=Infernal
 tool=Blast
 
-
----------
-4 RESULTS
----------
-
-Browse the results by using a webbrowser to open index.html or check out the following directories
-
-1) annotations
-*orig - files with original sequence ids
-*passed - files with predictions that passed all filters
-
-GFF filter tags:
-L - Length cutoff if predicted gene is shorter than 40% of consensus reference
-B - Bitscore cutoff as minimum of scores by taxonomic related species or Rfam suggested noise cutoff
-S - Structure based rejection if predicted gene holds less than 50% conserved hairpins
-P - Primary sequence conservation based rejection, if predicted gene has less than 70% of strongly (>=90%) conserved nucleotides in Rfam
-	Exception: snoRNAs, which are screened for special properties and proper box motifs
-C - Copy number cutoff as defined in configuration file
-O - Overlap based rejection if higher scored annotation exists due to multi- tool or kingdom screening
-X - Tag for manually deleted sequences after Gorap refresh
-! - Passed tag - all filters passed
-
-2) alignments - in Stockholm format of filter passed predictions
-
-3) phylogeny in newick and PDF format
-RNome - all ncRNA predictions (except rRNAs and tRNAs), using a super-matrix approach
-core50RNome - ncRNA predictions (except rRNAs and tRNAs), present in >=50% of given input FASTA files, using a super-matrix approach
-coreRNomeSTK - ncRNAs present in all species, built from concatenated Stockholm alignments
-coreRNomeMAFFT - ncRNAs present in all species, built by Mafft from concatenated FASTA sequences
-
-4) meta - intermediate results for each filter applied
+According to the chosen naming scheme, put a Stockholm alignment file and its covariance model in a new directory under $GORAP/db/rfam
 
 
 ---------------
-5 MISSING STUFF
+6 MISSING STUFF
 ---------------
 
 Suggestions? Bugs? Troubles? Please let me know!
 
 
 ---------
-6 CONTACT
+7 CONTACT
 ---------
 
-Konstantin Riege
-konstantin{.}riege{a}uni-jena{.}de
-konstantin{a}bioinf{.}uni-leipzig{.}de
 konstantin.riege{a}leibniz-fli{.}de

@@ -8,6 +8,8 @@ use POSIX qw(:sys_wait_h);
 use IPC::Open3;
 use File::Spec::Functions;
 use Symbol qw(gensym);
+use IPC::Cmd qw(run);
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -51,9 +53,15 @@ sub calc_features {
 				} else {
 					$cmd =~ s/-\$kingdom//;
 				}
-				my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
 
-				while( <READER> ) {
+				my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
+				$cmd .= " > $tmpfile";
+				my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
+				open F,"<$tmpfile" or die $!;
+
+				#my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
+				#while( <READER> ) {
+				while(<F>){
 					chomp $_;
 					$_ =~ s/^\s+|\s+$//g;
 					next if $_=~/^#/;
@@ -62,7 +70,8 @@ sub calc_features {
 					next if $#l < 8;
 					print $pipe $_."\n";
 				}
-				waitpid($pid, 0);
+				#waitpid($pid, 0);
+				close F;
 				exit;
 			}
 		}

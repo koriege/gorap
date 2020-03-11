@@ -1,6 +1,6 @@
 package Bio::Gorap::Gorap;
 
-use version; our $VERSION = "2.4.0";
+use version; our $VERSION = "2.5.0";
 
 1;
 
@@ -16,7 +16,7 @@ pipeline Gorap.pl to efficiently annotate non-coding RNAs in genomic sequences.
 
 =head1 AUTHOR
 
-Konstantin Riege, E<lt>konstantin.riege@uni-jena.deE<gt>
+Konstantin Riege, E<lt>konstantin.riege@leibniz-fli.deE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 

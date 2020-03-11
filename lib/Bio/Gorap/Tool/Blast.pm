@@ -7,6 +7,7 @@ use IPC::Cmd qw(run);
 use IPC::Open3;
 use List::Util qw(max any);
 use Symbol qw(gensym);
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -26,9 +27,15 @@ sub calc_features {
 			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => "makeblastdb -in $genome -dbtype nucl -parse_seqids" , verbose => 0 );
 		}
 
-		my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
+		my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
+		$cmd .= " > $tmpfile";
+		my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
+		open F,"<$tmpfile" or die $!;
+
 		my @tab;
-		while( <READER> ) {
+		#my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
+		#while( <READER> ) {
+		while(<F>){
 			chomp $_;
 			$_ =~ s/^\s+|\s+$//g;
 			next if $_=~/^#/;
@@ -43,7 +50,8 @@ sub calc_features {
 				push @tab, $l[1]."\tBlast\t".$self->parameter->cfg->rf_rna."\t$l[8]\t$l[9]\t$l[11]\t+\t$l[10]\t$l[0]\t$l[6]\t$l[7]";
 			}
 		}
-		waitpid($pid, 0);
+		#waitpid($pid, 0);
+		close F;
 
 		my $uid;
 		for (@{&merge_gff($self,\@tab)}){

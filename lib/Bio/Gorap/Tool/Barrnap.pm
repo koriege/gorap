@@ -4,8 +4,10 @@ use Moose; with 'Bio::Gorap::ToolI';
 use IO::Select;
 use IO::Pipe;
 use IPC::Open3;
+use IPC::Cmd qw(run);
 use File::Spec::Functions;
 use Symbol qw(gensym);
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -29,9 +31,15 @@ sub calc_features {
 			$cmd =~ s/\$genome/$genome/;
 			$cmd =~ s/\$cpus/$threads/;
 			$cmd =~ s/\$kingdom/$kingdom/;
-			my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd);
 
-			while( <READER> ) {
+			my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
+			$cmd .= " > $tmpfile";
+			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
+			open F,"<$tmpfile" or die $!;
+
+			# my $pid = open3(gensym, \*READER, File::Spec->devnull , $cmd); replaced by run due to buffered output race conditions
+			#while( <READER> ) {
+			while(<F>) {
 				chomp $_;
 				$_ =~ s/^\s+|\s+$//g;
 				next if $_=~/^#/;
@@ -44,7 +52,8 @@ sub calc_features {
 				$gff3entry[0] = join('.',@chr);
 				$self->gffdb->add_gff3_entry(\@gff3entry,$self->fastadb->get_gff3seq(\@gff3entry));
 			}
-			waitpid($pid, 0);
+			#waitpid($pid, 0);
+			close F;
 		}
 	}
 

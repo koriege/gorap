@@ -5,6 +5,7 @@ use IO::Select;
 use IO::Pipe;
 use IPC::Cmd qw(run);
 use File::Spec::Functions;
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -43,7 +44,7 @@ sub calc_features {
 				$pipe->writer();
 				$pipe->autoflush(1);
 
-				my $tmpfile = catfile($self->parameter->tmp,$$.'.rnammer');
+				my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
 
 				my $cmd = $self->cmd;
 				$cmd =~ s/\$genome/$genome/;

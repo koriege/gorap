@@ -11,6 +11,7 @@ use IO::Select;
 use IO::Pipe;
 use File::Basename;
 use Bio::Seq;
+use File::Temp;
 
 sub calc_features {
 	my ($self) = @_;
@@ -46,10 +47,16 @@ sub calc_features {
 
 			my $cmd = $self->cmd;
 			$cmd =~ s/\$genome/$genome/;
-			my $pid = open3(gensym, \*READER, File::Spec->devnull, $cmd);
 
+			my $tmpfile = File::Temp->new(DIR => $self->parameter->tmp)->filename;
+			$cmd .= " > $tmpfile";
+			my ($success, $error_code, $full_buf, $stdout_buf, $stderr_buf) = run( command => $cmd, verbose => 0 );
+			open F,"<$tmpfile" or die $!;
+			
 			my $id;
-			while( <READER> ) {
+			#my $pid = open3(gensym, \*READER, File::Spec->devnull, $cmd);
+			#while( <READER> ) {
+			while(<F>){
 				chomp $_;
 				$_ =~ s/^\s+|\s+$//g;
 				next if $_=~/^#/;
@@ -62,7 +69,8 @@ sub calc_features {
 					print $pipe $_."\t".$id."\n";
 				}
 			}
-			waitpid($pid, 0);
+			#waitpid($pid, 0);
+			close F;
 			exit;
 		}
 	}
@@ -97,10 +105,10 @@ sub calc_features {
 
 	my $chr2score;
 	my $cfg = $self->parameter->cfg->cfg;
-	for my $cm (glob catfile($ENV{GORAP},'gorap','data','rfam','*','*CRISPR*.cm')){
+	for my $cm (glob catfile($ENV{GORAP},'db','data','rfam','*','*CRISPR*.cm')){
 		my $rf_rna = basename(dirname($cm));
 
-		$self->parameter->set_cfg(catfile($ENV{GORAP},'gorap','config',$rf_rna.'.cfg'));
+		$self->parameter->set_cfg(catfile($ENV{GORAP},'db','config',$rf_rna.'.cfg'));
 		my ($scorefile,$stk) = $self->stkdb->align($rf_rna,\@sequences,$self->threads,$cm,catfile($self->parameter->tmp,$rf_rna.'.score'),1);
 
 		open F,'<'.$scorefile or die $!;
