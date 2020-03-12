@@ -169,6 +169,8 @@ if ($parameter->has_outgroups){
 	my @oldqueries = @{$parameter->queries};
 	my @oldgenomes = @{$parameter->genomes};
 	my @oldabbres = @{$parameter->abbreviations};
+	my @newgenomes = @{$parameter->outgroups};
+	my @newabbres = @{$parameter->ogabbreviations};
 
 	$parameter->set_queries();
 	for my $cfg (@{$parameter->queries}){
@@ -181,17 +183,16 @@ if ($parameter->has_outgroups){
 		make_path($outdir);
 		unlink $_ for glob catfile($outdir,'RAxML_*');
 
-		my @newgenomes = @{$parameter->outgroups};
-		my @newabbres = @{$parameter->ogabbreviations};
-		$parameter->set_genomes(\@newgenomes,\@newabbres); #new referenfce, otherwise og will be unset during set_genomes
-
 		$parameter->set_queries(\@newQ);
 
-		$gffdb->add_db($_) for @{$parameter->ogabbreviations};
+		for my $a (@newabbres){ # do not use $_ - somewhere in the code it will be overridden and $_ entries becomes unitialized
+			$gffdb->add_db($a);
+		}
 
 		unless ($parameter->skip_comp){
+			print "\nAnnotating outgroups for phylogeny reconstruction\n" if $parameter->verbose;
 
-			print "\nAnnotation of outgroups for phylogeny reconstruction\n" if $parameter->verbose;
+			$parameter->set_genomes(\@newgenomes,\@newabbres); #new referenfce, otherwise og will be unset during set_genomes
 
 			$fastadb = Bio::Gorap::DB::Fasta->new(
 				parameter => $parameter
@@ -203,17 +204,18 @@ if ($parameter->has_outgroups){
 				storage_saver => \&Bio::Gorap::DB::GFF::update_filter
 			);
 			&run();
+
+			$parameter->set_genomes(\@oldgenomes,\@oldabbres);
+			$parameter->set_queries(\@oldqueries); # reset for html output
 		}
 
-		my @allabbres = (@oldabbres,@{$parameter->ogabbreviations});
+		my @allabbres = (@oldabbres,@newabbres);
 		my ($speciesSSU,$coreFeatures,$stkFeatures,$stkCoreFeatures,$stk50Features) = &get_phylo_features(\@allabbres,$outdir);
-
-		$parameter->set_genomes(\@oldgenomes,\@oldabbres);
-		$parameter->set_queries(\@oldqueries);
 
 		Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 
-		if ( (any { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$speciesSSU > 3){
+		if ( (any { exists $speciesSSU->{$_} } @newabbres) && scalar keys %$speciesSSU > 3){
+			say "raxml on SSU";
 			open FA , '>'.catfile($outdir,'SSU.fasta') or die $!;
 			for my $k (keys %$speciesSSU ){
 				print FA '>'.$k."\n";
@@ -223,18 +225,19 @@ if ($parameter->has_outgroups){
 			close FA;
 
 			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'SSU.fasta').' > '.catfile($outdir,'SSU.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @{$parameter->ogabbreviations}));
+			system('raxmlHPC-PTHREADS-AVX2 -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'SSU.mafft').' -w '.$outdir.' -n SSU.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $speciesSSU->{$_} } @newabbres));
 
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitionsBranchLabels.SSU.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'SSU.mafft.eps'));
-			copy catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'), catfile($outdir,'SSU.mafft.tree');
-			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.SSU.mafft.tree'));
-			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'SSU.mafft.pdf');
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.SSU.mafft.tree'), catfile($outdir,'SSU.mafft.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitionsBranchLabels.SSU.mafft.tree'));
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.pdf'), catfile($outdir,'SSU.mafft.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}
 
-		if ( (any { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$coreFeatures > 3){
+		if ( (any { exists $coreFeatures->{$_} } @newabbres) && scalar keys %$coreFeatures > 3){
+			say "raxml on coreRNome";
 			open FA , '>'.catfile($outdir,'coreRNome.fasta') or die $!;
 			for my $k (keys %$coreFeatures ){
 				print FA '>'.$k."\n";
@@ -251,25 +254,26 @@ if ($parameter->has_outgroups){
 			close FA;
 
 			system('mafft --localpair --maxiterate 1000 --thread '.$parameter->threads.' '.catfile($outdir,'coreRNome.fasta').' > '.catfile($outdir,'coreRNome.mafft'));
-			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
-			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @{$parameter->ogabbreviations}));
+			system('raxmlHPC-PTHREADS-AVX2 -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.mafft').' -w '.$outdir.' -n coreRNome.mafft.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @newabbres));
+			system('raxmlHPC-PTHREADS-AVX2 -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'coreRNome.stkfa').' -w '.$outdir.' -n coreRNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $coreFeatures->{$_} } @newabbres));
 
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.mafft.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.mafft.eps'));
-			copy catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'), catfile($outdir,'coreRNome.mafft.tree');
-			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.mafft.tree'));
-			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.mafft.pdf');
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.mafft.tree'), catfile($outdir,'coreRNome.mafft.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.mafft.tree'));
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.pdf'), catfile($outdir,'coreRNome.mafft.pdf');
 
-			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			$obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'coreRNome.stk.eps'));
-			copy catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'), catfile($outdir,'coreRNome.stk.tree');
-			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.coreRNome.stk.tree'));
-			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'coreRNome.stk.pdf');
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.stk.tree'), catfile($outdir,'coreRNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitionsBranchLabels.coreRNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.pdf'), catfile($outdir,'coreRNome.stk.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}
 
-		if ( (any { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stkFeatures > 3){
+		if ( (any { exists $stkFeatures->{$_} } @newabbres) && scalar keys %$stkFeatures > 3){
+			say "raxml on RNome";
 			open FA , '>'.catfile($outdir,'RNome.stkfa') or die $!;
 			for my $k (keys %$stkFeatures ){
 				print FA '>'.$k."\n";
@@ -278,18 +282,18 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 
-			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @{$parameter->ogabbreviations}));
+			system('raxmlHPC-PTHREADS-AVX2 -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'RNome.stkfa').' -w '.$outdir.' -n RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stkFeatures->{$_} } @newabbres));
 
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitionsBranchLabels.RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'RNome.stk.eps'));
-			copy catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
-			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.RNome.stk.tree'));
-			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'RNome.stk.pdf');
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.RNome.stk.tree'), catfile($outdir,'RNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitionsBranchLabels.RNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.pdf'), catfile($outdir,'RNome.stk.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}
 
-		if ( (any { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}) && scalar keys %$stk50Features > 3){
+		if ( (any { exists $stk50Features->{$_} } @newabbres) && scalar keys %$stk50Features > 3){
 			open FA , '>'.catfile($outdir,'core50RNome.stkfa') or die $!;
 			for my $k (keys %$stk50Features ){
 				print FA '>'.$k."\n";
@@ -298,13 +302,13 @@ if ($parameter->has_outgroups){
 			}
 			close FA;
 
-			system('raxml -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @{$parameter->ogabbreviations}));
+			system('raxmlHPC-PTHREADS-AVX2 -T '.$parameter->threads.' -f a -# 1000 -x 1234 -p 1234 -s '.catfile($outdir,'core50RNome.stkfa').' -w '.$outdir.' -n core50RNome.stk.tree -m GTRGAMMA -o '.join(',',grep { exists $stk50Features->{$_} } @newabbres));
 
-			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
+			my $obj = Bio::Tree::Draw::Cladogram->new(-tree => (Bio::TreeIO->new(-format => 'newick', '-file' => catfile($outdir,'RAxML_bipartitionsBranchLabels.core50RNome.stk.tree')))->next_tree , -bootstrap => 1 , -size => 4, -tip => 4 );
 			$obj->print(-file => catfile($outdir,'core50RNome.stk.eps'));
-			copy catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'), catfile($outdir,'core50RNome.stk.tree');
-			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitions.core50RNome.stk.tree'));
-			copy catfile($outdir,'RAxML_bipartitions.pdf'), catfile($outdir,'core50RNome.stk.pdf');
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.core50RNome.stk.tree'), catfile($outdir,'core50RNome.stk.tree');
+			system('newicktopdf -pc 1 -boot -notitle '.catfile($outdir,'RAxML_bipartitionsBranchLabels.core50RNome.stk.tree'));
+			copy catfile($outdir,'RAxML_bipartitionsBranchLabels.pdf'), catfile($outdir,'core50RNome.stk.pdf');
 
 			Bio::Gorap::Evaluation::HTML->create($parameter,$gffdb,$stkdb,$gffdb->rnas,$parameter->label);
 		}
@@ -488,9 +492,10 @@ sub get_phylo_features {
 		for (@{$gffdb->get_features($parameter->cfg->rf_rna,$abbres,'!')}){
 			my @id = split /\./ , $_->seq_id;
 			my ($abbr,$orig,$copy) = ($id[0] , join('.',@id[1..($#id-1)]) , $id[-1]);
+
 			if (exists $featureScore->{$abbr}){
 				if ($_->score > $featureScore->{$abbr}){
-					$speciesFeature->{ $abbr } = ($_->get_tag_values('seq'))[0];
+					$speciesFeature->{$abbr} = ($_->get_tag_values('seq'))[0];
 					$speciesSTKseq->{$abbr} = ($stkdb->db->{$parameter->cfg->rf_rna}->get_seq_by_id($_->seq_id))->seq if exists $stkdb->db->{$parameter->cfg->rf_rna};
 					$featureScore->{$abbr} = $_->score;
 				}

@@ -151,7 +151,7 @@ sub flatname {
 	$name=~s/\.+/\./g;
 	$name=~s/__+/_/g;
 	$name=~s/[^a-zA-Z0-9_\.]*//g;
-	$name=ucfirst($name);
+	#$name=ucfirst($name);
 
 	return $name;
 }
@@ -160,9 +160,9 @@ sub flatquery {
 	my ($self, $name) = @_;
 
 	$name=lc($name);
-	$name=~s/(^\s+|\s+$)//g;
+	$$name=~s/(^[\s\._]+|[\s\._]+$)//g;
 	$name=~s/_+/ /g;
-	$name=~s/\.\.*/\./g;
+	$name=~s/\.+/\./g;
 
 	return $name;
 }

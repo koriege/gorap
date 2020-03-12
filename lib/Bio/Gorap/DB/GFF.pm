@@ -351,6 +351,7 @@ sub add_db {
 	unless (exists $self->db->{$abbr}){
 		$self->db->{$abbr} = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -verbose => -1 );
 		$self->db->{$abbr}->init_database([1]);
+		$self->_read($abbr);
 	}
 }
 
@@ -383,12 +384,12 @@ sub get_features_by_source {
 
 #gorap way to fill gff database with existing data in defined output directory
 sub _read {
-	my ($self,$abbr) = @_;
+	my ($self,$abbreviation) = @_;
 
-	print "Reading previous annotations for $abbr\n" if $self->parameter->verbose;
+	print "Reading previous annotations for $abbreviation\n" if $self->parameter->verbose;
 
-	my @fastas = (catfile($self->parameter->output,'annotations',$abbr.'.fa'), catfile($self->parameter->output,'annotations',$abbr.'.passed.fa'));
-	my @gffs = (catfile($self->parameter->output,'annotations',$abbr.'.gff'),catfile($self->parameter->output,'annotations',$abbr.'.passed.gff'));
+	my @fastas = (catfile($self->parameter->output,'annotations',$abbreviation.'.fa'), catfile($self->parameter->output,'annotations',$abbreviation.'.passed.fa'));
+	my @gffs = (catfile($self->parameter->output,'annotations',$abbreviation.'.gff'),catfile($self->parameter->output,'annotations',$abbreviation.'.passed.gff'));
 
 	my $headerMapSeq={};
 	for my $file (@fastas){

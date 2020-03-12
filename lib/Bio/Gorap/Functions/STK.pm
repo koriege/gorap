@@ -38,7 +38,12 @@ sub get_rf_rna {
 		}
 	}
 	close STK;
+	$rna=~s/(^[\s\._]+|[\s\._]+$)//g;
 	$rna=~s/\s+/_/g;
+	$rna=~s/\.+/\./g;
+	$rna=~s/__+/_/g;
+	$rna=~s/[^a-zA-Z0-9_\.]*//g;
+
 	return $rf.'_'.$rna;
 }
 

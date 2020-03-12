@@ -110,7 +110,7 @@ sub dl_rfam {
 			@tmp=();
 			push @tmp, $_;
 		} elsif ($_=~/NAME\s+(.+)/){
-			$rna = $1;
+			$rna = $taxdb->flatname($1);
 		} elsif ($_=~/ACC\s+(.+)/){
 			$rf = $1;
 		}
@@ -159,6 +159,7 @@ sub dl_rfam {
 
 			my $rfnr = (split(/\s+/,$prevlines[2]))[2];
 			my $rna = (split(/\s+/,$prevlines[3]))[2];
+			$rna = $taxdb->flatname($rna);
 
 			my $outpath = catdir($ENV{GORAP},'db','data','rfam',$rfnr.'_'.$rna);
 			make_path($outpath);
