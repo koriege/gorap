@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 # (c) Konstantin Riege
 trap 'die' INT TERM
-trap 'kill -PIPE $(pstree -p $$ | grep -Eo "\([0-9]+\)" | grep -Eo "[0-9]+") &> /dev/null' EXIT
+trap 'sleep 1; kill -PIPE $(pstree -p $$ | grep -Eo "\([0-9]+\)" | grep -Eo "[0-9]+") &> /dev/null' EXIT
 
 die() {
 	[[ $* ]] && echo ":ERROR: $*" || echo ":ERROR: failed"
@@ -94,12 +94,6 @@ usage() {
 		-v | --verbosity [num] # verbosity level (0|1|2)
 		-u | --update          # update Gorap data bases
 
-		POST INSTALLATION
-		source [-d]/conda/bin/activate gorap
-		cpanm .
-		make clean
-		rm Makefile.old
-
 		REFERENCES
 		(c) Konstantin Riege
 		konstantin{.}riege{a}leibniz-fli{.}de
@@ -152,21 +146,22 @@ install_conda() {
 
 install_conda-env() {
 	# use python 2 env due to bcheck
-	$INSDIR/conda/bin/conda deactivate &> /dev/null
-	$INSDIR/conda/bin/conda env remove -y -n gorap &> /dev/null
-	{	$INSDIR/conda/bin/conda create -y -n gorap python=2 && \
-		$INSDIR/conda/bin/conda install -y -n gorap --override-channels -c iuc -c conda-forge -c bioconda -c main -c defaults -c r -c anaconda \
+	{	source $INSDIR/conda/bin/activate base && \
+		conda env remove -y -n gorap
+		conda create -y -n gorap python=2 && \
+		conda install -y -n gorap --override-channels -c iuc -c conda-forge -c bioconda -c main -c defaults -c r -c anaconda \
 			gcc_linux-64 readline make automake xz zlib bzip2 pigz pbzip2 unzip ncurses htslib \
 			perl perl-threaded perl-dbi perl-app-cpanminus perl-bioperl perl-bio-eutilities perl-moose perl-bio-db-sam perl-postscript \
 			perl-archive-extract perl-list-moreutils perl-try-tiny perl-math-round perl-hash-merge perl-test-more perl-extutils-makemaker \
 			perl-file-temp raxml openjdk mafft trnascan-se=2.0.0 hmmer2 infernal barrnap blast rnabob && \
-		$INSDIR/conda/bin/conda clean -y -a && \
+		conda clean -y -a && \
 		return 0
 	} || return 1
 }
 
 install_njplot() {
-	{	rm -rf $INSDIR/njplot/2.3 && \
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/njplot/2.3 && \
 		mkdir -p $INSDIR/njplot/2.3/bin && \
 		cd $INSDIR/njplot/2.3 && \
 		url='ftp://pbil.univ-lyon1.fr/pub/mol_phylogeny/njplot/newicktopdf' && \
@@ -177,7 +172,8 @@ install_njplot() {
 }
 
 install_crt() {
-	{	rm -rf $INSDIR/crt/1.2/ && \
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/crt/1.2/ && \
 		mkdir -p $INSDIR/crt/1.2/bin && \
 		cd $INSDIR/crt && \
 		url='http://www.room220.com/crt/CRT1.2-CLI.jar.zip' && \
@@ -189,15 +185,16 @@ install_crt() {
 	} || return 1
 
 	cd $INSDIR/crt/1.2/bin
-	cat <<- EOF > crt
+	cat <<- 'EOF' > crt
 		#!/usr/bin/env bash
-		exec java -cp $INSDIR/crt/1.2/CRT1.2-CLI.jar crt \$*
+		exec java -cp $GORAP/crt/1.2/CRT1.2-CLI.jar crt $*
 	EOF
 	return 0
 }
 
 install_bcheck() {
-	{	rm -rf $INSDIR/bcheck/0.6 && \
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/bcheck/0.6 && \
 		mkdir -p $INSDIR/bcheck/0.6 && \
 		cd $INSDIR/bcheck/0.6 && \
 		url='http://rna.tbi.univie.ac.at/bcheck/Bcheck.tgz' && \
@@ -211,7 +208,8 @@ install_bcheck() {
 }
 
 install_bcheck-infernal() {
-	{	rm -rf $INSDIR/infernal/1.0 && \
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/infernal/1.0 && \
 		mkdir -p $INSDIR/infernal && \
 		cd $INSDIR/infernal && \
 		url='http://eddylab.org/software/infernal/infernal-1.0.tar.gz' && \
@@ -229,7 +227,8 @@ install_bcheck-infernal() {
 }
 
 install_jquery(){
-	{	rm -rf $INSDIR/jquery && \
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/jquery && \
 		mkdir -p $INSDIR/jquery && \
 		cd $INSDIR/jquery && \
 		url='https://mottie.github.io/tablesorter/js/jquery.tablesorter.js' && \
@@ -240,12 +239,36 @@ install_jquery(){
 	} || return 1
 }
 
-install_db(){
-	{	rm -rf $INSDIR/db && \
-		mkdir -p $INSDIR/db && \
-		tar -xzf $(ls -v $SRC/data-*.tar.gz | tail -1) -C $INSDIR/db && \
-		return 0
+install_gorap(){
+	{	source $INSDIR/conda/bin/activate gorap && \
+		rm -rf $INSDIR/db $INSDIR/bin && \
+		mkdir -p $INSDIR/db $INSDIR/bin && \
+		cd $SRC && \
+		tar -xzf $(ls -v data-*.tar.gz | tail -1) -C $INSDIR/db && \
+		cpanm --reinstall . && \
+		makeclean && \
+		rm -f Makefile.old && \
+		touch $INSDIR/bin/gorap && \
+		chmod 755 $INSDIR/bin/gorap
 	} || return 1
+
+	for f in $(find $INSDIR/conda/envs/gorap/lib/ -type f -name 'SimpleAlign.pm'); do
+		chmod 644 $f
+		sed -i '/contains no residues/d' $f
+		sed -i '/Sequence excluded/d' $f
+		sed -i '/Replacing one sequence/d' $f
+	done
+
+	cd $INSDIR/bin
+	cat <<- 'EOF' >> gorap
+		#!/usr/bin/env bash
+		[[ -z $GORAP ]] && {
+		    echo "Export GORAP environment variable pointing towards installation directory and try again!"
+		    exit 1
+		}
+		source $GORAP/conda/bin/activate gorap 
+		Gorap.pl $*
+	EOF
 }
 
 ############### MAIN ###############

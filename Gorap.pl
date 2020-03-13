@@ -37,7 +37,7 @@ BEGIN {
 	push @path,abs_path($_) for glob("$ENV{GORAP}/*/*/bin");
 
 	if($#path == -1){
-		say "Please ensure Gorap is correclty installed and GORAP environment variable points towards installation directory!";
+		say "Please ensure Gorap is correctly installed and GORAP environment variable points towards installation directory!";
 		exit 1;
 	}
 	
@@ -582,15 +582,16 @@ Gorap.pl [OPTIONS]
 
 help: Gorap.pl -h
 
-example: Gorap.pl -a sa,sb -i s1.fa,s2.fa -g s1.gff,s2.gff -c 4 -k bac -q 1:20,169,1852: -r 123 -s 'species name' -sort
+example: Gorap.pl -i s1.fa,s2.fa -a sa,sb  -g s1.gff,s2.gff -c 4 -k bac -q 1:20,169,1852: -r <taxid> -s 'species name' -sort
 
 
 =head1 DESCRIPTION
 
-B<Gorap> will screen given genomic sequences for all non-coding RNAs present in the Rfam database using a 
-generalized strategy applying multiple filters or specialized software. Gorap provides ncRNA based reconstruction 
-of phylogenetic trees and is able to perform de novo predictions including TPM calculations from RNA-Seq experiments.
-RNA family specific screening options, threshold and constrains can be easily amended and completed by custom queries.
+B<Gorap> screens genomic sequences for non-coding RNAs present in the Rfam database using either a generalized strategy 
+applying multiple filters on Infernal and Blast results or utilizes specialized software like tRNA-scan, Bcheck, Barrnap, 
+CRT, RNAmmer. Gorap provides ncRNA based reconstruction of phylogenetic trees and is able to perform de novo predictions 
+including TPM calculations from RNA-Seq experiments. RNA family specific screening options, threshold and constrains can 
+be easily amended and completed by custom queries.
 
 =head1 OPTIONS
 
@@ -598,15 +599,11 @@ RNA family specific screening options, threshold and constrains can be easily am
 
 =item B<-h>, B<--help>
 
-this (help) message
+this help message
 
 =item B<-v>, B<--version>
 
 this Gorap version
-
-=item B<-example>, B<--example>
-
-apply Gorap on the genome of Escherichia coli
 
 =item B<-update>, B<--update>=[all,rfam,ncbi,silva]
 
@@ -627,11 +624,11 @@ note: command line parameters priorize parameter file settings
 
 =item B<-a>, B<--abbreviations>=STRING,...
 
-(default: filenames) - unique list of comma separated abbreviations, in equal order and list size to option -i
+(default: filenames, in equal order and number to option -i) - unique list of comma separated abbreviations
 
 =item B<-q>, B<--queries>=1:5,8,...
 
-(default: 1:) - comma separated list of single Rfam ids e.g. RF00001 and/or colon defined ranges
+(default: 1:) - comma separated list of single Rfam ids e.g. RF00001 (or short: 1) and/or colon defined ranges
 
 =item B<-k>, B<--kingdom>=[bac,arc,euk,fungi,virus]
 
@@ -639,11 +636,11 @@ note: command line parameters priorize parameter file settings
 
 =item B<-r>, B<--rank>=[INT/STRING]
 
-NCBI taxonomy matching id or scientific name of a rank like class/order/genus/... for given sequences. please quote inputs like 'Bacillus subtilis group'
+NCBI taxonomy matching id or scientific name of a rank like class/order/genus/... matching all input sequences. please quote inputs with white spaces.
 
 =item B<-s>, B<--species>=[INT/STRING]
 
-NCBI taxonomy matching scientific name or taxonomy id of given species. please quote inputs like 'Bacillus subtilis'
+NCBI taxonomy matching id or scientific name of a species matching all input sequences. please quote inputs with white spaces.
 
 =item B<-o>, B<--output>=PATH
 
@@ -659,11 +656,11 @@ NCBI taxonomy matching scientific name or taxonomy id of given species. please q
 
 =item B<-sort>, B<--sort>
 
-enable resulting alignments to be sorted in taxonomic order
+taxonomically sort resulting alignments
 
 =item B<-nobl>, B<--noblast>
 
-disable additional Rfam screenes with Blast
+disable Blast search
 
 =item B<-nofi>, B<--nofilter>
 
@@ -671,63 +668,69 @@ disables Gorap specific filters for length, identitiy, secondary structure, over
 
 =item B<-nodel>, B<--nooverlapdeletion>
 
-allow annotation of overlapping ncRNA families
+keep all overlapping ncRNA annotations
 
 =item B<-rfamscan>, B<--rfamscan>
 
-behave like multithreaded rfam_scan on latest Rfam, i.e. use Infernal only, use Rfam thresholds and disable all filters
-
-=back
-
-=head1 ADDITIONAL OPTIONS
-
-=over 4
-
-=item B<-skip>, B<--skipanno>
-
-disables screening for ncRNAs - useful for additional downstream analysis like phylogeny reconstruction or TPM calculations
-
-=item B<-refresh>, B<--refresh>
-
-(! requires option -l) - for a given label, just update HTML page and annotation files (GFF and FASTA) according to entries in Stockholm alignment files
-
-=item B<-og>, B<--outgroups>=FILE
-
-comma separated paths to additional input FASTA files, used as outgroup for RNome and SSU rRNA based phylogeny reconstruction
-
-=item B<-oga>, B<--ogabbreviations>=FILE
-
-unique list of comma separated abbreviations, in equal order and list size to option -og
+behave like multithreaded rfam_scan on latest Rfam, i.e. use Infernal only, use Rfam thresholds and disable all Gorap filters
 
 =item B<-g>, B<--gffs>=FILE,...
 
-comma separated paths to known annotations in GFF3 format (needs ID tag), in equal order and list size to option -i to highlight overlaps with predicted ncRNAs
+(in equal order and number to option -i) - comma separated paths to known annotations in GFF3 format to mark overlapping ncRNA predictions
+
+=back
+
+=item B<-skip>, B<--skipanno>
+
+skip ncRNA prediction and fastforward to downstream analysis
+
+=item B<-refresh>, B<--refresh>
+
+(! requires option -l) - update label related HTML page and annotation files (GFF and FASTA) according to curated Stockholm alignments
+
+=back
+
+=head1 OPTIONS FOR PHYLOGENY RECONSTRUCTION
+
+=over 4
+
+=item B<-og>, B<--outgroups>=FILE
+
+comma separated paths to outgroup FASTA files, to trigger RNome and SSU rRNA based phylogeny reconstruction
+
+=item B<-oga>, B<--ogabbreviations>=FILE
+
+(default: filenames, in equal order and number to option -og) - unique list of comma separated abbreviations
+
+=head1 EXPERIMENTAL OPTIONS FOR DE NOVO NCRNA PREDICTION
+
+=over 4
 
 =item B<-b>, B<--bams>=FILE,...
 
-comma separated paths to mapping results positional sorted BAM format, in equal order and list size to -i, to calculate read counts TPM values and enable de novo predictions
+(in equal order and number to -i) - comma separated paths to sorted mapping results from RNA-Seq experiments in BAM format to trigger TPM calculation and de novo ncRNA prediction
 
 =item B<-strand>, B<--strandspecific>=[-1,1]
 
-mapping data resulted from strand specific library preparation (SE or PE): 1 for F/FR; -1 for R/RF
+specify if mapping data resulted from strand specific library preparation: (1) forward stranded or (-1) reverse stranded
 
 =item B<-notpm>, B<--notpm>
 
-disables quite time consuming read counting for TPM calculation - useful to only enable de novo predictions
+skip TPM calculation and fastforward to de novo ncRNA prediction
 
 =item B<-minl>, B<--minlength>=INT
 
-(default: 50) - minimum length for de novo gene prediction
+(default: 50) - minimum length to report a de novo predicted ncRNA
 
 =item B<-minh>, B<--minheight>=INT
 
-(default: 1000) - minimum nucleotide coverage for de novo gene prediction
+(default: 1000) - minimum observed nucleotide coverage to report a de novo predicted ncRNA
 
 =back
 
 =head1 AUTHOR
 
-Konstantin Riege, E<lt>konstantin.riege@uni-jena.deE<gt>
+Konstantin Riege, E<lt>konstantin.riege@leibniz-fli.deE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
