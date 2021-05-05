@@ -150,7 +150,7 @@ install_conda-env() {
 		conda env remove -y -n gorap
 		conda create -y -n gorap python=2 && \
 		conda install -y -n gorap --override-channels -c iuc -c conda-forge -c bioconda -c main -c defaults -c r -c anaconda \
-			gcc_linux-64 readline make automake xz zlib bzip2 pigz pbzip2 unzip ncurses htslib \
+			gcc_linux-64 gfortran_linux-64 readline make automake xz zlib bzip2 pigz pbzip2 unzip ncurses htslib \
 			perl perl-threaded perl-dbi perl-app-cpanminus perl-bioperl perl-bio-eutilities perl-moose perl-bio-db-sam perl-postscript \
 			perl-archive-extract perl-list-moreutils perl-try-tiny perl-math-round perl-hash-merge perl-test-more perl-extutils-makemaker \
 			perl-file-temp raxml openjdk mafft trnascan-se=2.0.0 hmmer2 infernal barrnap blast rnabob && \
