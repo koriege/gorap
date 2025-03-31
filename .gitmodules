@@ -1,0 +1,3 @@
+[submodule "bashbone"]
+	path = bashbone
+	url = https://github.com/koriege/bashbone.git
