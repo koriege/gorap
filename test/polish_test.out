@@ -1,0 +1,57 @@
+# STOCKHOLM 1.0
+
+#=GF AC RF00016
+#=GF ID SNORD14
+#=GF DE Small nucleolar RNA SNORD14
+#=GF PI U14
+#=GF AU Griffiths-Jones SR; 0000-0001-6043-807X Mifsud W;
+#=GF AU 0000-0002-9805-6461
+#=GF SE Griffiths-Jones SR
+#=GF GA 64.00
+#=GF TC 64.00
+#=GF NC 63.90
+#=GF TP Gene; snRNA; snoRNA; CD-box;
+#=GF BM cmbuild -F CM SEED
+#=GF RN   [1]
+#=GF RM   8668536
+#=GF RT   An essential domain in Saccharomyces cerevisiae U14 snoRNA is
+#=GF RT   absent in vertebrates, but conserved in other yeasts.
+#=GF RA   Samarsky DA, Schneider GS, Fournier MJ
+#=GF RL   Nucleic Acids Res 1996;24:2059-2066.
+#=GF custom Predicted; PFOLD
+#=GF custom cmcalibrate --mpi CM
+#=GF custom cmsearch --cpu 4 --verbose --nohmmonly -T 21.00 -Z 2958934 CM
+#=GF custom SEQDB
+#=GF custom Small_nucleolar_RNA_SNORD14
+#=GF DR SO; 0000593;
+#=GF DR GO; 0006396;
+#=GF DR GO; 0005730;
+#=GF DR snoopy; Mus_musculus300888;
+#=GF DR snoopy; Homo_sapiens300754;
+#=GF DR snoopy; Saccharomyces_cerevisiae300053;
+#=GF CC U14 small nucleolar RNA (U14 snoRNA) is required for early
+#=GF CC cleavages of eukaryotic precursor rRNAs. In yeasts, this molecule
+#=GF CC possess a stem-loop region (known as the Y-domain) which is
+#=GF CC essential for function. A similar structure, but with a different
+#=GF CC consensus sequence, is found in plants, but is absent in
+#=GF CC vertebrates [1].
+#=GF SQ 15
+
+Xenopus_laevis.8355.1                        -----UCACAGUGAUGA-CUGGU----------UUCCAAU---CAUUCGCAGUUUCUACCAGAA--------AGCUUU--GCCU----------------------GGUGUUGGCU--AGUAACCUUCCUUGGAUGUCUGAGUGA-----
+Xenopus_laevis.8355.2                        -----UCACAGUGAUGA-CUGGU----------UUCCAAU---CAUUCGCAGUUUCUACCAGAA--------AGCUUU--G-CU----------------------GGUGUUGGCC--UGUAACCUUCCUUGGAUGUCUGAGUGA-----
+Homo_sapiens.9606.1                          -----UCACUGUGAUGA-UGGUU----------UUCCAA----CAUUCGCAGUUUCCACCAGAA--------AGGUUUU--CCU---------------------UAGUGUUGGGU----AAACCUUCCUUGGAUGUCUGAGUGA-----
+Homo_sapiens.9606.2                          -----UCACUAUGAUGA-UUGGU----------UGCCAGA---CAUUCGCAGUUUCCACCAGAA--------AUGUUUUU-CCU----------------------UAUGUUGGCC----AGUUCUUCCUUGGAUGUCUGAGUGA-----
+Xenopus_laevis.8355.3                        -----UCGCUGUGAUGAACUU-----------GUUCCAAAG-CCAUUCGUAGUUUCCACCAGAU---------GCCGAAAGGCU----------------------GAUGAUGGCC--UAGCACCUUCCUUGGAUGUCUGAGCGA-----
+Xenopus_laevis.8355.4                        -----UCGCUGUGAUGAAUGUGA----------UUCCAAAG-CCAUUCGUAGUUUCCACCAGAU--------GUCU-CACGACU----------------------UAUGAUGGUU--UAUUACCUUCCUUGGAUGUCUGAGCGA-----
+Xenopus_laevis.8355.5                        -----UUGCUAAGAUGAAUACGA----------UUCCAAAG-CCAUUCGUAGUUUCCACCAGAU---------GUCGUAAGACU----------------------CAUGAUGGCUC----UACCUUCCUUGGAUGUCUGAGCGA-----
+Zea_mays.4577.1                              ---UAUGGCAAUGAUGAUGAAAGAUAAGGCUUGUUUCUCA--ACAUUCGCAGUAGCCGCCUAAGAGCUUUCGCCACGCCAGGCU--------CGAGAGCU----------UGUGCUGUUGAAUCCUUCCUUGGAUGUCUGAGCCAUA---
+Zea_mays.4577.2                              ----AUGGCAAUGAUGUUGAAGUUAAAGGCUUGUUUCUCA--ACAUUCGCAGUAGCCGCCUAAGAGCUUUCGCCCUGCCAGGCU--------UGAGAGCU----------UGUGCUGUUUAAUCCUUCCUUGGAUGUCUGAGCCAUA---
+Oryza_sativa_Japonica_Group.39947.1          --------CAAUGAUGAUAAAUUU-AAGGCUUGUUUCUCAUAACAUUCGCAGUUGCCGCCUAAGAGCUUUCGCCCUGCCAGGCU--------UGAGAGCU----------AAUGCUGUUAAUUCCUUCCUUGGAUGUCUGAGC-------
+Zea_mays.4577.3                              UGCAUUGCAAGUGAUGACAAAAUC-AAGGCUUGUUUCUCG--ACAUUCGCAGUUGCCGCCUAAGAGCUUUCGCCCUGCCAGGCU--------UGAGAGGU----------AGUGCUGCCAAAUCCUUCCUUGGAUGUCUGACGCAAUGCA
+Zea_mays.4577.4                              UGCAUUGCAAGUGAUGAUGAAGUC-AAGGCUUGUUUCUCU--ACAUUCGCAGUUGCCGCCUAAGAGCUUUCGCCCUGCCAGGCU--------UGAGAGCU----------AGUGCUGCCAAAUCCUUCCUUGGAUGUCUGAUGCAAUGCA
+Oryza_sativa.4530.1                          UGCAUGGCAAAUGAUGCUAAAAGC-AAGGCUUGUUUCUCAUAACAUUCGCAGUUGCCGCCUAAGAGCUUUCGCCUUGCCAGGUU--------UGAGAGCU----------AAUGCUGCUAAUUCCUUCCUUGGAUGUCUGAUGCAAUGCA
+Zea_mays.4577.5                              CGGU-GCCCUAUGAUGACAAAAUC-AAGGCUUGUUUCUCU--ACAUUCGCAGUUGCCGCCUAAGAGCUUUCGCCCUGCCAGGCU--------UGAGAGCU----------AAUGCUGCAGAAUCCUUCCUUGGAUGUCUGAGGGCCGCCG
+Solanum_tuberosum.4113.1                     --------CUCUGAUGAUACAAUUGAAGGCUUGUUUCUCUAAACAUUCGCAGUGGCCGCCUAAG--------AUCUUUC-GCCUUCGCCAGG--------CUUGAGAGAUAAUGCUGCUUUAUCCUUCCUUGGAUGUCUGAGAUC-----
+#=GC RF                                      -----ucgcagUGAUGAuaaaau---------GUUcCuaa--aCAUUCGCAGUUuCCaCCuaAg-Gcucuc-accUgucAGgCU---------gagagC-------uaugauuGCUguuaAauCCUUCCUUGGAUGUCUGAgcga-----
+#=GC SS_cons                                 -----<<<<--------------------------------------------------------<<<<<<-____________--------->>>>>>------------------------------------------>>>>-----
+//
